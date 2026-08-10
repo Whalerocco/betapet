@@ -12,7 +12,7 @@ The source used as the basis for the standard Alfapet rules is:
 
 https://www.spelregler.org/alfapet-regler/
 
-The implementation must follow this document rather than relying on generic Scrabble rules or assumptions about other versions of Alfapet.
+The implementation must follow this document rather than relying on generic Scrabble rules or assumptions about other versions of Alfapet, **except for the interim board-and-tile-set substitution recorded in [DEC-001](decisions.md) and described in sections 3 and 4 below.**
 
 ---
 
@@ -48,43 +48,57 @@ For the two-player implementation, turns alternate between the players.
 
 ## 3. Board
 
-The game uses the standard Swedish Alfapet board.
+**Interim decision (see [DEC-001](decisions.md)):** the exact physical Swedish Alfapet board (17×17, per publicly available secondary sources) could not be verified from any available reliable source, and no photograph of the real board was available either. Per explicit project-owner direction, Version 1 uses the **standard 15×15 Scrabble board layout** instead, as an interim substitute. This may be replaced with a verified Alfapet board layout later if that data becomes available.
 
 The board contains special scoring squares that affect the score when a newly placed tile covers them.
 
 The board and all special-square positions must be represented as explicit game configuration/data rather than hard-coded into UI components.
 
-The supported scoring-square types are:
+The scoring-square types actually used on the current (Scrabble-derived) board are:
 
 - Normal square
 - Letter ×2
 - Letter ×3
-- Letter ×4
-- Letter ×−2
 - Word ×2
 - Word ×3
-- Word ×4
-- Centre/start square, according to the standard board configuration
+- Centre/start square (also scores as Word ×2, per standard Scrabble rules)
 
-The exact board layout must be verified against the physical Swedish Alfapet board before implementation. Do not invent a board layout from a Scrabble board.
+Letter ×4, Word ×4, and Letter ×−2 remain supported by the engine's data model (for a future verified Alfapet board) but are not present on the current board.
 
 ---
 
 ## 4. Tile distribution
 
-The initial implementation must use the standard Swedish Alfapet letter distribution.
+**Interim decision (see [DEC-001](decisions.md)):** the complete Swedish Alfapet letter distribution and point values could not be verified from any available reliable source. Per explicit project-owner direction, Version 1 uses the **standard Swedish Scrabble tile distribution** instead, as an interim substitute. This may be replaced with a verified Alfapet distribution later if that data becomes available.
 
-The tile set must explicitly define:
+The tile set (100 tiles total) is:
 
-- Letter
+| Letter | Count | Points | | Letter | Count | Points |
+|---|---:|---:|---|---|---:|---:|
+| A | 8 | 1 | | O | 5 | 2 |
+| B | 2 | 4 | | P | 2 | 4 |
+| C | 1 | 8 | | R | 8 | 1 |
+| D | 5 | 1 | | S | 8 | 1 |
+| E | 7 | 1 | | T | 8 | 1 |
+| F | 2 | 3 | | U | 3 | 4 |
+| G | 3 | 2 | | V | 2 | 3 |
+| H | 2 | 2 | | X | 1 | 8 |
+| I | 5 | 1 | | Y | 1 | 7 |
+| J | 1 | 7 | | Z | 1 | 10 |
+| K | 3 | 2 | | Ä | 2 | 3 |
+| L | 5 | 1 | | Å | 2 | 4 |
+| M | 3 | 2 | | Ö | 2 | 4 |
+| N | 6 | 1 | | Blank | 2 | 0 |
+
+Q and W are not present in the Swedish Scrabble set and are therefore not present in Betapet's tile set either.
+
+The tile set must explicitly define, for each entry:
+
+- Letter (or blank)
 - Number of copies
 - Point value
 
-Blank tiles must also be represented explicitly.
-
 The complete tile distribution should be recorded in the project's language/game configuration rather than scattered throughout the source code.
-
-Before implementation, verify the exact distribution against the reference rules/product information rather than relying on an assumed Scrabble distribution.
 
 ---
 
@@ -624,21 +638,23 @@ The core engine should not contain Swedish-specific assumptions unless those ass
 
 This document deliberately distinguishes between rules that are established by the supplied Alfapet reference and data that must be verified from the physical Swedish Alfapet game before implementation.
 
-The following must be verified before the corresponding code is finalized:
+**Resolved by interim substitution (see [DEC-001](decisions.md)), not by verification against the physical Alfapet game:**
 
-- Exact board dimensions
-- Exact placement of every special square
-- Complete Swedish tile distribution
-- Exact point value of every letter
-- Number and type of blank tiles
-- Whether any special tiles are part of the base game or optional variants
-- Exact constraints on exchanging tiles when the bag is nearly empty
-- Exact end-game interpretation where the bag becomes empty
-- Any other physical-game detail not explicitly established by the reference
+- Exact board dimensions and placement of every special square — using the standard Scrabble board instead (section 3).
+- Complete tile distribution, exact point value of every letter, and number of blank tiles — using the standard Swedish Scrabble tile set instead (section 4).
 
-Do not fill these values in by assuming the equivalent Scrabble values or board.
+These may be replaced with verified Alfapet data later; see DEC-001's revisit condition.
 
-The verified values should be stored as explicit game configuration and tested.
+**Still genuinely unresolved and must be verified before the corresponding code is finalized:**
+
+- Whether any special tiles (black/stop tiles, arrow tiles) are part of the base game or optional variants. (Current default: excluded from Version 1, per section 2's "if optional special tiles are not supported... they must not be included.")
+- Exact constraints on exchanging tiles when the bag is nearly empty.
+- Exact end-game interpretation where the bag becomes empty.
+- Any other physical-game detail not explicitly established by the reference.
+
+Do not fill these remaining values in by assuming the equivalent Scrabble values or board without the same kind of explicit project-owner decision recorded in DEC-001.
+
+The verified/decided values should be stored as explicit game configuration and tested.
 
 ---
 

@@ -97,7 +97,7 @@ When a proposed move is rejected, the newly placed tiles remain available on the
 
 The first version follows the Swedish Alfapet rules specified in `docs/game-rules.md`.
 
-Do not substitute generic Scrabble rules for Alfapet rules.
+Do not substitute generic Scrabble rules for Alfapet rules, with one tracked exception: the board layout and tile distribution currently use the standard Scrabble board and Swedish Scrabble tile set as an interim substitute, per `docs/decisions.md` DEC-001, because the real Alfapet data could not be verified. Turn structure, scoring formulas, the word-approval flow, and all other rules remain Alfapet-derived. Do not extend this exception to any other rule without the same kind of explicit project-owner decision.
 
 Important known rules include:
 - The first move must cover the centre square.

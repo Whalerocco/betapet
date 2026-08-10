@@ -554,14 +554,6 @@ If the new situation changes an existing decision, supersede it explicitly.
 
 # 26. Current decisions
 
-No implementation decisions have been recorded yet.
-
-The first real entry should be:
-
-```text
-DEC-001
-```
-
 Add new entries below this section.
 
 ---
@@ -575,3 +567,46 @@ Example heading:
 
 Do not use DEC-000; it is reserved for examples in this document.
 -->
+
+## DEC-001 — Interim board and tile-set substitution (Scrabble instead of Alfapet)
+
+**Date:** 2026-08-10
+**Status:** ACCEPTED
+**Area:** Engine
+
+### Context
+
+Milestone 1.1 ("Verified Swedish configuration") requires encoding the real physical Swedish Alfapet board layout and tile distribution. `game-rules.md` explicitly required this data to be verified against the physical game or a reliable reference, and explicitly forbade substituting Scrabble values.
+
+A thorough search was carried out: the official Alga rulebook PDF, spelregler.org (the project's named primary reference), Wikipedia, BoardGameGeek, and several Swedish rules/strategy sites. This confirmed the board is 17×17 (not 15×15) with 120 tiles total, and yielded point values for a handful of letters read directly off example diagrams in the official rulebook (K=3, A=1, B=4, E=1, L=1, Å=4, T=1, O=2, R=1, S=1), but no source published the complete letter-by-letter distribution or the full board layout. Two images the project owner subsequently shared to fill the gap turned out, on inspection, to depict a Swedish Scrabble tile set and a standard English Scrabble board respectively — not Alfapet.
+
+### Decision
+
+Given the real Alfapet data is not obtainable from an available source, Version 1 uses:
+
+- The standard 15×15 Scrabble board layout (8 Word×3, 17 Word×2 including centre, 12 Letter×3, 24 Letter×2 squares — no Word×4, Letter×4, or Letter×−2 squares).
+- The standard Swedish Scrabble tile distribution: 98 letter tiles (A–Z minus Q and W, plus Å/Ä/Ö) + 2 blanks = 100 tiles, with the standard Swedish Scrabble point values.
+
+This was an explicit project-owner instruction, given after the gap and the mismatched images were surfaced. `game-rules.md` sections 3, 4, and 34 were updated accordingly, and this decision is referenced from there.
+
+### Alternatives considered
+
+- Keep searching for a genuine Alfapet source — tried extensively (~10 sources) without success; diminishing returns.
+- Ask the project owner to consult/photograph the physical game — the project owner does not have reliable access to correctly-photographed Alfapet components right now.
+- Fabricate plausible Alfapet-like values — explicitly forbidden by `game-rules.md` and `CLAUDE.md`, and would misrepresent an unverified guess as verified data.
+
+### Consequences
+
+- Betapet's board is 15×15, not the real Alfapet 17×17 — a real Alfapet board would need re-verified multiplier positions across a larger board, a non-trivial follow-up.
+- Scoring behaviour (letter/word multiplier magnitudes and positions) will not match real Swedish Alfapet until this is revisited; it will, however, match standard Swedish Scrabble.
+- No Letter×4, Word×4, or Letter×−2 squares exist on the current board, even though the engine's `Multiplier` type still supports them for a future Alfapet board.
+- `CLAUDE.md`'s "Do not substitute generic Scrabble rules for Alfapet rules" was updated to note this specific, deliberate, tracked exception (board layout and tile set only — turn structure, scoring formulas, word-approval flow, etc. remain Alfapet-derived per `game-rules.md`).
+
+### Revisit when
+
+Genuine Swedish Alfapet board/tile data becomes available (e.g. the project owner gets a clear photograph of the physical board and tile bag, or a reliable published source is found). At that point, update `game-rules.md` sections 3 and 4, mark this decision `SUPERSEDED`, and replace the board/tile data files referenced from it.
+
+Relevant files:
+- `docs/game-rules.md` (sections 3, 4, 34)
+- `src/data/board/scrabbleBoard.ts`
+- `src/data/tiles/swedishScrabbleTiles.ts`
