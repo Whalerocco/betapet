@@ -1,0 +1,9 @@
+.next/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+
+# Hand-authored specification/prose documents; not code formatting targets.
+CLAUDE.md
+docs/
