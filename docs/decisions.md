@@ -610,3 +610,37 @@ Relevant files:
 - `docs/game-rules.md` (sections 3, 4, 34)
 - `src/data/board/scrabbleBoard.ts`
 - `src/data/tiles/swedishScrabbleTiles.ts`
+
+## DEC-002 — Starting-player tie-break: return both tiles and redraw
+
+**Date:** 2026-08-10
+**Status:** ACCEPTED
+**Area:** Engine
+
+### Context
+
+`game-rules.md` section 2 says: "The players draw one tile each to determine who starts. The player with the highest tile value starts." It does not say what happens if both drawn tiles have equal point value — a realistic case, since many letters share the same point value.
+
+### Decision
+
+On a tie, both tiles are returned to the tile bag (appended to the end, no reshuffle needed since the bag was already randomly shuffled once) and the draw is repeated until a strict winner emerges. Implemented in `determineStartingPlayer` in `src/game/engine/createGame.ts`.
+
+### Alternatives considered
+
+- Reshuffle the whole bag before each retry — functionally equivalent (any position in an already-random permutation is equally random) but adds complexity and makes tests depend on the random source instead of plain array order.
+- Alphabetical/arbitrary tie-break (e.g. player one always wins ties) — simpler but not what the physical game's "draw again" convention implies, and would be a less faithful default.
+
+### Rationale
+
+"Draw again" is the standard, unsurprising convention for this kind of tied physical draw, and appending the tied tiles to the end of an already-shuffled bag is equally fair to a full reshuffle while being trivial to test deterministically.
+
+### Consequences
+
+None beyond the implementation itself; this does not change any other rule.
+
+### Revisit when
+
+If a verified Alfapet source specifies an explicit tie-break procedure, switch to it and supersede this decision.
+
+Relevant files:
+- `src/game/engine/createGame.ts`
