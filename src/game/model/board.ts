@@ -25,7 +25,7 @@ export interface BoardDefinition {
   readonly cells: readonly BoardCellDefinition[];
 }
 
-function isWithinBounds(
+export function isWithinBounds(
   definition: BoardDefinition,
   coordinate: Coordinate,
 ): boolean {

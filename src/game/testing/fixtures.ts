@@ -73,6 +73,52 @@ export function createTestGame(): TestGame {
   return { state, playerOneId, playerTwoId };
 }
 
+/**
+ * Picks non-blank tile IDs from a player's rack. Useful in tests that don't care about blank
+ * behaviour specifically: a blank tile needs a representedLetter to be placeable, so blindly
+ * taking `rack.tileIds[0]` from a randomly-shuffled game is flaky.
+ */
+export function letterTileIdsInRack(
+  state: GameState,
+  playerId: PlayerId,
+  count = 1,
+): TileId[] {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) {
+    throw new Error(`No such player: ${playerId}`);
+  }
+  const letterTileIds = player.rack.tileIds.filter(
+    (id) => state.tiles[id].kind === "LETTER",
+  );
+  if (letterTileIds.length < count) {
+    throw new Error(
+      `Player ${playerId} does not have ${count} non-blank tile(s) in rack`,
+    );
+  }
+  return letterTileIds.slice(0, count);
+}
+
+/** Relocates a tile (from wherever it currently is: bag or either rack) into a player's rack. */
+export function relocateTileToRack(
+  state: GameState,
+  playerId: PlayerId,
+  tileId: TileId,
+): GameState {
+  const tileBag = {
+    tileIds: state.tileBag.tileIds.filter((id) => id !== tileId),
+  };
+  const players = state.players.map((p): Player => ({
+    ...p,
+    rack: { tileIds: p.rack.tileIds.filter((id) => id !== tileId) },
+  })) as [Player, Player];
+  const targetIndex = players.findIndex((p) => p.id === playerId);
+  players[targetIndex] = {
+    ...players[targetIndex],
+    rack: { tileIds: [...players[targetIndex].rack.tileIds, tileId] },
+  };
+  return { ...state, tileBag, players };
+}
+
 export function withTileInRack(
   game: TestGame,
   playerId: PlayerId,
