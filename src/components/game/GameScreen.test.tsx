@@ -260,4 +260,19 @@ describe("GameScreen", () => {
     ).toHaveTextContent("G");
     expect(screen.getByRole("button", { name: "Spela" })).toBeEnabled();
   });
+
+  it("shuffling the rack keeps the same tiles without losing the player's turn", async () => {
+    await renderGame(["B", "I", "L", "A", "R", "E", "N"]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Blanda brickorna i din hand" }),
+    );
+
+    for (const letter of ["B", "I", "L", "A", "R", "E", "N"]) {
+      expect(
+        screen.getByLabelText(`Bricka ${letter}, 1 poäng`),
+      ).toBeInTheDocument();
+    }
+    expect(screen.getByRole("button", { name: "Spela" })).toBeInTheDocument();
+  });
 });

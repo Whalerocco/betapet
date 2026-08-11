@@ -315,6 +315,10 @@ export function GameScreen({
     dispatchTracked({ type: "CONFIRM_PROPOSAL", playerId: currentPlayerId });
   }
 
+  function handleShuffleRack() {
+    dispatchTracked({ type: "SHUFFLE_RACK", playerId: currentPlayerId });
+  }
+
   const hasPendingMove = state.pendingMove !== undefined;
   const canSubmit =
     state.turnState.type === "PLAYER_TURN" &&
@@ -383,12 +387,22 @@ export function GameScreen({
 
       {state.turnState.type === "PLAYER_TURN" && (
         <>
-          <Rack
-            tiles={rackTiles}
-            selectedTileId={selectedTileId}
-            exchangeSelection={exchangeMode ? exchangeSelection : undefined}
-            onSelectTile={handleSelectTile}
-          />
+          <div className={styles.rackRow}>
+            <Rack
+              tiles={rackTiles}
+              selectedTileId={selectedTileId}
+              exchangeSelection={exchangeMode ? exchangeSelection : undefined}
+              onSelectTile={handleSelectTile}
+            />
+            <button
+              type="button"
+              className={styles.shuffleButton}
+              onClick={handleShuffleRack}
+              aria-label="Blanda brickorna i din hand"
+            >
+              Blanda brickor
+            </button>
+          </div>
 
           {selectedIsUnresolvedBlank && (
             <BlankLetterPicker

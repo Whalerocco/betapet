@@ -19,7 +19,9 @@ import { actionFailure, type ActionResult } from "./gameError";
  * an atomic commit (every word DICTIONARY_WORD or ACCEPTED_IN_GAME) or a transition to
  * REQUIRES_PLAYER_CONFIRMATION (at least one UNKNOWN_WORD, none forbidden — the proposer
  * decides next via confirmProposal/cancelProposal). Any FORBIDDEN_WORD rejects the whole move;
- * opponent approval can never rescue a forbidden word.
+ * opponent approval can never rescue a forbidden word. As of DEC-007, FORBIDDEN_WORD is reached
+ * only via a one-letter crossing fragment — proper names and non-standard abbreviations are
+ * UNKNOWN_WORD instead, so in practice almost every word reaches the proposal flow.
  */
 export function submitMove(
   state: GameState,

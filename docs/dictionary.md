@@ -217,25 +217,27 @@ The engine should classify a one-letter result as a forbidden word.
 
 # 10. Proper names
 
-Personal names are not allowed as normal words.
+Personal names are not standard dictionary words (DEC-007).
 
-Examples of categories that should be rejected include:
+Examples of categories that fall into this classification include:
 
 - First names
 - Surnames
 - Other personal names
 
-The fact that a name appears in a general-purpose word list does not automatically make it valid.
+The fact that a name appears in a general-purpose word list does not automatically make it a recognized dictionary word.
 
 Where the selected dictionary contains proper-name metadata, this information should be used.
 
 If it does not, the project may need an explicit exclusion list.
 
+A word in this category is classified as `UNKNOWN_WORD`, not `FORBIDDEN_WORD` (see section 22): the proposing player may still attempt it, and the opponent may accept or reject it like any other word not found in the dictionary.
+
 ---
 
 # 11. Geographical names
 
-Names of places are not allowed as normal words.
+Names of places are not standard dictionary words (DEC-007).
 
 This includes categories such as:
 
@@ -252,7 +254,9 @@ This includes categories such as:
 
 The explicit country exception is described below.
 
-As with personal names, the dictionary source may contain geographical names. Their presence in the source does not automatically make them legal.
+As with personal names, the dictionary source may contain geographical names. Their presence in the source does not automatically make them a recognized dictionary word.
+
+As with proper names, this category is classified as `UNKNOWN_WORD`, not `FORBIDDEN_WORD` (see section 22).
 
 ---
 
@@ -324,17 +328,17 @@ They should be accepted when correctly formed.
 
 # 15. Abbreviations
 
-Abbreviations are generally not allowed.
+Abbreviations are generally not standard dictionary words (DEC-007).
 
-Examples of forms that should normally be rejected include abbreviated expressions that are not ordinary words.
+Examples of forms that fall into this classification include abbreviated expressions that are not ordinary words.
 
 The implementation should not attempt to infer whether an abbreviation "looks reasonable."
 
 Instead:
 
-- Normal dictionary words are accepted.
-- Known forbidden abbreviations are rejected.
-- An explicit exception list may contain abbreviations that the project decides should be treated as ordinary playable words.
+- Normal dictionary words are accepted directly.
+- Known non-standard abbreviations are classified as `UNKNOWN_WORD`: the proposing player may still attempt them, and the opponent may accept or reject them.
+- An explicit exception list may contain abbreviations that the project decides should be treated as ordinary playable words, accepted directly like any other dictionary word.
 
 The exception list must be data/configuration rather than hard-coded throughout the engine.
 
@@ -434,8 +438,7 @@ If a word:
 
 - Is physically formed correctly,
 - Is at least two letters long,
-- Is not explicitly forbidden,
-- And is not found in the dictionary or accepted vocabulary,
+- And is not found in the dictionary, the accepted vocabulary, or an explicit allow-list (countries, months, weekdays, allowed abbreviations),
 
 then it should be classified as:
 
@@ -443,7 +446,7 @@ then it should be classified as:
 UNKNOWN_WORD
 ```
 
-This is the category that can trigger the custom opponent-approval mechanic.
+This is the category that can trigger the custom opponent-approval mechanic. It covers both words genuinely absent from the dictionary source (e.g. `GRÖMP`) and words classified as proper names, geographical names, or non-standard abbreviations (DEC-007) — from the proposing player's point of view, both are simply "not a word the game already recognizes," and both go through the same proposal/approval flow.
 
 The game should inform the current player that the word is not in the dictionary.
 
@@ -465,22 +468,9 @@ FORBIDDEN_WORD
 
 must be preserved.
 
-An unknown word is potentially playable.
+An unknown word is potentially playable: the proposing player may attempt it, and the opponent may accept or reject it.
 
-A forbidden word is not.
-
-For example:
-
-```text
-Dictionary does not contain:
-    GRÖMP
-
-Result:
-    UNKNOWN_WORD
-    → opponent approval possible
-```
-
-Whereas:
+A forbidden word cannot be attempted at all — `FORBIDDEN_WORD` is reserved for the one remaining category the game rules cannot allow under any circumstance:
 
 ```text
 One-letter word:
@@ -491,7 +481,18 @@ Result:
     → opponent approval not possible
 ```
 
-Similarly, a prohibited proper name should not become playable merely because the opponent accepts it.
+As of DEC-007, proper names, geographical names, and non-standard abbreviations are `UNKNOWN_WORD`, not `FORBIDDEN_WORD`:
+
+```text
+Proper name:
+    STOCKHOLM
+
+Result:
+    UNKNOWN_WORD
+    → opponent approval possible
+```
+
+The project's guiding principle (DEC-007) is that there should be no word the proposing player cannot at least attempt — the opponent is always the one who decides whether an unrecognized word is accepted, never the engine unilaterally.
 
 ---
 
@@ -882,11 +883,11 @@ the move is eligible for the unknown-word approval flow.
 If:
 
 ```text
-GRÖMP = FORBIDDEN_WORD
+A     = FORBIDDEN_WORD
 HUS   = DICTIONARY_WORD
 ```
 
-the move is rejected.
+the move is rejected (a one-letter "word" can only arise as a crossing fragment; `FORBIDDEN_WORD` is otherwise rare after DEC-007, since proper names, place names, and non-standard abbreviations are now `UNKNOWN_WORD` instead).
 
 If:
 

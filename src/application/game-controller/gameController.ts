@@ -10,6 +10,7 @@ import { pass } from "../../game/engine/pass";
 import { placeTile } from "../../game/engine/placeTile";
 import { rejectProposedMove } from "../../game/engine/rejectProposedMove";
 import { removePendingTile } from "../../game/engine/removePendingTile";
+import { shuffleRack } from "../../game/engine/shuffleRack";
 import { submitMove } from "../../game/engine/submitMove";
 import type { Coordinate } from "../../game/model/coordinate";
 import type { GameState } from "../../game/model/game";
@@ -67,7 +68,8 @@ export type GameAction =
       readonly playerId: PlayerId;
       readonly tileId: TileId;
       readonly representedLetter: string;
-    };
+    }
+  | { readonly type: "SHUFFLE_RACK"; readonly playerId: PlayerId };
 
 /**
  * The single entry point from the application layer into the game engine (architecture.md
@@ -131,5 +133,7 @@ export function dispatchGameAction(
         tileId: action.tileId,
         representedLetter: action.representedLetter,
       });
+    case "SHUFFLE_RACK":
+      return shuffleRack(state, action.playerId);
   }
 }

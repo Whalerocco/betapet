@@ -39,23 +39,31 @@ describe("classifyWord (synthetic rules)", () => {
     });
   });
 
-  it("classifies a proper-noun-only word as forbidden", () => {
+  it("classifies a proper-noun-only word as unknown, not forbidden (DEC-007)", () => {
     const result = classifyWord("Aaron", syntheticRules());
     expect(result).toEqual({
       word: "Aaron",
       normalizedWord: "AARON",
-      status: "FORBIDDEN_WORD",
-      reason: "PROPER_OR_PLACE_NAME",
+      status: "UNKNOWN_WORD",
     });
   });
 
-  it("classifies an abbreviation-only word as forbidden", () => {
+  it("classifies an abbreviation-only word as unknown, not forbidden (DEC-007)", () => {
     const result = classifyWord("BBC", syntheticRules());
     expect(result).toEqual({
       word: "BBC",
       normalizedWord: "BBC",
-      status: "FORBIDDEN_WORD",
-      reason: "ABBREVIATION",
+      status: "UNKNOWN_WORD",
+    });
+  });
+
+  it("classifies a proper-noun-only word already in the accepted vocabulary as accepted, not unknown again", () => {
+    const acceptedVocabulary = new Set(["AARON"]);
+    const result = classifyWord("Aaron", syntheticRules(), acceptedVocabulary);
+    expect(result).toEqual({
+      word: "Aaron",
+      normalizedWord: "AARON",
+      status: "ACCEPTED_IN_GAME",
     });
   });
 
@@ -132,29 +140,27 @@ describe("classifyWord (real Swedish rules)", () => {
     expect(classifyWord("SKOG", rules).status).toBe("DICTIONARY_WORD");
   });
 
-  it("forbids a personal name that has no other dictionary sense", () => {
+  it("classifies a personal name with no other dictionary sense as unknown, not forbidden (DEC-007)", () => {
     const result = classifyWord("AARON", rules);
-    expect(result.status).toBe("FORBIDDEN_WORD");
-    expect(result.reason).toBe("PROPER_OR_PLACE_NAME");
+    expect(result.status).toBe("UNKNOWN_WORD");
+    expect(result.reason).toBeUndefined();
   });
 
-  it("forbids a real abbreviation", () => {
+  it("classifies a real abbreviation as unknown, not forbidden (DEC-007)", () => {
     const result = classifyWord("BBC", rules);
-    expect(result.status).toBe("FORBIDDEN_WORD");
-    expect(result.reason).toBe("ABBREVIATION");
+    expect(result.status).toBe("UNKNOWN_WORD");
   });
 
-  it("forbids TV and STOCKHOLM as an abbreviation and a place name respectively", () => {
+  it("classifies TV and STOCKHOLM as unknown (an abbreviation and a place name respectively)", () => {
     // Regression coverage: an earlier version of the preprocessing script paired partOfSpeech
     // with the whole SALDO entry instead of the specific FormRepresentation spelling variant,
-    // which silently missed both of these (see src/data/dictionary/SOURCE.md).
+    // which silently missed both of these (see src/data/dictionary/SOURCE.md). Per DEC-007
+    // these no longer block the move outright — they're proposable like any unknown word.
     const tv = classifyWord("TV", rules);
-    expect(tv.status).toBe("FORBIDDEN_WORD");
-    expect(tv.reason).toBe("ABBREVIATION");
+    expect(tv.status).toBe("UNKNOWN_WORD");
 
     const stockholm = classifyWord("STOCKHOLM", rules);
-    expect(stockholm.status).toBe("FORBIDDEN_WORD");
-    expect(stockholm.reason).toBe("PROPER_OR_PLACE_NAME");
+    expect(stockholm.status).toBe("UNKNOWN_WORD");
   });
 
   it("allows IT, which also has a genuine non-abbreviation dictionary sense", () => {

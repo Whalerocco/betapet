@@ -860,3 +860,85 @@ clarifies that exchanges should count toward the consecutive-pass condition.
 Relevant files:
 - `src/game/engine/exchangeTiles.ts`
 - `src/game/engine/gameEndCheck.ts`
+
+---
+
+## DEC-007 — Proper names, place names, and non-standard abbreviations are UNKNOWN_WORD, not FORBIDDEN_WORD
+
+**Date:** 2026-08-11
+**Status:** ACCEPTED
+**Area:** Engine / Dictionary
+
+### Context
+
+Prior to this decision, `game-rules.md` and `dictionary.md` explicitly documented proper names,
+geographical names, and non-standard abbreviations as `FORBIDDEN_WORD`: the engine rejected a
+move containing one of these outright, before the proposing player ever had a chance to attempt
+it, and "the opponent cannot override explicit forbidden-word rules" (the previous wording of
+`docs/examples/disputed-word-example.md` section 41-43). Only a genuine dictionary miss (e.g. a
+made-up word) could enter the disputed-word approval flow.
+
+The project owner explicitly requested changing this: a player should be able to attempt
+*any* word — including proper nouns and abbreviations — with the opponent deciding whether to
+accept it, the same as any other word not found in the dictionary. In their words: "there
+should not be any words that the user can't attempt to play."
+
+### Decision
+
+Reclassify proper names, geographical names, and non-standard abbreviations from
+`FORBIDDEN_WORD` to `UNKNOWN_WORD` in `classifyWord`. These categories now flow through the
+existing disputed-word proposal/approval mechanic exactly like a word genuinely absent from the
+dictionary, rather than being hard-blocked before the proposing player can act.
+
+`FORBIDDEN_WORD` is retained for exactly one remaining case: one-letter words (game-rules.md
+section 10's minimum-word-length rule). This is a structural constraint on what counts as a
+"word" at all, not a judgment about the word's content, and the project owner's request was
+specifically about content categories ("proper nouns" as the named example) — nothing in the
+request suggested a single stray letter should become an attemptable "word."
+
+The explicit allow-lists (countries, months, weekdays, `allowedAbbreviations`) are unaffected:
+those words still auto-accept as ordinary dictionary words, with no proposal step needed.
+
+### Alternatives considered
+
+- Keep `FORBIDDEN_WORD` for these categories but add a UI-level "propose anyway" override —
+  rejected: this would mean the UI overriding an engine legality decision, which
+  `architecture.md` section 24 explicitly disallows ("The UI must not independently decide...
+  whether a word is valid").
+- Also reclassify one-letter words as `UNKNOWN_WORD` — rejected as outside the scope of the
+  request; a one-letter fragment isn't a "word" a player would ever deliberately attempt, and
+  keeping the minimum-length rule as a hard structural constraint keeps `FORBIDDEN_WORD`
+  meaningful rather than removing the status from the codebase entirely.
+- Silently keep the old FORBIDDEN_WORD spec and treat the request as an ambiguity to flag —
+  rejected: the request was an explicit, unambiguous instruction from the project owner about
+  desired gameplay, not a case where the specification was silent.
+
+### Rationale
+
+This is a deliberate specification change requested by the project owner, not an inferred
+interpretation of a silent or ambiguous rule. `docs/game-rules.md` and `docs/dictionary.md`
+have been updated to match, since a source-code behavior driven by an explicit request should
+not be left contradicting its own specification documents.
+
+### Consequences
+
+- `WordValidationReason` no longer produces `PROPER_OR_PLACE_NAME` or `ABBREVIATION` from
+  `classifyWord` (removed from the type); only `ONE_LETTER_WORD` remains reachable.
+- Every word a player forms on the board can now be attempted; only a one-letter fragment
+  blocks a move outright.
+- `docs/examples/disputed-word-example.md` sections 41-43 and
+  `docs/examples/normal-move-example.md` section 35 were updated to match; they no longer use
+  proper names/abbreviations as `FORBIDDEN_WORD` examples.
+
+### Revisit when
+
+If a verified Alfapet source specifies that proper names/abbreviations must be hard-blocked
+rather than subject to opponent approval, or if the project owner wants the reverse.
+
+Relevant files:
+- `src/game/dictionary/classifyWord.ts`
+- `src/game/model/wordValidationResult.ts`
+- `docs/dictionary.md`
+- `docs/game-rules.md`
+- `docs/examples/disputed-word-example.md`
+- `docs/examples/normal-move-example.md`

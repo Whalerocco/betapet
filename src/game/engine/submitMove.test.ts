@@ -366,7 +366,7 @@ describe("submitMove: rejected variations", () => {
     });
   });
 
-  it("rejects a move containing a forbidden word without offering opponent approval", () => {
+  it("offers an abbreviation for opponent approval rather than rejecting it outright (DEC-007)", () => {
     const setup = buildTestGame({ playerOneRackLetters: ["T", "V"] });
     const [t, v] = setup.state.players[0].rack.tileIds;
     const centre = setup.board.centreCoordinate;
@@ -392,10 +392,16 @@ describe("submitMove: rejected variations", () => {
       setup.playerOneId,
     );
 
-    expect(result.success).toBe(false);
-    if (result.success) return;
-    expect(result.error.code).toBe("FORBIDDEN_WORD");
-    expect(result.error.details?.word).toBe("TV");
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.turnState).toEqual({
+      type: "REQUIRES_PLAYER_CONFIRMATION",
+      playerId: setup.playerOneId,
+    });
+    const wordResults = result.state.pendingMove?.wordResults ?? [];
+    expect(wordResults).toHaveLength(1);
+    expect(wordResults[0].status).toBe("UNKNOWN_WORD");
+    expect(wordResults[0].word).toBe("TV");
   });
 
   it("rejects submitting with no pending move", () => {

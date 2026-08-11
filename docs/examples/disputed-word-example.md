@@ -1011,19 +1011,22 @@ If accepted:
 
 ---
 
-# 41. Mixture containing forbidden word
+# 41. Mixture containing a one-letter fragment
 
 Suppose a placement forms:
 
 ```text
 BIL
 <FORBIDDEN WORD>
-GRÖMP
+A
 ```
+
+where `A` is a one-letter crossing fragment.
 
 The move must not be offered for opponent approval.
 
-A forbidden word makes the move unplayable.
+A one-letter word makes the move unplayable — this is the one remaining `FORBIDDEN_WORD`
+category (game-rules.md section 10, DEC-007).
 
 Conceptually:
 
@@ -1033,42 +1036,51 @@ FORBIDDEN_WORD
 Return to editing
 ```
 
-The opponent cannot override explicit forbidden-word rules.
+The opponent cannot override the minimum-word-length rule.
+
+As of DEC-007, this no longer applies to proper names, place names, or non-standard
+abbreviations — see sections 42-43.
 
 ---
 
 # 42. Proper names and place names
 
-According to the agreed rules, ordinary names and place names are not legal.
+Per DEC-007, ordinary names and place names are not standard dictionary words, but they are not
+hard-blocked either.
 
-They should therefore be handled according to the forbidden-word logic defined in `dictionary.md`.
+They are classified as `UNKNOWN_WORD`, the same as `GRÖMP` in this example: the proposing
+player may attempt them, and the opponent decides whether to accept them.
 
-They must not become playable merely because the opponent is willing to accept them.
+There should be no word category the proposing player cannot at least attempt — the engine
+never unilaterally rejects a word's content; only the opponent's decision does.
 
-Countries, months, and weekdays are exceptions allowed by the agreed word rules.
+Countries, months, and weekdays remain explicit exceptions that auto-accept as ordinary
+dictionary words, with no proposal step needed.
 
 ---
 
 # 43. Abbreviations
 
-Abbreviations are generally not allowed.
+Abbreviations are generally not standard dictionary words, but per DEC-007 they are not
+hard-blocked.
 
-Explicitly configured exceptions may be allowed.
+Explicitly configured exceptions auto-accept as ordinary dictionary words.
 
 Therefore:
 
 ```text
-disallowed abbreviation
-    → FORBIDDEN_WORD
+non-standard abbreviation
+    → UNKNOWN_WORD
 ```
 
 not:
 
 ```text
-UNKNOWN_WORD
+FORBIDDEN_WORD
 ```
 
-An opponent cannot approve a disallowed abbreviation.
+An opponent may accept or reject a non-standard abbreviation, exactly as with any other
+`UNKNOWN_WORD`.
 
 ---
 

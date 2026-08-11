@@ -202,11 +202,13 @@ The initial language is Swedish.
 
 The dictionary determines whether a newly formed word is a normal dictionary word.
 
-The initial word rules are based on the Alfapet rule that most words are allowed except for:
+The initial word rules are based on the Alfapet rule that most words are allowed automatically, except for:
 
 - Proper names
 - Abbreviations
 - One-letter words
+
+Per DEC-007, proper names and abbreviations are not automatically recognized as standard dictionary words, but they are not blocked outright either: they are treated as unknown words, so the proposing player may still attempt them and the opponent may accept or reject them, the same as any other word absent from the dictionary. One-letter words remain the sole category that cannot be attempted at all, since the game's minimum-word-length rule (section 10) is a structural constraint rather than a word-content judgment.
 
 The project's `dictionary.md` will define the exact dictionary source, normalization rules, exceptions, and additional Swedish-language policy.
 
@@ -241,33 +243,35 @@ They must still satisfy the game's general word rules.
 
 ---
 
-## 14. Forbidden word categories
+## 14. Non-standard word categories
 
-The following are not valid normal dictionary words for gameplay:
+The following are not valid *standard* dictionary words for gameplay, i.e. they are never auto-accepted the way an ordinary dictionary word is:
 
 ### Proper names
 
-Personal names are not allowed.
+Personal names are not standard dictionary words.
 
 Examples include names of people.
 
 ### Geographical names
 
-Names of places and geographical entities are not allowed.
+Names of places and geographical entities are not standard dictionary words.
 
 Examples include cities, regions, mountains, rivers, and similar proper geographical names.
 
 ### Abbreviations
 
-Abbreviations are generally not allowed.
+Abbreviations are generally not standard dictionary words.
 
-There may be an explicit exception list for abbreviations that the project has decided to treat as ordinary Swedish words.
+There may be an explicit exception list for abbreviations that the project has decided to treat as ordinary Swedish words (auto-accepted like any dictionary word).
 
 The exception list must be maintained as explicit data and not inferred by the UI.
 
+Per DEC-007, proper names, geographical names, and non-standard abbreviations are classified as `UNKNOWN_WORD`: the proposing player may attempt them, and the opponent decides whether to accept them, exactly like any other word absent from the dictionary. They are not `FORBIDDEN_WORD` and do not block the move outright.
+
 ### One-letter words
 
-One-letter words are never allowed.
+One-letter words are never allowed, under any circumstance. This is the one category that remains `FORBIDDEN_WORD` — it cannot be attempted, and opponent approval cannot rescue it. Unlike the categories above, this is a structural constraint (game-rules.md section 10) rather than a judgment about the word's content.
 
 ---
 
@@ -604,11 +608,11 @@ and:
 
 Examples:
 - Word exists in the configured Swedish dictionary.
-- Word is not a prohibited proper name.
-- Word is not a prohibited abbreviation.
-- Word is not a one-letter word.
+- Word is not classified as a proper name (DEC-007: this makes the word `UNKNOWN_WORD`, not a hard block).
+- Word is not classified as a non-standard abbreviation (DEC-007: likewise `UNKNOWN_WORD`).
+- Word is not a one-letter word (this remains `FORBIDDEN_WORD`).
 
-A move that is physically legal but contains an unknown dictionary word can enter the custom opponent-approval flow.
+A move that is physically legal but contains an unknown or non-standard-category dictionary word can enter the custom opponent-approval flow.
 
 A move that is physically illegal cannot be rescued by opponent approval.
 

@@ -861,7 +861,8 @@ That scenario belongs in `disputed-word-example.md`.
 
 # 35. Forbidden-word variation
 
-Suppose one formed word violates an explicit word rule.
+Suppose one formed word is a one-letter fragment (the sole remaining `FORBIDDEN_WORD` category
+as of DEC-007 — see `dictionary.md` section 22).
 
 Then:
 
@@ -872,6 +873,9 @@ FORBIDDEN_WORD
 The move cannot enter the opponent-approval flow.
 
 The UI explains the problem and August continues editing.
+
+A word classified as a proper name or non-standard abbreviation is not `FORBIDDEN_WORD`; it is
+`UNKNOWN_WORD` and follows the unknown-word variation above instead (DEC-007).
 
 ---
 
