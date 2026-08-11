@@ -1,12 +1,61 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --panel-background: #f7f5f0;
+  --panel-border: #ddd6c8;
+  --board-background: #ece6d8;
+  --cell-background: #ffffff;
+  --cell-border: #d8d2c2;
+  --cell-letter-x2: #cfe3f0;
+  --cell-letter-x3: #9fc7e0;
+  --cell-letter-x4: #6fabd0;
+  --cell-letter-minus-x2: #e0d8c8;
+  --cell-word-x2: #f0c9b8;
+  --cell-word-x3: #e09a78;
+  --cell-word-x4: #d06a48;
+  --cell-start: #d8c090;
+  --tile-background: #fdf6e3;
+  --tile-border: #c9b98f;
+  --tile-foreground: #3a2f1c;
+  --tile-pending-border: #7a9e5c;
+  --tile-selected-border: #3a6ea5;
+  --accent: #3a6ea5;
+  --accent-foreground: #ffffff;
+  --danger: #a53a3a;
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --tile-size: 2.5rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --panel-background: #171512;
+    --panel-border: #322d24;
+    --board-background: #1c1a15;
+    --cell-background: #100f0c;
+    --cell-border: #322d24;
+    --cell-letter-x2: #1d3a4d;
+    --cell-letter-x3: #1f4d6b;
+    --cell-letter-x4: #21618a;
+    --cell-letter-minus-x2: #3a3325;
+    --cell-word-x2: #4a3226;
+    --cell-word-x3: #63311f;
+    --cell-word-x4: #7a3418;
+    --cell-start: #4f4322;
+    --tile-background: #2b2415;
+    --tile-border: #5a4d30;
+    --tile-foreground: #f0e6c8;
+    --tile-pending-border: #7a9e5c;
+    --tile-selected-border: #5a9bd6;
+    --accent: #5a9bd6;
+    --accent-foreground: #0a0a0a;
+    --danger: #d67878;
   }
 }
 

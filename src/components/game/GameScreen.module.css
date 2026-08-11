@@ -1,0 +1,33 @@
+.gameScreen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  max-width: 60rem;
+  margin: 0 auto;
+}
+
+.turnIndicator {
+  font-weight: 600;
+}
+
+.error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.unknownWordNotice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--panel-background);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+}
+
+.blankPicker {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}

@@ -1,0 +1,9 @@
+.rack {
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--panel-background);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
