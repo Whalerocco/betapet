@@ -754,3 +754,52 @@ trivial to change.
 Relevant files:
 - `src/game/dictionary/allowedCountries.ts`
 - `src/data/dictionary/SOURCE.md`
+
+## DEC-005 — Game-end condition: bag empty AND a player's rack empty
+
+**Date:** 2026-08-11
+**Status:** ACCEPTED
+**Area:** Engine
+
+### Context
+
+`game-rules.md` section 29 lists "there are no letter tiles left in the bag" as one of three
+end conditions, but explicitly flags it as needing verification: "the exact interaction between
+an empty tile bag and the player who has just emptied their rack must follow the chosen Alfapet
+rule interpretation." Taken completely literally, "bag empty" alone would end the game the
+moment the bag runs out, even while both players still hold full racks and could keep playing
+from them for many more turns.
+
+### Decision
+
+Interpret this condition as: the bag is empty **and** at least one player has emptied their
+rack (i.e. someone "goes out"). Implemented in `checkGameEnd`.
+
+### Alternatives considered
+
+- Bag empty alone ends the game immediately, regardless of rack contents — doesn't fit
+  `game-rules.md` section 30's final-scoring rule (deducting remaining rack tiles from each
+  player's score only makes sense if the game continued until someone ran out of tiles to play,
+  not the instant the bag happened to empty).
+- Stop and ask before implementing anything — considered, but this is the near-universal,
+  extremely well-established convention across the entire Scrabble-family of games (Alfapet
+  included), unlike the board/tile-data and dictionary-source gaps that had no reasonable
+  default to fall back on.
+
+### Rationale
+
+This is standard, unambiguous convention for this entire game genre, and is the only reading
+that makes `game-rules.md` section 30 (remaining-rack deduction) coherent.
+
+### Consequences
+
+If a verified Alfapet source specifies different behaviour, this needs to change; the two other
+end conditions (consecutive passes, no player can play) are not yet implemented (Milestone
+2.6) and don't interact with this one.
+
+### Revisit when
+
+If a verified Alfapet source specifies a different end-condition interpretation.
+
+Relevant files:
+- `src/game/engine/gameEndCheck.ts`

@@ -10,6 +10,7 @@ export type ActionResult =
 export function actionFailure(
   code: GameErrorCode,
   messageKey: string,
+  details?: Record<string, unknown>,
 ): ActionResult {
-  return { success: false, error: { code, messageKey } };
+  return { success: false, error: { code, messageKey, details } };
 }

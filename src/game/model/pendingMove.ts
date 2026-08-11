@@ -1,6 +1,9 @@
 import type { Coordinate, Orientation } from "./coordinate";
 import { coordinateKey } from "./coordinate";
+import type { FormedWord } from "./formedWord";
 import type { PlayerId, TileId } from "./ids";
+import type { ScoreResult } from "./scoreResult";
+import type { WordValidationResult } from "./wordValidationResult";
 
 export interface PendingPlacedTile {
   readonly tileId: TileId;
@@ -18,6 +21,10 @@ export interface PendingMove {
   readonly playerId: PlayerId;
   readonly placedTiles: readonly PendingPlacedTile[];
   readonly status: PendingMoveStatus;
+  /** Populated once submitMove has validated the placement; absent while still EDITING. */
+  readonly formedWords?: readonly FormedWord[];
+  readonly wordResults?: readonly WordValidationResult[];
+  readonly scorePreview?: ScoreResult;
 }
 
 function assertNoDuplicatePlacements(
@@ -47,6 +54,17 @@ export function createPendingMove(
 ): PendingMove {
   assertNoDuplicatePlacements(placedTiles);
   return { playerId, placedTiles, status: "EDITING" };
+}
+
+/** Attaches submitMove's validation results to a pending move, along with its new status. */
+export function withValidationResults(
+  pendingMove: PendingMove,
+  status: PendingMoveStatus,
+  formedWords: readonly FormedWord[],
+  wordResults: readonly WordValidationResult[],
+  scorePreview: ScoreResult,
+): PendingMove {
+  return { ...pendingMove, status, formedWords, wordResults, scorePreview };
 }
 
 /**

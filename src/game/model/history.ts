@@ -6,6 +6,7 @@ type EmptyPayload = Record<string, never>;
 
 export interface WordMoveCommittedPayload {
   readonly placedTiles: readonly PendingPlacedTile[];
+  readonly words: readonly string[];
   readonly scoreAwarded: number;
   readonly usedUnknownWordApproval: boolean;
 }

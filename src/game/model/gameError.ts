@@ -10,17 +10,26 @@ export type GameErrorCode =
   | "UNEXPECTED_BLANK_LETTER"
   | "INVALID_BLANK_LETTER"
   | "MOVE_NOT_CONNECTED"
-  | "FIRST_MOVE_MUST_COVER_CENTER";
+  | "FIRST_MOVE_MUST_COVER_CENTER"
+  | "INVALID_WORD"
+  | "FORBIDDEN_WORD"
+  | "PROPOSAL_NOT_AVAILABLE"
+  | "PROPOSAL_ALREADY_CONFIRMED"
+  | "NOT_AUTHORIZED_TO_APPROVE"
+  | "EXCHANGE_NOT_ALLOWED";
 
 export interface GameError {
   readonly code: GameErrorCode;
   /** Presentation-layer lookup key; the engine never contains UI strings itself. */
   readonly messageKey: string;
+  /** Structured extra data for the UI (e.g. which word was forbidden), never presentation text. */
+  readonly details?: Record<string, unknown>;
 }
 
 export function createGameError(
   code: GameErrorCode,
   messageKey: string,
+  details?: Record<string, unknown>,
 ): GameError {
-  return { code, messageKey };
+  return { code, messageKey, details };
 }
