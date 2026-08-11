@@ -644,3 +644,60 @@ If a verified Alfapet source specifies an explicit tie-break procedure, switch t
 
 Relevant files:
 - `src/game/engine/createGame.ts`
+
+## DEC-003 — Dictionary source: SALDO/SALDOM (Språkbanken)
+
+**Date:** 2026-08-11
+**Status:** ACCEPTED
+**Area:** Dictionary
+
+### Context
+
+`docs/dictionary.md` section 41 requires the dictionary source and its license to be decided and
+documented before implementation begins. Two viable, well-researched candidates were found:
+SALDO/SALDOM (Språkbanken, CC-BY-4.0) and hunspell-sv (yeager/hunspell-sv, LGPL-3.0, itself built
+in part from SALDO plus SFOL and SAOL15 references). Both were presented to the project owner.
+
+### Decision
+
+Use **SALDO** and **SALDOM** (SALDO's morphological component), published by Språkbanken Text,
+University of Gothenburg, under CC-BY-4.0. Confirmed free to download and use with no payment,
+account, or institutional affiliation required.
+
+### Alternatives considered
+
+- hunspell-sv (LGPL-3.0) — more "ready to use" as an actual flat word list format, actively
+  maintained, but LGPL is more legally involved for redistributing a filtered/transformed
+  derivative of the data than CC-BY-4.0's simple attribution requirement.
+- A small placeholder/synthetic word list — would have let implementation proceed without
+  resolving the licensing question, but only defers a decision `dictionary.md` requires up front.
+
+### Rationale
+
+CC-BY-4.0 has no copyleft implications for the generated, filtered word list this project ships:
+attribution is the only requirement. SALDO/SALDOM is also an official academic linguistic
+resource specifically for Swedish, with SALDOM providing full inflected word forms (not just
+lemmas), which `dictionary.md` section 41 explicitly calls out as something to verify
+("word-form coverage").
+
+### Consequences
+
+- `scripts/preprocess-dictionary.ts` extracts and filters `writtenForm` values from the raw
+  LMF/XML source files (~330 MB combined) into `src/data/dictionary/sv-saldo-words.json`
+  (885,438 unique playable single-word forms). The raw source files are gitignored and not
+  committed; see `scripts/dictionary-raw-sources/README.md` to regenerate.
+- The generated word list is not yet filtered for proper names, place names, or abbreviations —
+  see `src/data/dictionary/SOURCE.md` and roadmap Milestone 2.2.
+- Attribution to Borin, Lönngren, and Forsberg (2017) / Språkbanken must be preserved wherever
+  the project's data sources or credits are documented.
+
+### Revisit when
+
+If a dictionary update is needed (`dictionary.md` section 32), or if word-form coverage or
+quality issues are found during playtesting that a different source would resolve.
+
+Relevant files:
+- `scripts/preprocess-dictionary.ts`
+- `scripts/dictionary-raw-sources/README.md`
+- `src/data/dictionary/SOURCE.md`
+- `src/data/dictionary/sv-saldo-words.json`

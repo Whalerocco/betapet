@@ -34,3 +34,7 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Raw dictionary source data (hundreds of MB; regenerate via scripts/preprocess-dictionary.ts)
+scripts/dictionary-raw-sources/*
+!scripts/dictionary-raw-sources/README.md
