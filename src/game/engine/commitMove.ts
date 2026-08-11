@@ -1,14 +1,14 @@
 import { placeCommittedTile } from "../model/board";
 import type { FormedWord } from "../model/formedWord";
-import { createGameState, type GameState } from "../model/game";
+import type { GameState } from "../model/game";
 import { addHistoryEvent, nextSequence } from "../model/history";
 import { createHistoryEventId, type PlayerId } from "../model/ids";
 import type { PendingPlacedTile } from "../model/pendingMove";
 import type { Player } from "../model/player";
 import type { ScoreResult } from "../model/scoreResult";
 import { drawTiles } from "../model/tileBag";
-import { finishedTurnState, playerTurn } from "../model/turnState";
-import { checkGameEnd } from "./gameEndCheck";
+import { playerTurn } from "../model/turnState";
+import { finalizeTurn } from "./finalizeTurn";
 
 export interface CommitMoveParams {
   readonly playerId: PlayerId;
@@ -98,22 +98,5 @@ export function commitMove(
     turnState: playerTurn(otherPlayer.id),
   };
 
-  const endCheck = checkGameEnd(activeState);
-  if (endCheck.ended) {
-    const finishedHistory = addHistoryEvent(activeState.history, {
-      id: createHistoryEventId(),
-      sequence: nextSequence(activeState.history),
-      type: "GAME_FINISHED",
-      payload: { result: endCheck.result },
-    });
-    return createGameState({
-      ...activeState,
-      status: "FINISHED",
-      turnState: finishedTurnState(),
-      result: endCheck.result,
-      history: finishedHistory,
-    });
-  }
-
-  return createGameState(activeState);
+  return finalizeTurn(activeState);
 }

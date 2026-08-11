@@ -7,11 +7,14 @@ export type GameEndCheckResult =
   | { readonly ended: true; readonly result: GameResult };
 
 /**
- * Checks whether the game has ended (game-rules.md section 29). Currently checks only the
- * "no tiles left and a player has nothing left to play" condition (the standard convention
- * across this game family: the bag is empty and at least one player has emptied their rack) —
- * the consecutive-pass and no-player-can-play conditions are added once pass/exchange exist
- * (roadmap.md Milestone 2.6).
+ * Checks whether the game has ended (game-rules.md section 29): either the bag is empty and a
+ * player has emptied their rack, or every player has passed in succession (one full round-trip
+ * per player, i.e. `players.length * 2` consecutive passes — game-rules.md's own worked example
+ * for two players is four passes in a row). The third documented condition, "no player can form
+ * any legal move", is not proactively detected: doing so would require a full move-generator/
+ * solver, which is out of scope for this milestone (see docs/decisions.md). In practice this is
+ * not a dead end, since a player facing no legal move can always pass, and consecutive passes are
+ * already detected here.
  */
 export function checkGameEnd(state: GameState): GameEndCheckResult {
   const bagEmpty = state.tileBag.tileIds.length === 0;
@@ -23,6 +26,13 @@ export function checkGameEnd(state: GameState): GameEndCheckResult {
     return {
       ended: true,
       result: calculateFinalResult(state, "NO_TILES_AND_NO_MORE_PLAY"),
+    };
+  }
+
+  if (state.consecutivePasses >= state.players.length * 2) {
+    return {
+      ended: true,
+      result: calculateFinalResult(state, "CONSECUTIVE_PASSES"),
     };
   }
 

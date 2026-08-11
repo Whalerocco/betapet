@@ -803,3 +803,60 @@ If a verified Alfapet source specifies a different end-condition interpretation.
 
 Relevant files:
 - `src/game/engine/gameEndCheck.ts`
+
+---
+
+## DEC-006 — Exchange minimum-bag-size rule and pass-count interaction
+
+**Date:** 2026-08-11
+**Status:** ACCEPTED
+**Area:** Engine
+
+### Context
+
+`game-rules.md` section 26 requires that "the implementation must enforce the physical game's
+constraints concerning whether enough tiles remain to perform an exchange," without stating an
+exact number. Separately, section 27/29 track "consecutive passes" for the end-game rule, and it
+is not stated whether an exchange should count toward, or reset, that counter.
+
+### Decision
+
+1. A player may exchange N tiles only if the bag currently holds at least N tiles (so every
+   exchanged tile is replaced 1:1, matching the section 6/26 "the player receives the same
+   number of replacement tiles as tiles exchanged" rule). Implemented in `exchangeTiles.ts` as
+   `EXCHANGE_NOT_ALLOWED`.
+2. Exchanging resets `consecutivePasses` to 0, the same as a committed word move. Only a literal
+   pass action increments it. Section 29 states the end condition as players having "passed"
+   in succession, not more broadly "taken a non-scoring turn," so an exchange — which is a
+   distinct, separately-named action in section 26 — is not read as a pass for this purpose.
+
+### Alternatives considered
+
+- Requiring a fixed minimum bag size regardless of exchange count (e.g. real-world tournament
+  Scrabble's "at least 7 tiles in the bag to exchange at all") — rejected; that is a
+  tournament-specific convention with no basis in `game-rules.md`, which only ever talks about
+  the exchange being limited by what the bag can replace.
+- Treating exchanges as counting toward consecutive passes (i.e. any non-word-forming turn
+  resets nothing, both types accumulate toward game end) — rejected as a looser reading than
+  the specification text supports; would also make it impossible for two players to legitimately
+  exchange tiles back and forth many times without ending the game, which is not implied by
+  anything in `game-rules.md`.
+
+### Rationale
+
+Both readings are the narrowest, most literal application of the specification text available,
+without inventing numeric thresholds the spec does not provide.
+
+### Consequences
+
+A player can never exchange more tiles than remain in the bag. Two players can exchange tiles
+indefinitely without triggering the consecutive-pass end condition; only genuine passes do.
+
+### Revisit when
+
+If a verified Alfapet source specifies an exact minimum-bag-size rule for exchanges, or
+clarifies that exchanges should count toward the consecutive-pass condition.
+
+Relevant files:
+- `src/game/engine/exchangeTiles.ts`
+- `src/game/engine/gameEndCheck.ts`
