@@ -2,8 +2,19 @@
 
 import { useState } from "react";
 import { describeGameError } from "../../application/game-controller/errorMessages";
-import type { GameControllerDependencies } from "../../application/game-controller/gameController";
+import type {
+  GameAction,
+  GameControllerDependencies,
+} from "../../application/game-controller/gameController";
+import {
+  deriveLocalSessionAfterAction,
+  describeHandoff,
+  initialLocalSession,
+  resumeLocalSession,
+  type LocalSessionState,
+} from "../../application/game-controller/localSession";
 import { useGameController } from "../../application/game-controller/useGameController";
+import { saveLocalGame } from "../../application/persistence/localGameStorage";
 import type { Coordinate } from "../../game/model/coordinate";
 import type { GameState } from "../../game/model/game";
 import type { TileId } from "../../game/model/ids";
@@ -12,6 +23,7 @@ import { Board } from "../board/Board";
 import { Rack, type RackTileView } from "../rack/Rack";
 import { BlankLetterPicker } from "./BlankLetterPicker";
 import styles from "./GameScreen.module.css";
+import { HandoffScreen } from "./HandoffScreen";
 import { OpponentReview } from "./OpponentReview";
 import { ScoreBoard } from "./ScoreBoard";
 import { TurnActions } from "./TurnActions";
@@ -21,15 +33,23 @@ export interface GameScreenProps {
   readonly initialState: GameState;
   readonly deps: GameControllerDependencies;
   readonly onExit: () => void;
+  /** True when initialState came from localStorage rather than a fresh createGame() call. */
+  readonly isResumed?: boolean;
 }
 
-/**
- * The main game screen (roadmap.md Milestones 3, 3.1, 3.2). Hot-seat privacy handoffs
- * (Milestone 3.3) and persistence (Milestone 3.4) are still separate, later milestones: this
- * screen renders every state transition directly, with no "pass the device" gate in between.
- */
-export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
+/** The main game screen (roadmap.md Milestones 3-3.4). */
+export function GameScreen({
+  initialState,
+  deps,
+  onExit,
+  isResumed = false,
+}: GameScreenProps) {
   const { state, dispatch } = useGameController(initialState, deps);
+  const [session, setSession] = useState<LocalSessionState>(() =>
+    isResumed
+      ? resumeLocalSession(initialState)
+      : initialLocalSession(initialState),
+  );
   const [selectedTileId, setSelectedTileId] = useState<TileId | undefined>();
   const [pendingBlankLetter, setPendingBlankLetter] = useState<
     string | undefined
@@ -42,6 +62,24 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     new Set(),
   );
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+
+  /**
+   * Every game action goes through here so local session/handoff state is always derived from
+   * the actual resulting GameState transition (local-multiplayer.md section 43), never guessed
+   * independently by a click handler, and so every authoritative transition is persisted
+   * (local-multiplayer.md section 27) without having to special-case which actions count.
+   */
+  function dispatchTracked(action: GameAction) {
+    const result = dispatch(action);
+    if (result.success) {
+      setSession(deriveLocalSessionAfterAction(action.type, result.state));
+      setErrorMessage(undefined);
+      saveLocalGame(result.state, deps.configuration.rackSize);
+    } else {
+      setErrorMessage(describeGameError(result.error));
+    }
+    return result;
+  }
 
   if (state.status === "FINISHED") {
     return (
@@ -67,6 +105,17 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     return null;
   }
 
+  if (session.mode !== "PLAYING") {
+    const { message, continueLabel } = describeHandoff(session, state);
+    return (
+      <HandoffScreen
+        message={message}
+        continueLabel={continueLabel}
+        onContinue={() => setSession({ mode: "PLAYING" })}
+      />
+    );
+  }
+
   if (state.turnState.type === "WAITING_FOR_OPPONENT_APPROVAL") {
     const { proposingPlayerId, reviewingPlayerId } = state.turnState;
     const proposingPlayer = state.players.find(
@@ -79,23 +128,11 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     const scorePreview = pendingMove?.scorePreview?.total ?? 0;
 
     function handleAccept() {
-      const result = dispatch({
-        type: "ACCEPT_PROPOSED_MOVE",
-        reviewingPlayerId,
-      });
-      setErrorMessage(
-        result.success ? undefined : describeGameError(result.error),
-      );
+      dispatchTracked({ type: "ACCEPT_PROPOSED_MOVE", reviewingPlayerId });
     }
 
     function handleReject() {
-      const result = dispatch({
-        type: "REJECT_PROPOSED_MOVE",
-        reviewingPlayerId,
-      });
-      setErrorMessage(
-        result.success ? undefined : describeGameError(result.error),
-      );
+      dispatchTracked({ type: "REJECT_PROPOSED_MOVE", reviewingPlayerId });
     }
 
     return (
@@ -188,7 +225,7 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
 
   function handlePlaceAt(coordinate: Coordinate) {
     if (!selectedTileId || selectedIsUnresolvedBlank) return;
-    const result = dispatch({
+    const result = dispatchTracked({
       type: "PLACE_TILE",
       playerId: currentPlayerId,
       tileId: selectedTileId,
@@ -197,9 +234,6 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     });
     if (result.success) {
       clearSelection();
-      setErrorMessage(undefined);
-    } else {
-      setErrorMessage(describeGameError(result.error));
     }
   }
 
@@ -210,19 +244,16 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
       setEditingBlankTileId(tileId);
       return;
     }
-    const result = dispatch({
+    dispatchTracked({
       type: "REMOVE_TILE",
       playerId: currentPlayerId,
       tileId,
     });
-    setErrorMessage(
-      result.success ? undefined : describeGameError(result.error),
-    );
   }
 
   function handleChangeEditingBlankLetter(letter: string) {
     if (!editingBlankTileId) return;
-    const result = dispatch({
+    const result = dispatchTracked({
       type: "CHANGE_BLANK_LETTER",
       playerId: currentPlayerId,
       tileId: editingBlankTileId,
@@ -230,42 +261,27 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     });
     if (result.success) {
       setEditingBlankTileId(undefined);
-      setErrorMessage(undefined);
-    } else {
-      setErrorMessage(describeGameError(result.error));
     }
   }
 
   function handleRemoveEditingTile() {
     if (!editingBlankTileId) return;
-    const result = dispatch({
+    const result = dispatchTracked({
       type: "REMOVE_TILE",
       playerId: currentPlayerId,
       tileId: editingBlankTileId,
     });
     if (result.success) {
       setEditingBlankTileId(undefined);
-      setErrorMessage(undefined);
-    } else {
-      setErrorMessage(describeGameError(result.error));
     }
   }
 
   function handleSubmit() {
-    const result = dispatch({
-      type: "SUBMIT_MOVE",
-      playerId: currentPlayerId,
-    });
-    setErrorMessage(
-      result.success ? undefined : describeGameError(result.error),
-    );
+    dispatchTracked({ type: "SUBMIT_MOVE", playerId: currentPlayerId });
   }
 
   function handlePass() {
-    const result = dispatch({ type: "PASS", playerId: currentPlayerId });
-    setErrorMessage(
-      result.success ? undefined : describeGameError(result.error),
-    );
+    dispatchTracked({ type: "PASS", playerId: currentPlayerId });
   }
 
   function handleStartExchange() {
@@ -280,7 +296,7 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
   }
 
   function handleConfirmExchange() {
-    const result = dispatch({
+    const result = dispatchTracked({
       type: "EXCHANGE_TILES",
       playerId: currentPlayerId,
       tileIds: [...exchangeSelection],
@@ -288,30 +304,15 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     if (result.success) {
       setExchangeMode(false);
       setExchangeSelection(new Set());
-      setErrorMessage(undefined);
-    } else {
-      setErrorMessage(describeGameError(result.error));
     }
   }
 
   function handleCancelProposal() {
-    const result = dispatch({
-      type: "CANCEL_PROPOSAL",
-      playerId: currentPlayerId,
-    });
-    setErrorMessage(
-      result.success ? undefined : describeGameError(result.error),
-    );
+    dispatchTracked({ type: "CANCEL_PROPOSAL", playerId: currentPlayerId });
   }
 
   function handleConfirmProposal() {
-    const result = dispatch({
-      type: "CONFIRM_PROPOSAL",
-      playerId: currentPlayerId,
-    });
-    setErrorMessage(
-      result.success ? undefined : describeGameError(result.error),
-    );
+    dispatchTracked({ type: "CONFIRM_PROPOSAL", playerId: currentPlayerId });
   }
 
   const hasPendingMove = state.pendingMove !== undefined;
