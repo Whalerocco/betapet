@@ -16,6 +16,11 @@ import { createTileBag, type TileBag } from "../model/tileBag";
 import { createGameHistory } from "../model/history";
 import { playerTurn } from "../model/turnState";
 import type { GameState } from "../model/game";
+import {
+  createGameConfiguration,
+  type GameConfiguration,
+  type RackSize,
+} from "../model/gameConfiguration";
 
 export function createTestBoardDefinition(): BoardDefinition {
   return createBoardDefinition(5, 5, { row: 2, column: 2 }, [
@@ -117,6 +122,92 @@ export function relocateTileToRack(
     rack: { tileIds: [...players[targetIndex].rack.tileIds, tileId] },
   };
   return { ...state, tileBag, players };
+}
+
+export interface EngineTestGame {
+  readonly board: BoardDefinition;
+  readonly configuration: GameConfiguration;
+  readonly tiles: Record<TileId, Tile>;
+  readonly playerOneId: PlayerId;
+  readonly playerTwoId: PlayerId;
+  readonly state: GameState;
+}
+
+/**
+ * A full ACTIVE game with a plain 15x15 no-multiplier board and hand-picked rack letters, for
+ * engine-action tests (submitMove/confirmProposal/.../pass/exchange) that need precise control
+ * over which words can be formed rather than random tiles.
+ */
+export function buildEngineTestGame(
+  options: {
+    playerOneRackLetters?: string[];
+    bagLetters?: string[];
+    rackSize?: RackSize;
+  } = {},
+): EngineTestGame {
+  const board = createBoardDefinition(15, 15, { row: 7, column: 7 }, []);
+  const rackSize = options.rackSize ?? 7;
+  const configuration = createGameConfiguration(
+    "test-config",
+    "sv",
+    board,
+    rackSize,
+  );
+  const tiles: Record<TileId, Tile> = {};
+
+  const registerLetter = (letter: string): TileId => {
+    const id = createTileId();
+    tiles[id] = createLetterTile(id, letter, 1);
+    return id;
+  };
+
+  const playerOneId = createPlayerId();
+  const playerTwoId = createPlayerId();
+  const rackLetters = options.playerOneRackLetters ?? [
+    "B",
+    "I",
+    "L",
+    "A",
+    "R",
+    "E",
+    "N",
+  ];
+  const playerOne: Player = {
+    ...createPlayer(playerOneId, "August"),
+    rack: { tileIds: rackLetters.map(registerLetter) },
+  };
+  const playerTwo: Player = createPlayer(playerTwoId, "Anna");
+
+  const bagLetters = options.bagLetters ?? [
+    "S",
+    "T",
+    "Ö",
+    "K",
+    "O",
+    "G",
+    "H",
+    "U",
+    "D",
+  ];
+  const tileBag: TileBag = createTileBag(bagLetters.map(registerLetter));
+
+  const state: GameState = {
+    id: createGameId(),
+    version: 1,
+    configurationId: configuration.id,
+    players: [playerOne, playerTwo],
+    board: createBoardState(),
+    tileBag,
+    tiles,
+    currentPlayerId: playerOneId,
+    turnState: playerTurn(playerOneId),
+    acceptedVocabulary: [],
+    history: createGameHistory(),
+    consecutivePasses: 0,
+    status: "ACTIVE",
+  };
+
+  return { board, configuration, tiles, playerOneId, playerTwoId, state };
 }
 
 export function withTileInRack(
