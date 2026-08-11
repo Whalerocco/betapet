@@ -17,6 +17,15 @@
  * surname) is not excluded — dictionary.md section 10 only asks to exclude words whose
  * dictionary presence *is* the proper name/abbreviation.
  *
+ * One Lemma can carry several <FormRepresentation> spelling variants with *different*
+ * partOfSpeech tags each (e.g. one entry lists "television"/"teve" as nn and "tv"/"TV" as nna,
+ * all as alternate written forms of one sense). So partOfSpeech must be paired with its
+ * writtenForm at the FormRepresentation level, not assumed constant across the whole
+ * LexicalEntry — an earlier version of this script got that wrong and silently missed real
+ * abbreviations like "TV" as a result. WordForm entries (inflected surface forms, which have no
+ * partOfSpeech of their own) inherit the most recently seen FormRepresentation's tag in the
+ * same entry.
+ *
  * Run with: node scripts/preprocess-dictionary.ts
  */
 import { createReadStream, writeFileSync } from "node:fs";
@@ -40,6 +49,8 @@ const EXCLUSIONS_OUTPUT_PATH = path.join(DATA_DIR, "sv-saldo-exclusions.json");
 
 const LEXICAL_ENTRY_START = "<LexicalEntry";
 const LEXICAL_ENTRY_END = "</LexicalEntry>";
+const FORM_REPRESENTATION_START = "<FormRepresentation";
+const FORM_REPRESENTATION_END = "</FormRepresentation>";
 const WRITTEN_FORM_PATTERN = /<feat att="writtenForm" val="([^"]*)"/;
 const PART_OF_SPEECH_PATTERN = /<feat att="partOfSpeech" val="([^"]*)"/;
 /** Pure Swedish letters only: a playable board word can't contain a space, hyphen, or digit. */
@@ -77,64 +88,90 @@ interface ExtractionResult {
   readonly rawEntryCount: number;
 }
 
-/**
- * Streams the file line by line, grouping writtenForm values by the LexicalEntry they belong
- * to so each can be associated with that entry's partOfSpeech (every LexicalEntry in SALDO/
- * SALDOM has exactly one partOfSpeech, shared by its lemma and all of its inflected forms).
- */
 async function extractEntries(
   filePath: string,
+  allWords: Set<string>,
   posByWord: Map<string, Set<string>>,
 ): Promise<ExtractionResult> {
   let rawWrittenFormCount = 0;
   let rawEntryCount = 0;
-  let currentPartOfSpeech: string | undefined;
-  let currentWords: string[] = [];
+
+  let inFormRepresentation = false;
+  let frWrittenForms: string[] = [];
+  let frPartOfSpeech: string | undefined;
+  let lastEntryPartOfSpeech: string | undefined;
+
+  const associate = (word: string, pos: string): void => {
+    let tags = posByWord.get(word);
+    if (!tags) {
+      tags = new Set();
+      posByWord.set(word, tags);
+    }
+    tags.add(pos);
+  };
+
+  const flushFormRepresentation = (): void => {
+    if (frPartOfSpeech) {
+      for (const word of frWrittenForms) {
+        associate(word, frPartOfSpeech);
+      }
+      lastEntryPartOfSpeech = frPartOfSpeech;
+    }
+    frWrittenForms = [];
+    frPartOfSpeech = undefined;
+  };
 
   const rl = createInterface({
     input: createReadStream(filePath, { encoding: "utf-8" }),
     crlfDelay: Infinity,
   });
 
-  const flushEntry = (): void => {
-    if (currentPartOfSpeech) {
-      for (const word of currentWords) {
-        let tags = posByWord.get(word);
-        if (!tags) {
-          tags = new Set();
-          posByWord.set(word, tags);
-        }
-        tags.add(currentPartOfSpeech);
-      }
-    }
-    currentPartOfSpeech = undefined;
-    currentWords = [];
-  };
-
   for await (const line of rl) {
     if (line.includes(LEXICAL_ENTRY_START)) {
-      flushEntry();
+      flushFormRepresentation();
+      lastEntryPartOfSpeech = undefined;
       rawEntryCount++;
-    } else if (line.includes(LEXICAL_ENTRY_END)) {
-      flushEntry();
+      continue;
+    }
+    if (line.includes(LEXICAL_ENTRY_END)) {
+      flushFormRepresentation();
+      continue;
+    }
+    if (line.includes(FORM_REPRESENTATION_START)) {
+      flushFormRepresentation();
+      inFormRepresentation = true;
+      continue;
+    }
+    if (line.includes(FORM_REPRESENTATION_END)) {
+      flushFormRepresentation();
+      inFormRepresentation = false;
       continue;
     }
 
-    const posMatch = PART_OF_SPEECH_PATTERN.exec(line);
-    if (posMatch && !currentPartOfSpeech) {
-      currentPartOfSpeech = posMatch[1];
+    const writtenFormMatch = WRITTEN_FORM_PATTERN.exec(line);
+    const normalized = writtenFormMatch
+      ? normalize(writtenFormMatch[1])
+      : undefined;
+    if (normalized) {
+      rawWrittenFormCount++;
+      if (PLAYABLE_WORD_PATTERN.test(normalized)) {
+        allWords.add(normalized);
+        if (inFormRepresentation) {
+          frWrittenForms.push(normalized);
+        } else if (lastEntryPartOfSpeech) {
+          associate(normalized, lastEntryPartOfSpeech);
+        }
+      }
     }
 
-    const writtenFormMatch = WRITTEN_FORM_PATTERN.exec(line);
-    if (writtenFormMatch) {
-      rawWrittenFormCount++;
-      const normalized = normalize(writtenFormMatch[1]);
-      if (PLAYABLE_WORD_PATTERN.test(normalized)) {
-        currentWords.push(normalized);
+    if (inFormRepresentation) {
+      const posMatch = PART_OF_SPEECH_PATTERN.exec(line);
+      if (posMatch) {
+        frPartOfSpeech = posMatch[1];
       }
     }
   }
-  flushEntry();
+  flushFormRepresentation();
 
   return { rawWrittenFormCount, rawEntryCount };
 }
@@ -144,6 +181,7 @@ function isAbbreviationTag(tag: string): boolean {
 }
 
 async function main(): Promise<void> {
+  const allWords = new Set<string>();
   const posByWord = new Map<string, Set<string>>();
   let totalRawWrittenForms = 0;
   let totalRawEntries = 0;
@@ -151,7 +189,7 @@ async function main(): Promise<void> {
   for (const fileName of SOURCE_FILES) {
     const filePath = path.join(RAW_SOURCES_DIR, fileName);
     console.log(`Reading ${filePath} ...`);
-    const result = await extractEntries(filePath, posByWord);
+    const result = await extractEntries(filePath, allWords, posByWord);
     totalRawWrittenForms += result.rawWrittenFormCount;
     totalRawEntries += result.rawEntryCount;
     console.log(
@@ -159,7 +197,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const allWords = Array.from(posByWord.keys()).sort((a, b) =>
+  const sortedWords = Array.from(allWords).sort((a, b) =>
     a.localeCompare(b, "sv"),
   );
 
@@ -175,7 +213,7 @@ async function main(): Promise<void> {
   properNounOnly.sort((a, b) => a.localeCompare(b, "sv"));
   abbreviationOnly.sort((a, b) => a.localeCompare(b, "sv"));
 
-  writeFileSync(WORDS_OUTPUT_PATH, JSON.stringify(allWords), "utf-8");
+  writeFileSync(WORDS_OUTPUT_PATH, JSON.stringify(sortedWords), "utf-8");
   writeFileSync(
     EXCLUSIONS_OUTPUT_PATH,
     JSON.stringify({ properNounOnly, abbreviationOnly }),
@@ -184,7 +222,7 @@ async function main(): Promise<void> {
 
   console.log(`\nTotal raw entries: ${totalRawEntries}`);
   console.log(`Total raw writtenForm occurrences: ${totalRawWrittenForms}`);
-  console.log(`Unique playable single-word forms: ${allWords.length}`);
+  console.log(`Unique playable single-word forms: ${sortedWords.length}`);
   console.log(`Proper-noun-only words: ${properNounOnly.length}`);
   console.log(`Abbreviation-only words: ${abbreviationOnly.length}`);
   console.log(`Written to ${WORDS_OUTPUT_PATH}`);

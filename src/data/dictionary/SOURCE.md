@@ -48,16 +48,22 @@ The word-classification layer (Milestone 2.2) additionally uses SALDO/SALDOM's p
 tags to derive `sv-saldo-exclusions.json`: a normalized word is **proper-noun-only** if every
 sense tagged in the source data is `pm` (egennamn) and nothing else, and **abbreviation-only** if
 every sense's tag ends in `a` (SALDO's abbreviation-variant suffix — confirmed against real
-entries: `nna` → "A3"/"A4", `pma` → "BBC"/"CIA"/"DDR", `vba` → "jfr"/"obs"). A word with any
-ordinary sense (e.g. a common noun that also happens to be a surname) is not excluded.
+entries: `nna` → "A3"/"A4"/"TV"/"IT", `pma` → "BBC"/"CIA"/"DDR", `vba` → "jfr"/"obs"). A word
+with any ordinary sense (e.g. a common noun that also happens to be a surname) is not excluded —
+for example "IT" also occurs as the definite form of the letter "I" (a genuine `nn` sense), so it
+is correctly left unclassified rather than forbidden.
 
-This heuristic is not perfect — it depends on SALDO's own tagging, which is not fully
-consistent. For example "Stockholm" is tagged `pma` in SALDO rather than plain `pm`, so it is
-not currently caught by either exclusion set and will pass as `DICTIONARY_WORD` until this is
-refined. Given `docs/dictionary.md` section 31's "do not build a sophisticated NLP system"
-guidance and that `docs/roadmap.md` Milestone 4.4 (real playtesting) explicitly anticipates
-finding and fixing exactly this kind of dictionary/classification gap, this is treated as a
-known, acceptable limitation rather than something to perfect now.
+A single SALDO Lemma can list several `<FormRepresentation>` spelling variants with _different_
+partOfSpeech tags each — e.g. one entry lists "television"/"teve" as `nn` and "tv"/"TV" as `nna`,
+all as alternate written forms of one sense. The script pairs each partOfSpeech with its own
+`FormRepresentation`'s written form rather than assuming one tag applies to the whole entry; an
+earlier version got this wrong and silently missed real abbreviations (including "TV" itself)
+and some proper/place names (including "Stockholm", tagged `pma` on a `FormRepresentation` the
+old code didn't scope correctly). This heuristic still depends on SALDO's own tagging being
+consistent, which is not guaranteed everywhere — per `docs/dictionary.md` section 31's "do not
+build a sophisticated NLP system" guidance and `docs/roadmap.md` Milestone 4.4 (real
+playtesting), any further gaps found are expected to be caught and fixed at that stage rather
+than perfected now.
 
 Countries (`allowedCountries.ts`), months, and weekdays are explicit overrides for this
 exclusion, per `docs/dictionary.md` sections 12-14. The country list is scoped to sovereign UN

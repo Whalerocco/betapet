@@ -144,6 +144,25 @@ describe("classifyWord (real Swedish rules)", () => {
     expect(result.reason).toBe("ABBREVIATION");
   });
 
+  it("forbids TV and STOCKHOLM as an abbreviation and a place name respectively", () => {
+    // Regression coverage: an earlier version of the preprocessing script paired partOfSpeech
+    // with the whole SALDO entry instead of the specific FormRepresentation spelling variant,
+    // which silently missed both of these (see src/data/dictionary/SOURCE.md).
+    const tv = classifyWord("TV", rules);
+    expect(tv.status).toBe("FORBIDDEN_WORD");
+    expect(tv.reason).toBe("ABBREVIATION");
+
+    const stockholm = classifyWord("STOCKHOLM", rules);
+    expect(stockholm.status).toBe("FORBIDDEN_WORD");
+    expect(stockholm.reason).toBe("PROPER_OR_PLACE_NAME");
+  });
+
+  it("allows IT, which also has a genuine non-abbreviation dictionary sense", () => {
+    // "IT" is tagged as an abbreviation (nna) in SALDO, but is also the definite form of the
+    // letter "I" (an ordinary nn sense) — a word with any ordinary sense is not excluded.
+    expect(classifyWord("IT", rules).status).toBe("DICTIONARY_WORD");
+  });
+
   it("allows a country that is proper-noun-only in the raw dictionary data", () => {
     // KIRIBATI is tagged as a proper noun in SALDO with no other sense, so this specifically
     // exercises the country allow-list overriding the general proper-noun exclusion.
