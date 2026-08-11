@@ -701,3 +701,56 @@ Relevant files:
 - `scripts/dictionary-raw-sources/README.md`
 - `src/data/dictionary/SOURCE.md`
 - `src/data/dictionary/sv-saldo-words.json`
+
+## DEC-004 — Country allow-list scoped to UN member states
+
+**Date:** 2026-08-11
+**Status:** ACCEPTED
+**Area:** Dictionary
+
+### Context
+
+`dictionary.md` section 12 requires an explicit country allow-list as an exception to the
+general ban on geographical names. A reference list of ~266 Swedish country/territory names was
+found (Wiktionary's "Länder och nationaliteter" appendix), but it mixes sovereign states with
+sub-national regions (e.g. Texas, Wales, Katalonien), dependent territories (e.g. Guam,
+Bermuda), and states with disputed or partial international recognition (e.g. Kosovo, Taiwan,
+Palestine, Vatican City).
+
+### Decision
+
+Scope `allowedCountries.ts` to sovereign UN member states only, using Swedish short-form names.
+This excludes sub-national regions/territories entirely, and excludes disputed/
+partially-recognized states even though some are commonly referred to as countries in everyday
+Swedish usage.
+
+### Alternatives considered
+
+- Include the full raw reference list — more generous, but "country" would then include US
+  states and UK constituent countries, which doesn't match the plain reading of
+  `dictionary.md`'s examples (SVERIGE, NORGE, SPANIEN, FRANKRIKE — all sovereign nations).
+- Include commonly-recognized-but-disputed states (Kosovo, Taiwan, etc.) — would require this
+  project to take its own position on contested sovereignty, which UN membership avoids by using
+  an existing, neutral, externally-defined line.
+
+### Rationale
+
+UN membership is a single, well-defined, externally-maintained boundary that doesn't require
+this project to make its own geopolitical judgment calls, while still matching the plain
+examples given in `dictionary.md`.
+
+### Consequences
+
+A handful of commonly-known but non-UN-member places (Taiwan, Kosovo, Vatican City, Scotland,
+Texas, etc.) will be treated as ordinary geographical names — i.e. forbidden if SALDO tags them
+as proper-noun-only, exactly like any other place name.
+
+### Revisit when
+
+If playtesting surfaces this as a real friction point, or if the project owner wants a
+different, explicitly documented scope. This is a plain data list (`allowedCountries.ts`) and
+trivial to change.
+
+Relevant files:
+- `src/game/dictionary/allowedCountries.ts`
+- `src/data/dictionary/SOURCE.md`
