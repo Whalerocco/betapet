@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { createPlayerId, createTileId } from "./ids";
-import { createPendingMove } from "./pendingMove";
+import {
+  createPendingMove,
+  determinePlacementOrientation,
+} from "./pendingMove";
 
 describe("createPendingMove", () => {
   it("starts in EDITING status", () => {
@@ -39,5 +42,42 @@ describe("createPendingMove", () => {
         { tileId: createTileId(), coordinate: { row: 0, column: 0 } },
       ]),
     ).toThrow();
+  });
+});
+
+describe("determinePlacementOrientation", () => {
+  it("returns undefined for an empty placement", () => {
+    expect(determinePlacementOrientation([])).toBeUndefined();
+  });
+
+  it("returns undefined for a single tile", () => {
+    const placement = [
+      { tileId: createTileId(), coordinate: { row: 3, column: 3 } },
+    ];
+    expect(determinePlacementOrientation(placement)).toBeUndefined();
+  });
+
+  it("detects a horizontal placement", () => {
+    const placement = [
+      { tileId: createTileId(), coordinate: { row: 3, column: 3 } },
+      { tileId: createTileId(), coordinate: { row: 3, column: 4 } },
+    ];
+    expect(determinePlacementOrientation(placement)).toBe("HORIZONTAL");
+  });
+
+  it("detects a vertical placement", () => {
+    const placement = [
+      { tileId: createTileId(), coordinate: { row: 3, column: 3 } },
+      { tileId: createTileId(), coordinate: { row: 4, column: 3 } },
+    ];
+    expect(determinePlacementOrientation(placement)).toBe("VERTICAL");
+  });
+
+  it("returns undefined for tiles that are not collinear", () => {
+    const placement = [
+      { tileId: createTileId(), coordinate: { row: 3, column: 3 } },
+      { tileId: createTileId(), coordinate: { row: 4, column: 4 } },
+    ];
+    expect(determinePlacementOrientation(placement)).toBeUndefined();
   });
 });

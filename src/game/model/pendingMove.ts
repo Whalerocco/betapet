@@ -1,4 +1,4 @@
-import type { Coordinate } from "./coordinate";
+import type { Coordinate, Orientation } from "./coordinate";
 import { coordinateKey } from "./coordinate";
 import type { PlayerId, TileId } from "./ids";
 
@@ -47,4 +47,24 @@ export function createPendingMove(
 ): PendingMove {
   assertNoDuplicatePlacements(placedTiles);
   return { playerId, placedTiles, status: "EDITING" };
+}
+
+/**
+ * Returns the shared line a multi-tile placement lies on, or undefined if the placement has
+ * fewer than two tiles (no orientation to determine) or the tiles are not collinear.
+ */
+export function determinePlacementOrientation(
+  placedTiles: readonly PendingPlacedTile[],
+): Orientation | undefined {
+  if (placedTiles.length <= 1) {
+    return undefined;
+  }
+  const first = placedTiles[0].coordinate;
+  const allSameRow = placedTiles.every((p) => p.coordinate.row === first.row);
+  const allSameColumn = placedTiles.every(
+    (p) => p.coordinate.column === first.column,
+  );
+  if (allSameRow) return "HORIZONTAL";
+  if (allSameColumn) return "VERTICAL";
+  return undefined;
 }

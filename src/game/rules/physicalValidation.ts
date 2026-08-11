@@ -10,7 +10,10 @@ import {
   type BoardState,
 } from "../model/board";
 import type { GameError, GameErrorCode } from "../model/gameError";
-import type { PendingPlacedTile } from "../model/pendingMove";
+import {
+  determinePlacementOrientation,
+  type PendingPlacedTile,
+} from "../model/pendingMove";
 
 export type PhysicalValidationResult =
   | { readonly valid: true }
@@ -56,22 +59,9 @@ export function validatePhysicalPlacement(
     seenCoordinates.add(key);
   }
 
-  let orientation: "HORIZONTAL" | "VERTICAL" | undefined;
-  if (placedTiles.length > 1) {
-    const firstCoordinate = placedTiles[0].coordinate;
-    const allSameRow = placedTiles.every(
-      (p) => p.coordinate.row === firstCoordinate.row,
-    );
-    const allSameColumn = placedTiles.every(
-      (p) => p.coordinate.column === firstCoordinate.column,
-    );
-    if (allSameRow) {
-      orientation = "HORIZONTAL";
-    } else if (allSameColumn) {
-      orientation = "VERTICAL";
-    } else {
-      return invalid("INVALID_PLACEMENT", "notInLine");
-    }
+  const orientation = determinePlacementOrientation(placedTiles);
+  if (placedTiles.length > 1 && !orientation) {
+    return invalid("INVALID_PLACEMENT", "notInLine");
   }
 
   if (orientation) {
