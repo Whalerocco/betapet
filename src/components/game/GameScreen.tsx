@@ -10,9 +10,12 @@ import type { TileId } from "../../game/model/ids";
 import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
 import { Rack, type RackTileView } from "../rack/Rack";
+import { BlankLetterPicker } from "./BlankLetterPicker";
 import styles from "./GameScreen.module.css";
+import { OpponentReview } from "./OpponentReview";
 import { ScoreBoard } from "./ScoreBoard";
 import { TurnActions } from "./TurnActions";
+import { UnknownWordNotice } from "./UnknownWordNotice";
 
 export interface GameScreenProps {
   readonly initialState: GameState;
@@ -21,16 +24,18 @@ export interface GameScreenProps {
 }
 
 /**
- * The main game screen (roadmap.md Milestone 3). Hot-seat privacy handoffs (Milestone 3.3),
- * the full unknown-word proposal/review flow (Milestone 3.2), and blank-tile polish
- * (Milestone 3.1) are intentionally minimal placeholders here and are completed in their own
- * milestones; this screen only needs to support ordinary dictionary-valid turns end to end.
+ * The main game screen (roadmap.md Milestones 3, 3.1, 3.2). Hot-seat privacy handoffs
+ * (Milestone 3.3) and persistence (Milestone 3.4) are still separate, later milestones: this
+ * screen renders every state transition directly, with no "pass the device" gate in between.
  */
 export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
   const { state, dispatch } = useGameController(initialState, deps);
   const [selectedTileId, setSelectedTileId] = useState<TileId | undefined>();
   const [pendingBlankLetter, setPendingBlankLetter] = useState<
     string | undefined
+  >();
+  const [editingBlankTileId, setEditingBlankTileId] = useState<
+    TileId | undefined
   >();
   const [exchangeMode, setExchangeMode] = useState(false);
   const [exchangeSelection, setExchangeSelection] = useState<Set<TileId>>(
@@ -56,13 +61,77 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     );
   }
 
-  if (
-    state.turnState.type !== "PLAYER_TURN" &&
-    state.turnState.type !== "REQUIRES_PLAYER_CONFIRMATION"
-  ) {
+  if (state.turnState.type === "FINISHED") {
+    // Unreachable in practice: assertValidGameState keeps status and turnState.type in sync.
+    // TypeScript can't see that correlation, so this narrows the type for the code below.
+    return null;
+  }
+
+  if (state.turnState.type === "WAITING_FOR_OPPONENT_APPROVAL") {
+    const { proposingPlayerId, reviewingPlayerId } = state.turnState;
+    const proposingPlayer = state.players.find(
+      (p) => p.id === proposingPlayerId,
+    )!;
+    const pendingMove = state.pendingMove;
+    const unknownWords = (pendingMove?.wordResults ?? [])
+      .filter((result) => result.status === "UNKNOWN_WORD")
+      .map((result) => result.word);
+    const scorePreview = pendingMove?.scorePreview?.total ?? 0;
+
+    function handleAccept() {
+      const result = dispatch({
+        type: "ACCEPT_PROPOSED_MOVE",
+        reviewingPlayerId,
+      });
+      setErrorMessage(
+        result.success ? undefined : describeGameError(result.error),
+      );
+    }
+
+    function handleReject() {
+      const result = dispatch({
+        type: "REJECT_PROPOSED_MOVE",
+        reviewingPlayerId,
+      });
+      setErrorMessage(
+        result.success ? undefined : describeGameError(result.error),
+      );
+    }
+
     return (
       <div className={styles.gameScreen}>
-        <p>Det här läget stöds inte ännu i gränssnittet.</p>
+        <ScoreBoard
+          players={state.players.map((player) => ({
+            name: player.name,
+            score: player.score,
+            isCurrent: false,
+          }))}
+          tilesRemaining={state.tileBag.tileIds.length}
+        />
+
+        {errorMessage && (
+          <p role="alert" className={styles.error}>
+            {errorMessage}
+          </p>
+        )}
+
+        <Board
+          boardDefinition={deps.configuration.boardDefinition}
+          boardState={state.board}
+          tiles={state.tiles}
+          pendingPlacedTiles={pendingMove?.placedTiles ?? []}
+          canPlaceSelectedTile={false}
+          onPlaceAt={() => {}}
+          onPendingTileClick={() => {}}
+        />
+
+        <OpponentReview
+          proposingPlayerName={proposingPlayer.name}
+          words={unknownWords}
+          scorePreview={scorePreview}
+          onAccept={handleAccept}
+          onReject={handleReject}
+        />
       </div>
     );
   }
@@ -84,6 +153,12 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
   const selectedIsUnresolvedBlank =
     selectedTile?.kind === "BLANK" && pendingBlankLetter === undefined;
 
+  const editingPlacedTile = editingBlankTileId
+    ? state.pendingMove?.placedTiles.find(
+        (placed) => placed.tileId === editingBlankTileId,
+      )
+    : undefined;
+
   function clearSelection() {
     setSelectedTileId(undefined);
     setPendingBlankLetter(undefined);
@@ -102,6 +177,7 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
       });
       return;
     }
+    setEditingBlankTileId(undefined);
     if (selectedTileId === tileId) {
       clearSelection();
       return;
@@ -127,7 +203,13 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     }
   }
 
-  function handlePickUpPending(tileId: TileId) {
+  function handlePendingTileClick(tileId: TileId) {
+    clearSelection();
+    const tile = state.tiles[tileId];
+    if (tile.kind === "BLANK") {
+      setEditingBlankTileId(tileId);
+      return;
+    }
     const result = dispatch({
       type: "REMOVE_TILE",
       playerId: currentPlayerId,
@@ -136,6 +218,37 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     setErrorMessage(
       result.success ? undefined : describeGameError(result.error),
     );
+  }
+
+  function handleChangeEditingBlankLetter(letter: string) {
+    if (!editingBlankTileId) return;
+    const result = dispatch({
+      type: "CHANGE_BLANK_LETTER",
+      playerId: currentPlayerId,
+      tileId: editingBlankTileId,
+      representedLetter: letter,
+    });
+    if (result.success) {
+      setEditingBlankTileId(undefined);
+      setErrorMessage(undefined);
+    } else {
+      setErrorMessage(describeGameError(result.error));
+    }
+  }
+
+  function handleRemoveEditingTile() {
+    if (!editingBlankTileId) return;
+    const result = dispatch({
+      type: "REMOVE_TILE",
+      playerId: currentPlayerId,
+      tileId: editingBlankTileId,
+    });
+    if (result.success) {
+      setEditingBlankTileId(undefined);
+      setErrorMessage(undefined);
+    } else {
+      setErrorMessage(describeGameError(result.error));
+    }
   }
 
   function handleSubmit() {
@@ -191,6 +304,16 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
     );
   }
 
+  function handleConfirmProposal() {
+    const result = dispatch({
+      type: "CONFIRM_PROPOSAL",
+      playerId: currentPlayerId,
+    });
+    setErrorMessage(
+      result.success ? undefined : describeGameError(result.error),
+    );
+  }
+
   const hasPendingMove = state.pendingMove !== undefined;
   const canSubmit =
     state.turnState.type === "PLAYER_TURN" &&
@@ -219,22 +342,14 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
       )}
 
       {state.turnState.type === "REQUIRES_PLAYER_CONFIRMATION" && (
-        <div className={styles.unknownWordNotice}>
-          <p>
-            {(state.pendingMove?.wordResults ?? [])
-              .filter((result) => result.status === "UNKNOWN_WORD")
-              .map((result) => `"${result.word}"`)
-              .join(", ")}{" "}
-            finns inte i ordlistan.
-          </p>
-          <p>
-            Att föreslå ordet till motståndaren stöds inte ännu i den här
-            versionen. Tryck Ändra för att redigera din läggning.
-          </p>
-          <button type="button" onClick={handleCancelProposal}>
-            Ändra
-          </button>
-        </div>
+        <UnknownWordNotice
+          words={(state.pendingMove?.wordResults ?? [])
+            .filter((result) => result.status === "UNKNOWN_WORD")
+            .map((result) => result.word)}
+          scorePreview={state.pendingMove?.scorePreview?.total ?? 0}
+          onEdit={handleCancelProposal}
+          onConfirm={handleConfirmProposal}
+        />
       )}
 
       <Board
@@ -248,8 +363,22 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
           !selectedIsUnresolvedBlank
         }
         onPlaceAt={handlePlaceAt}
-        onPickUpPending={handlePickUpPending}
+        onPendingTileClick={handlePendingTileClick}
       />
+
+      {editingPlacedTile && (
+        <BlankLetterPicker
+          label="Ändra bokstav för den blanka brickan:"
+          alphabet={deps.alphabet}
+          value={editingPlacedTile.representedLetter}
+          onSelect={handleChangeEditingBlankLetter}
+        />
+      )}
+      {editingPlacedTile && (
+        <button type="button" onClick={handleRemoveEditingTile}>
+          Ta bort bricka
+        </button>
+      )}
 
       {state.turnState.type === "PLAYER_TURN" && (
         <>
@@ -261,22 +390,12 @@ export function GameScreen({ initialState, deps, onExit }: GameScreenProps) {
           />
 
           {selectedIsUnresolvedBlank && (
-            <label className={styles.blankPicker}>
-              Vilken bokstav ska den blanka brickan vara?
-              <select
-                value=""
-                onChange={(event) => setPendingBlankLetter(event.target.value)}
-              >
-                <option value="" disabled>
-                  Välj bokstav
-                </option>
-                {deps.alphabet.map((letter) => (
-                  <option key={letter} value={letter}>
-                    {letter}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <BlankLetterPicker
+              label="Vilken bokstav ska den blanka brickan vara?"
+              alphabet={deps.alphabet}
+              value={pendingBlankLetter}
+              onSelect={setPendingBlankLetter}
+            />
           )}
 
           <TurnActions

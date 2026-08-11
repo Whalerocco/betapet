@@ -13,7 +13,7 @@ export interface BoardProps {
   readonly pendingPlacedTiles: readonly PendingPlacedTile[];
   readonly canPlaceSelectedTile: boolean;
   readonly onPlaceAt: (coordinate: Coordinate) => void;
-  readonly onPickUpPending: (tileId: TileId) => void;
+  readonly onPendingTileClick: (tileId: TileId) => void;
 }
 
 /**
@@ -27,7 +27,7 @@ export function Board({
   pendingPlacedTiles,
   canPlaceSelectedTile,
   onPlaceAt,
-  onPickUpPending,
+  onPendingTileClick,
 }: BoardProps) {
   const committedByKey = new Map(
     boardState.occupiedCells.map((cell) => [
@@ -71,13 +71,20 @@ export function Board({
           const pendingTile = pendingByKey.get(key);
 
           let tile:
-            { letter: string; points: number; isPending: boolean } | undefined;
+            | {
+                letter: string;
+                points: number;
+                isPending: boolean;
+                isBlank: boolean;
+              }
+            | undefined;
           if (committedTileId) {
             const engineTile = tiles[committedTileId];
             tile = {
               letter: tileLetter(engineTile) ?? "",
               points: engineTile.points,
               isPending: false,
+              isBlank: engineTile.kind === "BLANK",
             };
           } else if (pendingTile) {
             const engineTile = tiles[pendingTile.tileId];
@@ -86,6 +93,7 @@ export function Board({
                 pendingTile.representedLetter ?? tileLetter(engineTile) ?? "",
               points: engineTile.points,
               isPending: true,
+              isBlank: engineTile.kind === "BLANK",
             };
           }
 
@@ -100,9 +108,9 @@ export function Board({
               tile={tile}
               isPlaceable={isPlaceable}
               onPlace={() => onPlaceAt(coordinate)}
-              onPickUpPending={
+              onPendingTileClick={
                 pendingTile
-                  ? () => onPickUpPending(pendingTile.tileId)
+                  ? () => onPendingTileClick(pendingTile.tileId)
                   : undefined
               }
             />

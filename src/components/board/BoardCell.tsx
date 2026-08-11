@@ -9,10 +9,11 @@ export interface BoardCellProps {
     readonly letter: string;
     readonly points: number;
     readonly isPending: boolean;
+    readonly isBlank: boolean;
   };
   readonly isPlaceable: boolean;
   readonly onPlace?: () => void;
-  readonly onPickUpPending?: () => void;
+  readonly onPendingTileClick?: () => void;
   /** Coordinate key (e.g. "7,7"), exposed as a test hook since many cells share visual labels. */
   readonly testId: string;
 }
@@ -20,14 +21,16 @@ export interface BoardCellProps {
 /**
  * A single board square. Renders committed/pending tiles, or an empty square that shows its
  * multiplier and can act as a placement target (board.md: Board must not decide legality —
- * `isPlaceable`/`onPlace` are handed down from the application layer's decision).
+ * `isPlaceable`/`onPlace` are handed down from the application layer's decision). Clicking a
+ * pending tile always reports the click upward; the application layer decides whether that
+ * means "pick it back up" or "open the blank-letter editor" (ui-design.md section 14).
  */
 export function BoardCell({
   multiplier,
   tile,
   isPlaceable,
   onPlace,
-  onPickUpPending,
+  onPendingTileClick,
   testId,
 }: BoardCellProps) {
   if (tile) {
@@ -40,10 +43,11 @@ export function BoardCell({
           letter={tile.letter}
           points={tile.points}
           variant={tile.isPending ? "pending" : "committed"}
-          onClick={tile.isPending ? onPickUpPending : undefined}
+          isBlank={tile.isBlank}
+          onClick={tile.isPending ? onPendingTileClick : undefined}
           ariaLabel={
             tile.isPending
-              ? `Pending bricka ${tile.letter}, ta tillbaka till handen`
+              ? `Pending bricka ${tile.letter}, tryck för att redigera`
               : undefined
           }
         />

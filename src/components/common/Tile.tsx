@@ -8,17 +8,23 @@ export interface TileProps {
   readonly variant?: TileVisualVariant;
   readonly selected?: boolean;
   readonly disabled?: boolean;
+  readonly isBlank?: boolean;
   readonly onClick?: () => void;
   readonly ariaLabel?: string;
 }
 
-/** A single letter tile, shared between the rack and the board (ui-design.md section 9). */
+/**
+ * A single letter tile, shared between the rack and the board (ui-design.md section 9). A
+ * blank tile gets a distinguishing marker so it never reads as identical to a same-lettered
+ * ordinary tile — its zero point value alone isn't always visually obvious at a glance.
+ */
 export function Tile({
   letter,
   points,
   variant = "rack",
   selected = false,
   disabled = false,
+  isBlank = false,
   onClick,
   ariaLabel,
 }: TileProps) {
@@ -26,6 +32,7 @@ export function Tile({
     styles.tile,
     styles[variant],
     selected ? styles.selected : "",
+    isBlank ? styles.blank : "",
   ]
     .filter(Boolean)
     .join(" ");

@@ -1,10 +1,14 @@
 import type { WordClassificationRules } from "../../game/dictionary/classifyWord";
+import { acceptProposedMove } from "../../game/engine/acceptProposedMove";
 import { cancelProposal } from "../../game/engine/cancelProposal";
+import { changeBlankRepresentedLetter } from "../../game/engine/changeBlankRepresentedLetter";
+import { confirmProposal } from "../../game/engine/confirmProposal";
 import { exchangeTiles } from "../../game/engine/exchangeTiles";
 import type { ActionResult } from "../../game/engine/gameError";
 import { movePendingTile } from "../../game/engine/movePendingTile";
 import { pass } from "../../game/engine/pass";
 import { placeTile } from "../../game/engine/placeTile";
+import { rejectProposedMove } from "../../game/engine/rejectProposedMove";
 import { removePendingTile } from "../../game/engine/removePendingTile";
 import { submitMove } from "../../game/engine/submitMove";
 import type { Coordinate } from "../../game/model/coordinate";
@@ -48,7 +52,22 @@ export type GameAction =
       readonly playerId: PlayerId;
       readonly tileIds: readonly TileId[];
     }
-  | { readonly type: "CANCEL_PROPOSAL"; readonly playerId: PlayerId };
+  | { readonly type: "CANCEL_PROPOSAL"; readonly playerId: PlayerId }
+  | { readonly type: "CONFIRM_PROPOSAL"; readonly playerId: PlayerId }
+  | {
+      readonly type: "ACCEPT_PROPOSED_MOVE";
+      readonly reviewingPlayerId: PlayerId;
+    }
+  | {
+      readonly type: "REJECT_PROPOSED_MOVE";
+      readonly reviewingPlayerId: PlayerId;
+    }
+  | {
+      readonly type: "CHANGE_BLANK_LETTER";
+      readonly playerId: PlayerId;
+      readonly tileId: TileId;
+      readonly representedLetter: string;
+    };
 
 /**
  * The single entry point from the application layer into the game engine (architecture.md
@@ -100,5 +119,17 @@ export function dispatchGameAction(
       });
     case "CANCEL_PROPOSAL":
       return cancelProposal(state, action.playerId);
+    case "CONFIRM_PROPOSAL":
+      return confirmProposal(state, action.playerId);
+    case "ACCEPT_PROPOSED_MOVE":
+      return acceptProposedMove(state, action.reviewingPlayerId);
+    case "REJECT_PROPOSED_MOVE":
+      return rejectProposedMove(state, action.reviewingPlayerId);
+    case "CHANGE_BLANK_LETTER":
+      return changeBlankRepresentedLetter(state, deps.alphabet, {
+        playerId: action.playerId,
+        tileId: action.tileId,
+        representedLetter: action.representedLetter,
+      });
   }
 }

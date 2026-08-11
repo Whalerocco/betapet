@@ -11,7 +11,7 @@ import {
   type TileId,
 } from "../model/ids";
 import { createPlayer, addTileToRack, type Player } from "../model/player";
-import { createLetterTile, type Tile } from "../model/tile";
+import { createBlankTile, createLetterTile, type Tile } from "../model/tile";
 import { createTileBag, type TileBag } from "../model/tileBag";
 import { createGameHistory } from "../model/history";
 import { playerTurn } from "../model/turnState";
@@ -136,7 +136,8 @@ export interface EngineTestGame {
 /**
  * A full ACTIVE game with a plain 15x15 no-multiplier board and hand-picked rack letters, for
  * engine-action tests (submitMove/confirmProposal/.../pass/exchange) that need precise control
- * over which words can be formed rather than random tiles.
+ * over which words can be formed rather than random tiles. A rack letter of `"_"` registers a
+ * blank tile instead of a lettered one.
  */
 export function buildEngineTestGame(
   options: {
@@ -161,6 +162,15 @@ export function buildEngineTestGame(
     return id;
   };
 
+  const registerRackTile = (letter: string): TileId => {
+    if (letter === "_") {
+      const id = createTileId();
+      tiles[id] = createBlankTile(id);
+      return id;
+    }
+    return registerLetter(letter);
+  };
+
   const playerOneId = createPlayerId();
   const playerTwoId = createPlayerId();
   const rackLetters = options.playerOneRackLetters ?? [
@@ -174,7 +184,7 @@ export function buildEngineTestGame(
   ];
   const playerOne: Player = {
     ...createPlayer(playerOneId, "August"),
-    rack: { tileIds: rackLetters.map(registerLetter) },
+    rack: { tileIds: rackLetters.map(registerRackTile) },
   };
   const playerTwo: Player = createPlayer(playerTwoId, "Anna");
 

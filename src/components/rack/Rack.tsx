@@ -34,6 +34,7 @@ export function Rack({
           letter={tile.isBlank ? "☐" : tile.letter}
           points={tile.points}
           variant="rack"
+          isBlank={tile.isBlank}
           selected={
             tile.id === selectedTileId || exchangeSelection?.has(tile.id)
           }
