@@ -34,4 +34,20 @@ describe("normalizeWord", () => {
     expect(normalizeWord(decomposed)).toBe(normalizeWord(precomposed));
     expect(normalizeWord(decomposed)).toBe(precomposed.toUpperCase());
   });
+
+  it("applies Unicode NFC normalization to Ä and Ö as well", () => {
+    const decomposedA = String.fromCodePoint(0x0061, 0x0308); // "a" + combining diaeresis
+    const precomposedA = String.fromCodePoint(0x00e4); // precomposed "ä"
+    const decomposedO = String.fromCodePoint(0x006f, 0x0308); // "o" + combining diaeresis
+    const precomposedO = String.fromCodePoint(0x00f6); // precomposed "ö"
+    expect(normalizeWord(decomposedA)).toBe(normalizeWord(precomposedA));
+    expect(normalizeWord(decomposedO)).toBe(normalizeWord(precomposedO));
+  });
+
+  it("treats different equivalent input forms identically end to end", () => {
+    const forms = ["skog", "Skog", "SKOG", " skog ", "\tskog\n"];
+    const results = new Set(forms.map(normalizeWord));
+    expect(results.size).toBe(1);
+    expect(results.has("SKOG")).toBe(true);
+  });
 });

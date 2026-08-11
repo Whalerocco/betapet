@@ -1,11 +1,11 @@
 /**
- * Canonical word normalization for dictionary lookup (dictionary.md section 6): uppercase,
- * trimmed, Unicode-NFC. Swedish letters (Å, Ä, Ö) are preserved as first-class, distinct
- * letters — never folded to A/O.
+ * The one canonical word normalization path (dictionary.md sections 6-7): uppercase, trimmed,
+ * Unicode-NFC. Swedish letters (Å, Ä, Ö) are preserved as first-class, distinct letters — never
+ * folded to A/O.
  *
- * Formalizing one shared normalization path for dictionary lookup, accepted vocabulary, word
- * comparison, and history is a later milestone (roadmap.md Milestone 2.1); this covers what
- * dictionary lookup needs today.
+ * Every part of the game that needs to compare words for equality must normalize through this
+ * function rather than reimplementing the rule: dictionary lookup, accepted vocabulary, word
+ * comparison, and move history (dictionary.md section 6, section 38).
  */
 export function normalizeWord(word: string): string {
   return word.trim().normalize("NFC").toUpperCase();
