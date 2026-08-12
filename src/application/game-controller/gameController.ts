@@ -1,6 +1,7 @@
 import type { WordClassificationRules } from "../../game/dictionary/classifyWord";
 import { acceptProposedMove } from "../../game/engine/acceptProposedMove";
 import { cancelProposal } from "../../game/engine/cancelProposal";
+import { clearPendingMove } from "../../game/engine/clearPendingMove";
 import { changeBlankRepresentedLetter } from "../../game/engine/changeBlankRepresentedLetter";
 import { confirmProposal } from "../../game/engine/confirmProposal";
 import { exchangeTiles } from "../../game/engine/exchangeTiles";
@@ -46,6 +47,7 @@ export type GameAction =
       readonly tileId: TileId;
       readonly coordinate: Coordinate;
     }
+  | { readonly type: "CLEAR_PENDING_MOVE"; readonly playerId: PlayerId }
   | { readonly type: "SUBMIT_MOVE"; readonly playerId: PlayerId }
   | { readonly type: "PASS"; readonly playerId: PlayerId }
   | {
@@ -105,6 +107,8 @@ export function dispatchGameAction(
         tileId: action.tileId,
         coordinate: action.coordinate,
       });
+    case "CLEAR_PENDING_MOVE":
+      return clearPendingMove(state, { playerId: action.playerId });
     case "SUBMIT_MOVE":
       return submitMove(
         state,

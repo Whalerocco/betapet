@@ -410,6 +410,18 @@ export function GameScreen({
     dispatchTracked({ type: "SUBMIT_MOVE", playerId: currentPlayerId });
   }
 
+  /** "Rensa": returns every pending tile to the rack in one step (ui-design.md section 18). */
+  function handleClear() {
+    const result = dispatchTracked({
+      type: "CLEAR_PENDING_MOVE",
+      playerId: currentPlayerId,
+    });
+    if (result.success) {
+      clearSelection();
+      setEditingBlankTileId(undefined);
+    }
+  }
+
   function handlePass() {
     dispatchTracked({ type: "PASS", playerId: currentPlayerId });
   }
@@ -456,6 +468,7 @@ export function GameScreen({
     (state.pendingMove?.placedTiles.length ?? 0) > 0;
   const canPass = state.turnState.type === "PLAYER_TURN" && !hasPendingMove;
   const canStartExchange = canPass;
+  const canClear = state.turnState.type === "PLAYER_TURN" && hasPendingMove;
   const dragOverCoordinate = dragState
     ? resolveDropTarget(dragState.position).coordinate
     : undefined;
@@ -566,10 +579,12 @@ export function GameScreen({
           <TurnActions
             canSubmit={canSubmit}
             canPass={canPass}
+            canClear={canClear}
             exchangeMode={exchangeMode}
             exchangeSelectionCount={exchangeSelection.size}
             canStartExchange={canStartExchange}
             onSubmit={handleSubmit}
+            onClear={handleClear}
             onStartExchange={handleStartExchange}
             onCancelExchange={handleCancelExchange}
             onConfirmExchange={handleConfirmExchange}

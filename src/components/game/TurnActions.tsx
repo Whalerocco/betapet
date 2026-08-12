@@ -6,10 +6,12 @@ import styles from "./TurnActions.module.css";
 export interface TurnActionsProps {
   readonly canSubmit: boolean;
   readonly canPass: boolean;
+  readonly canClear: boolean;
   readonly exchangeMode: boolean;
   readonly exchangeSelectionCount: number;
   readonly canStartExchange: boolean;
   readonly onSubmit: () => void;
+  readonly onClear: () => void;
   readonly onStartExchange: () => void;
   readonly onCancelExchange: () => void;
   readonly onConfirmExchange: () => void;
@@ -17,16 +19,19 @@ export interface TurnActionsProps {
 }
 
 /**
- * The three primary turn actions (ui-design.md section 18). Pass and exchange end the turn, so
+ * The three primary turn actions plus the secondary "Rensa" action (ui-design.md section 18)
+ * that returns every pending tile to the rack in one step. Pass and exchange end the turn, so
  * both get a lightweight confirmation step (ui-design.md sections 34-35) before dispatching.
  */
 export function TurnActions({
   canSubmit,
   canPass,
+  canClear,
   exchangeMode,
   exchangeSelectionCount,
   canStartExchange,
   onSubmit,
+  onClear,
   onStartExchange,
   onCancelExchange,
   onConfirmExchange,
@@ -88,6 +93,14 @@ export function TurnActions({
         disabled={!canSubmit}
       >
         Spela
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={!canClear}
+        title="Rensa alla brickor från spelplanen tillbaka till din hand"
+      >
+        Rensa
       </button>
       <button
         type="button"

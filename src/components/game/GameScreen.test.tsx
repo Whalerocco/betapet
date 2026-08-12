@@ -94,6 +94,39 @@ describe("GameScreen", () => {
     ).toBeInTheDocument();
   });
 
+  it("Rensa returns every pending tile to the rack without ending the turn", async () => {
+    const { setup } = await renderGame();
+    const centre = setup.board.centreCoordinate;
+
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    await userEvent.click(screen.getByLabelText("Bricka I, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column + 1}`),
+    );
+    expect(
+      screen.getByRole("button", { name: "Spela" }),
+    ).not.toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Rensa" }));
+
+    expect(screen.getByLabelText("Bricka B, 1 poäng")).toBeInTheDocument();
+    expect(screen.getByLabelText("Bricka I, 1 poäng")).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/Pending bricka/),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Spela" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Rensa" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Passa" }),
+    ).not.toBeDisabled();
+    expect(
+      screen.getByText(`Din tur: ${setup.state.players[0].name}`),
+    ).toBeInTheDocument();
+  });
+
   it("shows a Swedish error message for an invalid placement and stays in edit mode", async () => {
     const { setup } = await renderGame();
 
