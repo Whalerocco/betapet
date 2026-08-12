@@ -53,8 +53,8 @@ export function TurnActions({
             onClick={onConfirmExchange}
             disabled={exchangeSelectionCount === 0}
           >
-            Byt {exchangeSelectionCount} bricka
-            {exchangeSelectionCount === 1 ? "" : "n"}
+            Byt {exchangeSelectionCount}{" "}
+            {exchangeSelectionCount === 1 ? "bricka" : "brickor"}
           </button>
         </div>
       </div>
