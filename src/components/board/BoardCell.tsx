@@ -1,3 +1,4 @@
+import type { PointerEvent } from "react";
 import { Tile } from "../common/Tile";
 import { getMultiplierLabel } from "./multiplierLabel";
 import type { Multiplier } from "../../game/model/board";
@@ -10,12 +11,20 @@ export interface BoardCellProps {
     readonly points: number;
     readonly isPending: boolean;
     readonly isBlank: boolean;
+    readonly isDragSource?: boolean;
   };
   readonly isPlaceable: boolean;
   readonly onPlace?: () => void;
   readonly onPendingTileClick?: () => void;
+  readonly onPendingTilePointerDown?: (
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
   /** Coordinate key (e.g. "7,7"), exposed as a test hook since many cells share visual labels. */
   readonly testId: string;
+  /** Bare coordinate key used for drag-and-drop drop-target hit-testing in GameScreen. */
+  readonly coordinateKey: string;
+  /** True while a dragged tile is currently hovering over this empty square. */
+  readonly isDragOver?: boolean;
 }
 
 /**
@@ -24,6 +33,10 @@ export interface BoardCellProps {
  * `isPlaceable`/`onPlace` are handed down from the application layer's decision). Clicking a
  * pending tile always reports the click upward; the application layer decides whether that
  * means "pick it back up" or "open the blank-letter editor" (ui-design.md section 14).
+ *
+ * `data-coordinate` is read by GameScreen's drag-and-drop drop-target resolution
+ * (`document.elementFromPoint`); it is set on every cell, not just placeable ones, so a drag can
+ * also detect "you're over an occupied square" and reject the drop.
  */
 export function BoardCell({
   multiplier,
@@ -31,20 +44,28 @@ export function BoardCell({
   isPlaceable,
   onPlace,
   onPendingTileClick,
+  onPendingTilePointerDown,
   testId,
+  coordinateKey,
+  isDragOver = false,
 }: BoardCellProps) {
   if (tile) {
     return (
       <div
         className={`${styles.cell} ${styles[multiplier]}`}
         data-testid={testId}
+        data-coordinate={coordinateKey}
       >
         <Tile
           letter={tile.letter}
           points={tile.points}
           variant={tile.isPending ? "pending" : "committed"}
           isBlank={tile.isBlank}
+          isDragSource={tile.isDragSource}
           onClick={tile.isPending ? onPendingTileClick : undefined}
+          onPointerDown={
+            tile.isPending ? onPendingTilePointerDown : undefined
+          }
           ariaLabel={
             tile.isPending
               ? `Pending bricka ${tile.letter}, tryck för att redigera`
@@ -56,16 +77,18 @@ export function BoardCell({
   }
 
   const label = getMultiplierLabel(multiplier);
+  const dragOverClass = isDragOver ? styles.dragOver : "";
 
   if (isPlaceable) {
     return (
       <button
         type="button"
-        className={`${styles.cell} ${styles[multiplier]} ${styles.placeable}`}
+        className={`${styles.cell} ${styles[multiplier]} ${styles.placeable} ${dragOverClass}`}
         onClick={onPlace}
         aria-label={label ? `Placera bricka: ${label.full}` : "Placera bricka"}
         title={label?.full}
         data-testid={testId}
+        data-coordinate={coordinateKey}
       >
         {label?.short}
       </button>
@@ -74,10 +97,11 @@ export function BoardCell({
 
   return (
     <div
-      className={`${styles.cell} ${styles[multiplier]}`}
+      className={`${styles.cell} ${styles[multiplier]} ${dragOverClass}`}
       aria-label={label?.full}
       title={label?.full}
       data-testid={testId}
+      data-coordinate={coordinateKey}
     >
       {label?.short}
     </div>

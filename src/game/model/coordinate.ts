@@ -13,6 +13,12 @@ export function coordinateKey(coordinate: Coordinate): string {
   return `${coordinate.row},${coordinate.column}`;
 }
 
+/** Inverse of {@link coordinateKey}, used to read a coordinate back out of a DOM data attribute. */
+export function parseCoordinateKey(key: string): Coordinate {
+  const [row, column] = key.split(",").map(Number);
+  return { row, column };
+}
+
 export function orthogonalNeighbors(
   coordinate: Coordinate,
 ): readonly Coordinate[] {

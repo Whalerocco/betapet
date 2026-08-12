@@ -53,6 +53,18 @@ button.tile:disabled {
   transform: translateY(-3px);
 }
 
+/*
+ * touch-action: none stops the browser's own scroll/zoom gesture recognizer from grabbing a
+ * touch before our pointermove handler gets a chance to treat it as a tile drag.
+ */
+.draggable {
+  touch-action: none;
+}
+
+.dragSource {
+  opacity: 0.35;
+}
+
 .blank::before {
   content: "";
   position: absolute;

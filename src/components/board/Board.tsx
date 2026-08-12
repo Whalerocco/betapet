@@ -1,3 +1,4 @@
+import type { PointerEvent } from "react";
 import { BoardCell } from "./BoardCell";
 import styles from "./Board.module.css";
 import type { BoardDefinition, BoardState } from "../../game/model/board";
@@ -14,6 +15,15 @@ export interface BoardProps {
   readonly canPlaceSelectedTile: boolean;
   readonly onPlaceAt: (coordinate: Coordinate) => void;
   readonly onPendingTileClick: (tileId: TileId) => void;
+  /** Starts a drag gesture for a pending tile already on the board (roadmap.md Milestone 4.1). */
+  readonly onPendingTilePointerDown?: (
+    tileId: TileId,
+    event: PointerEvent<HTMLButtonElement>,
+  ) => void;
+  /** The pending tile currently being dragged off the board, so its origin square dims. */
+  readonly draggingTileId?: TileId;
+  /** The square a drag is currently hovering over, highlighted if it's a valid empty target. */
+  readonly dragOverCoordinate?: Coordinate;
 }
 
 /**
@@ -28,6 +38,9 @@ export function Board({
   canPlaceSelectedTile,
   onPlaceAt,
   onPendingTileClick,
+  onPendingTilePointerDown,
+  draggingTileId,
+  dragOverCoordinate,
 }: BoardProps) {
   const committedByKey = new Map(
     boardState.occupiedCells.map((cell) => [
@@ -76,6 +89,7 @@ export function Board({
                 points: number;
                 isPending: boolean;
                 isBlank: boolean;
+                isDragSource?: boolean;
               }
             | undefined;
           if (committedTileId) {
@@ -94,6 +108,7 @@ export function Board({
               points: engineTile.points,
               isPending: true,
               isBlank: engineTile.kind === "BLANK",
+              isDragSource: pendingTile.tileId === draggingTileId,
             };
           }
 
@@ -104,13 +119,25 @@ export function Board({
             <BoardCell
               key={key}
               testId={`cell-${key}`}
+              coordinateKey={key}
               multiplier={multiplier}
               tile={tile}
               isPlaceable={isPlaceable}
+              isDragOver={
+                !tile &&
+                dragOverCoordinate !== undefined &&
+                coordinateKey(dragOverCoordinate) === key
+              }
               onPlace={() => onPlaceAt(coordinate)}
               onPendingTileClick={
                 pendingTile
                   ? () => onPendingTileClick(pendingTile.tileId)
+                  : undefined
+              }
+              onPendingTilePointerDown={
+                pendingTile && onPendingTilePointerDown
+                  ? (event) =>
+                      onPendingTilePointerDown(pendingTile.tileId, event)
                   : undefined
               }
             />

@@ -1,3 +1,4 @@
+import type { PointerEvent } from "react";
 import styles from "./Tile.module.css";
 
 export type TileVisualVariant = "rack" | "pending" | "committed";
@@ -11,6 +12,10 @@ export interface TileProps {
   readonly isBlank?: boolean;
   readonly onClick?: () => void;
   readonly ariaLabel?: string;
+  /** Starts a drag gesture (roadmap.md Milestone 4.1); has no effect on a plain tap. */
+  readonly onPointerDown?: (event: PointerEvent<HTMLButtonElement>) => void;
+  /** True while this exact tile is the one currently being dragged, so its origin spot dims. */
+  readonly isDragSource?: boolean;
 }
 
 /**
@@ -27,12 +32,16 @@ export function Tile({
   isBlank = false,
   onClick,
   ariaLabel,
+  onPointerDown,
+  isDragSource = false,
 }: TileProps) {
   const classNames = [
     styles.tile,
     styles[variant],
     selected ? styles.selected : "",
     isBlank ? styles.blank : "",
+    onPointerDown ? styles.draggable : "",
+    isDragSource ? styles.dragSource : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -51,6 +60,7 @@ export function Tile({
       type="button"
       className={classNames}
       onClick={onClick}
+      onPointerDown={onPointerDown}
       disabled={disabled}
       aria-pressed={selected}
       aria-label={ariaLabel}

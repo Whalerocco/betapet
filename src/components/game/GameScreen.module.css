@@ -98,3 +98,16 @@
 .shuffleButton:hover {
   background: var(--tile-background-hover);
 }
+
+/*
+ * Follows the pointer during a tile drag (roadmap.md Milestone 4.1). pointer-events: none is
+ * required, not just nice-to-have: without it this element would itself be the hit result of
+ * document.elementFromPoint at the drop coordinate, hiding whatever board cell/rack is under it.
+ */
+.dragPreview {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(var(--shadow-lg));
+}
