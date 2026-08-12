@@ -934,9 +934,28 @@ Prioritize:
 - No hover-only functionality
 - No fixed-desktop assumptions
 
+## Drag-and-drop tile placement
+
+The select-tile-then-select-square interaction (ui-design.md section 11) remains the baseline
+and must keep working on its own.
+
+Add drag-and-drop as the optional enhancement anticipated by `ui-design.md` section 11 and
+`tech-stack.md` section 37:
+
+- Drag a rack tile directly onto an empty board square.
+- Drag a pending tile to another empty square to move it.
+- Drag a pending tile back onto the rack to return it.
+- Support both mouse and touch pointers.
+- Do not require a drag-and-drop library unless native pointer handling becomes unnecessarily
+  complex (tech-stack.md section 37).
+- Keep the click/tap interaction as a fully working fallback; dragging must not be the only way
+  to place, move, or return a tile.
+
 ## Exit criteria
 
 The game is comfortable on desktop/tablet and usable on mobile.
+
+Tiles can be placed, moved, and returned either by click/tap or by drag-and-drop.
 
 ---
 

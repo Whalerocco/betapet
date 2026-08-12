@@ -1240,6 +1240,23 @@ Test and fix:
 
 ---
 
+## T21.5 Drag-and-drop tile placement
+
+Add drag-and-drop as an enhancement on top of the existing select-tile-then-select-square
+interaction (ui-design.md section 11, tech-stack.md section 37).
+
+- [ ] Drag a rack tile onto an empty board square to place it.
+- [ ] Drag a pending tile to another empty square to move it.
+- [ ] Drag a pending tile back onto the rack to return it.
+- [ ] Support mouse and touch pointers.
+- [ ] Keep click/tap-to-place fully working; nothing becomes drag-only.
+- [ ] Do not introduce a drag-and-drop library unless native pointer handling becomes
+      unnecessarily complex.
+- [ ] The `Board`/`Rack` components still only emit placement intent; the engine/application
+      layer keeps deciding legality (ui-design.md section 52-53).
+
+---
+
 # 25. Phase 4A — End-to-end tests
 
 ## T22.1 Normal game flow
