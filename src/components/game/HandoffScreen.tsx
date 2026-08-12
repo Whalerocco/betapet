@@ -18,8 +18,13 @@ export function HandoffScreen({
 }: HandoffScreenProps) {
   return (
     <div className={styles.handoff}>
-      <p>{message}</p>
-      <button type="button" className={styles.primary} onClick={onContinue}>
+      <p role="status">{message}</p>
+      <button
+        type="button"
+        className={styles.primary}
+        onClick={onContinue}
+        autoFocus
+      >
         {continueLabel}
       </button>
     </div>

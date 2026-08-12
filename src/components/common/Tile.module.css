@@ -5,7 +5,11 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  background: var(--tile-background);
+  background: linear-gradient(
+    155deg,
+    var(--tile-background),
+    color-mix(in srgb, var(--tile-background) 88%, var(--tile-border))
+  );
   border: 1px solid var(--tile-border);
   border-radius: var(--radius-sm);
   color: var(--tile-foreground);
@@ -13,11 +17,25 @@
   font-family: inherit;
   padding: 0;
   cursor: default;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
 button.tile {
   cursor: pointer;
+}
+
+button.tile:hover:not(:disabled) {
+  background: linear-gradient(
+    155deg,
+    var(--tile-background-hover),
+    color-mix(in srgb, var(--tile-background-hover) 88%, var(--tile-border))
+  );
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+button.tile:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 button.tile:disabled {
@@ -31,14 +49,15 @@ button.tile:disabled {
 
 .tile.selected {
   border: 2px solid var(--tile-selected-border);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
 }
 
 .blank::before {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 3px;
+  top: 3px;
+  left: 4px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -46,7 +65,7 @@ button.tile:disabled {
 }
 
 .letter {
-  font-size: 1.1rem;
+  font-size: calc(var(--tile-size) * 0.42);
   line-height: 1;
 }
 
@@ -54,6 +73,6 @@ button.tile:disabled {
   position: absolute;
   bottom: 2px;
   right: 3px;
-  font-size: 0.55rem;
+  font-size: calc(var(--tile-size) * 0.2);
   font-weight: 400;
 }

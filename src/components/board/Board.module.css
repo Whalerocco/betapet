@@ -5,6 +5,7 @@
   padding: var(--spacing-sm);
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow-sm);
   width: fit-content;
   max-width: 100%;
   overflow: auto;
@@ -18,8 +19,9 @@
   justify-content: center;
   background: var(--cell-background);
   border: 1px solid var(--cell-border);
-  font-size: 0.6rem;
-  color: var(--foreground);
+  font-size: calc(var(--tile-size) * 0.22);
+  font-weight: 600;
+  color: var(--foreground-muted);
   padding: 0;
   font-family: inherit;
 }
@@ -31,6 +33,7 @@ button.cell.placeable {
 button.cell.placeable:hover {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--cell-background));
 }
 
 .NONE {
@@ -67,5 +70,5 @@ button.cell.placeable:hover {
 
 .START {
   background: var(--cell-start);
-  font-size: 0.9rem;
+  font-size: calc(var(--tile-size) * 0.34);
 }

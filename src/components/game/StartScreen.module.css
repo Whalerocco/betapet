@@ -8,27 +8,46 @@
   text-align: center;
 }
 
+.startScreen h1 {
+  font-size: 2.75rem;
+  letter-spacing: -0.02em;
+}
+
 .primary {
   font-family: inherit;
   font-size: 1.1rem;
   font-weight: 600;
+  min-height: var(--touch-target);
+  min-width: 12rem;
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-foreground);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .startScreen button:not(.primary) {
   font-family: inherit;
   font-size: 1rem;
+  min-height: var(--touch-target);
+  min-width: 12rem;
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
   background: var(--panel-background);
   color: var(--foreground);
   cursor: pointer;
+}
+
+.startScreen button:not(.primary):hover {
+  background: var(--tile-background-hover);
 }
 
 .notice {

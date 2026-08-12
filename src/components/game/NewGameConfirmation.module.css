@@ -17,7 +17,8 @@
 .buttonRow button {
   font-family: inherit;
   font-size: 1rem;
-  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: var(--touch-target);
+  padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
   background: var(--panel-background);
@@ -25,9 +26,19 @@
   cursor: pointer;
 }
 
+.buttonRow button:hover:not(.primary) {
+  background: var(--tile-background-hover);
+  border-color: var(--tile-border);
+}
+
 .primary {
   background: var(--accent);
   color: var(--accent-foreground);
   border-color: var(--accent);
   font-weight: 600;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }

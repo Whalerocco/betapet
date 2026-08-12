@@ -6,14 +6,17 @@
   background: var(--panel-background);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
+  font-weight: 600;
 }
 
 .picker select {
   font-family: inherit;
   font-size: 1rem;
+  min-height: var(--touch-target);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
   background: var(--background);
   color: var(--foreground);
+  cursor: pointer;
 }

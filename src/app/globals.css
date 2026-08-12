@@ -1,6 +1,7 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #fffefb;
+  --foreground: #221d14;
+  --foreground-muted: #6b6152;
   --panel-background: #f7f5f0;
   --panel-border: #ddd6c8;
   --board-background: #ece6d8;
@@ -15,26 +16,59 @@
   --cell-word-x4: #d06a48;
   --cell-start: #d8c090;
   --tile-background: #fdf6e3;
+  --tile-background-hover: #fbeecb;
   --tile-border: #c9b98f;
   --tile-foreground: #3a2f1c;
   --tile-pending-border: #7a9e5c;
   --tile-selected-border: #3a6ea5;
   --accent: #3a6ea5;
+  --accent-hover: #2f5c8a;
   --accent-foreground: #ffffff;
   --danger: #a53a3a;
+  --danger-background: #fbeaea;
+  --success: #4a7a3a;
   --spacing-xs: 0.25rem;
   --spacing-sm: 0.5rem;
   --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
+  --spacing-xl: 2.5rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
-  --tile-size: 2.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-sm: 0 1px 2px rgba(30, 22, 8, 0.12);
+  --shadow-md: 0 2px 8px rgba(30, 22, 8, 0.14);
+  --shadow-lg: 0 8px 24px rgba(30, 22, 8, 0.18);
+  --font-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --tile-size: 2.6rem;
+  --touch-target: 2.75rem;
+  --transition-fast: 120ms ease;
+}
+
+@media (max-width: 56rem) {
+  :root {
+    --tile-size: 2.2rem;
+  }
+}
+
+@media (max-width: 34rem) {
+  :root {
+    --tile-size: 1.85rem;
+  }
+}
+
+@media (max-width: 24rem) {
+  :root {
+    --tile-size: 1.55rem;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0e0d0a;
+    --foreground: #ede8db;
+    --foreground-muted: #a99f8b;
     --panel-background: #171512;
     --panel-border: #322d24;
     --board-background: #1c1a15;
@@ -49,13 +83,20 @@
     --cell-word-x4: #7a3418;
     --cell-start: #4f4322;
     --tile-background: #2b2415;
+    --tile-background-hover: #362a17;
     --tile-border: #5a4d30;
     --tile-foreground: #f0e6c8;
     --tile-pending-border: #7a9e5c;
     --tile-selected-border: #5a9bd6;
     --accent: #5a9bd6;
+    --accent-hover: #78addf;
     --accent-foreground: #0a0a0a;
-    --danger: #d67878;
+    --danger: #e08f8f;
+    --danger-background: #2e1616;
+    --success: #8fc17a;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -75,7 +116,9 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -91,8 +134,44 @@ a {
   text-decoration: none;
 }
 
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+button {
+  font-family: inherit;
+}
+
+button:not(:disabled) {
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

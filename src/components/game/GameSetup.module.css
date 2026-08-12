@@ -7,17 +7,25 @@
   padding: var(--spacing-lg);
 }
 
+.setup h1 {
+  font-size: 1.75rem;
+  text-align: center;
+  margin-bottom: var(--spacing-xs);
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
   border: none;
   padding: 0;
+  font-weight: 600;
 }
 
 .field input[type="text"] {
   font-family: inherit;
   font-size: 1rem;
+  min-height: var(--touch-target);
   padding: var(--spacing-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
@@ -25,11 +33,34 @@
   color: var(--foreground);
 }
 
+.field input[type="text"]:focus-visible {
+  border-color: var(--accent);
+}
+
 .radioOption {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
   font-weight: normal;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.radioOption:has(input:checked) {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.radioOption + .radioOption {
+  margin-top: var(--spacing-xs);
+}
+
+.radioOption input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
 }
 
 .error {
@@ -40,10 +71,17 @@
   font-family: inherit;
   font-size: 1.1rem;
   font-weight: 600;
+  min-height: var(--touch-target);
   padding: var(--spacing-sm) var(--spacing-lg);
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
   background: var(--accent);
   color: var(--accent-foreground);
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }

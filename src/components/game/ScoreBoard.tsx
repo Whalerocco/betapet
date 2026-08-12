@@ -19,7 +19,11 @@ export function ScoreBoard({ players, tilesRemaining }: ScoreBoardProps) {
         {players.map((player) => (
           <span
             key={player.name}
-            className={player.isCurrent ? styles.current : undefined}
+            className={
+              player.isCurrent
+                ? `${styles.player} ${styles.current}`
+                : styles.player
+            }
           >
             {player.name}: {player.score}
           </span>

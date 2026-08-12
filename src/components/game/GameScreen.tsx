@@ -17,11 +17,13 @@ import { useGameController } from "../../application/game-controller/useGameCont
 import { saveLocalGame } from "../../application/persistence/localGameStorage";
 import type { Coordinate } from "../../game/model/coordinate";
 import type { GameState } from "../../game/model/game";
-import type { TileId } from "../../game/model/ids";
+import type { PlayerId, TileId } from "../../game/model/ids";
 import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
 import { Rack, type RackTileView } from "../rack/Rack";
 import { BlankLetterPicker } from "./BlankLetterPicker";
+import { GameHistory } from "./GameHistory";
+import { GameOverScreen } from "./GameOverScreen";
 import styles from "./GameScreen.module.css";
 import { HandoffScreen } from "./HandoffScreen";
 import { OpponentReview } from "./OpponentReview";
@@ -81,20 +83,19 @@ export function GameScreen({
     return result;
   }
 
+  const playerNames = Object.fromEntries(
+    state.players.map((player) => [player.id, player.name]),
+  ) as Record<PlayerId, string>;
+
   if (state.status === "FINISHED") {
     return (
       <div className={styles.gameScreen}>
-        <h1>Spelet är slut</h1>
-        {state.players.map((player) => (
-          <p key={player.id}>
-            {player.name}: {state.result.finalScores[player.id]}
-            {state.result.winnerPlayerIds.includes(player.id) ? " 🏆" : ""}
-          </p>
-        ))}
-        {state.result.winnerPlayerIds.length === 0 && <p>Oavgjort.</p>}
-        <button type="button" onClick={onExit}>
-          Till startsidan
-        </button>
+        <GameOverScreen
+          players={state.players}
+          result={state.result}
+          history={state.history}
+          onNewGame={onExit}
+        />
       </div>
     );
   }
@@ -152,16 +153,6 @@ export function GameScreen({
           </p>
         )}
 
-        <Board
-          boardDefinition={deps.configuration.boardDefinition}
-          boardState={state.board}
-          tiles={state.tiles}
-          pendingPlacedTiles={pendingMove?.placedTiles ?? []}
-          canPlaceSelectedTile={false}
-          onPlaceAt={() => {}}
-          onPendingTileClick={() => {}}
-        />
-
         <OpponentReview
           proposingPlayerName={proposingPlayer.name}
           words={unknownWords}
@@ -169,6 +160,26 @@ export function GameScreen({
           onAccept={handleAccept}
           onReject={handleReject}
         />
+
+        <div className={styles.layout}>
+          <div className={styles.boardColumn}>
+            <Board
+              boardDefinition={deps.configuration.boardDefinition}
+              boardState={state.board}
+              tiles={state.tiles}
+              pendingPlacedTiles={pendingMove?.placedTiles ?? []}
+              canPlaceSelectedTile={false}
+              onPlaceAt={() => {}}
+              onPendingTileClick={() => {}}
+            />
+          </div>
+
+          <GameHistory
+            history={state.history}
+            playerNames={playerNames}
+            defaultOpen={false}
+          />
+        </div>
       </div>
     );
   }
@@ -338,7 +349,9 @@ export function GameScreen({
         tilesRemaining={state.tileBag.tileIds.length}
       />
 
-      <p className={styles.turnIndicator}>Din tur: {currentPlayer.name}</p>
+      <p className={styles.turnIndicator} aria-live="polite">
+        Din tur: {currentPlayer.name}
+      </p>
 
       {errorMessage && (
         <p role="alert" className={styles.error}>
@@ -357,36 +370,46 @@ export function GameScreen({
         />
       )}
 
-      <Board
-        boardDefinition={deps.configuration.boardDefinition}
-        boardState={state.board}
-        tiles={state.tiles}
-        pendingPlacedTiles={state.pendingMove?.placedTiles ?? []}
-        canPlaceSelectedTile={
-          state.turnState.type === "PLAYER_TURN" &&
-          selectedTileId !== undefined &&
-          !selectedIsUnresolvedBlank
-        }
-        onPlaceAt={handlePlaceAt}
-        onPendingTileClick={handlePendingTileClick}
-      />
+      <div className={styles.layout}>
+        <div className={styles.boardColumn}>
+          <Board
+            boardDefinition={deps.configuration.boardDefinition}
+            boardState={state.board}
+            tiles={state.tiles}
+            pendingPlacedTiles={state.pendingMove?.placedTiles ?? []}
+            canPlaceSelectedTile={
+              state.turnState.type === "PLAYER_TURN" &&
+              selectedTileId !== undefined &&
+              !selectedIsUnresolvedBlank
+            }
+            onPlaceAt={handlePlaceAt}
+            onPendingTileClick={handlePendingTileClick}
+          />
 
-      {editingPlacedTile && (
-        <BlankLetterPicker
-          label="Ändra bokstav för den blanka brickan:"
-          alphabet={deps.alphabet}
-          value={editingPlacedTile.representedLetter}
-          onSelect={handleChangeEditingBlankLetter}
+          {editingPlacedTile && (
+            <div className={styles.blankPicker}>
+              <BlankLetterPicker
+                label="Ändra bokstav för den blanka brickan:"
+                alphabet={deps.alphabet}
+                value={editingPlacedTile.representedLetter}
+                onSelect={handleChangeEditingBlankLetter}
+              />
+              <button type="button" onClick={handleRemoveEditingTile}>
+                Ta bort bricka
+              </button>
+            </div>
+          )}
+        </div>
+
+        <GameHistory
+          history={state.history}
+          playerNames={playerNames}
+          defaultOpen={false}
         />
-      )}
-      {editingPlacedTile && (
-        <button type="button" onClick={handleRemoveEditingTile}>
-          Ta bort bricka
-        </button>
-      )}
+      </div>
 
       {state.turnState.type === "PLAYER_TURN" && (
-        <>
+        <div className={styles.footer}>
           <div className={styles.rackRow}>
             <Rack
               tiles={rackTiles}
@@ -425,7 +448,7 @@ export function GameScreen({
             onConfirmExchange={handleConfirmExchange}
             onPass={handlePass}
           />
-        </>
+        </div>
       )}
     </div>
   );
