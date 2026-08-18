@@ -1089,6 +1089,42 @@ Prioritize correctness and friction in the existing game.
 
 ---
 
+# 29a. Milestone 4.5 — Local game modifiers: Crisscross, Replace, Illegal
+
+## Goal
+
+Add the first optional gameplay modifiers a game can be configured with at setup, without requiring additional language dictionaries or tile sets.
+
+Follow `game-modifiers.md`.
+
+## Modifiers introduced in this milestone
+
+- Crisscross mode — place a connected multi-branch cluster of new tiles in one move.
+- Replace mode — place a tile on top of an already-played tile; the displaced tile returns to a rack.
+- Illegal mode — only non-dictionary words may be played, still subject to opponent approval.
+
+## Also implement
+
+- A settings/game-setup UI section for selecting modifiers before starting a game.
+- `GameConfiguration.modifiers`, per `content-model.md`.
+- Engine-level validation of modifier combinations using the compatibility table in `game-modifiers.md` — this must not be a UI-only check.
+
+## Before implementation
+
+Resolve the open questions in `game-modifiers.md` section 11 that apply to these three modifiers (displaced-tile ownership and blank handling for Replace mode; accepted-word and partial-move handling for Illegal mode). Record the resolution in `decisions.md`.
+
+## Do not yet build
+
+- Polyglot mode.
+- Wild mode.
+- Non-rule UI/device preferences (see `game-modifiers.md` section 3) — this milestone is scoped to gameplay modifiers only.
+
+## Exit criteria
+
+A local game can be started with any compatible combination of Crisscross, Replace, and Illegal mode. Each modifier's rule changes behave as specified in `game-modifiers.md` and are covered by engine tests, including tests for their interactions where the compatibility table flags one.
+
+---
+
 # 30. Milestone 5 — Online foundation
 
 Only begin after Version 1 is stable.
@@ -1295,6 +1331,29 @@ But do not assume English uses the same:
 - Board configuration
 
 Each language/ruleset should be explicit.
+
+---
+
+# 37a. Milestone 8.1 — Multi-language game modifiers: Polyglot, Wild
+
+## Goal
+
+Extend the modifier system introduced in Milestone 4.5 with the two modifiers that only make sense once more than one language/dictionary configuration exists.
+
+Follow `game-modifiers.md`.
+
+## Modifiers introduced in this milestone
+
+- Polyglot mode — a word is valid if it exists in any of several selected languages.
+- Wild mode — the active validating language rotates every full round.
+
+## Before implementation
+
+Resolve the open questions in `game-modifiers.md` section 11 that apply to these two modifiers (accepted-vocabulary scope for Wild mode, and whether/how Polyglot and Wild can combine). Record the resolution in `decisions.md`, and update the compatibility table in `game-modifiers.md` if the Polyglot/Wild exclusion changes.
+
+## Exit criteria
+
+A local game configured with two or more languages can be started with Polyglot mode, Wild mode, or neither, and their rule changes behave as specified in `game-modifiers.md`. Polyglot and Wild mode remain mutually exclusive unless the corresponding open question has been explicitly resolved.
 
 ---
 

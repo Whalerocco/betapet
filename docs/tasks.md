@@ -35,10 +35,10 @@ Do not mark a parent section complete until its required child tasks are complet
 
 ## T0.1 Initialize application
 
-- [ ] Create the Next.js application.
-- [ ] Enable TypeScript.
-- [ ] Establish the source structure from `tech-stack.md`.
-- [ ] Confirm the development server runs.
+- [x] Create the Next.js application.
+- [x] Enable TypeScript.
+- [x] Establish the source structure from `tech-stack.md`.
+- [x] Confirm the development server runs.
 
 Acceptance:
 
@@ -52,10 +52,10 @@ starts the application successfully.
 
 ## T0.2 Code quality tooling
 
-- [ ] Configure ESLint.
-- [ ] Configure Prettier if required by the selected setup.
-- [ ] Add useful npm scripts.
-- [ ] Enable appropriately strict TypeScript settings.
+- [x] Configure ESLint.
+- [x] Configure Prettier if required by the selected setup.
+- [x] Add useful npm scripts.
+- [x] Enable appropriately strict TypeScript settings.
 
 Acceptance:
 
@@ -66,9 +66,9 @@ Acceptance:
 
 ## T0.3 Unit-test tooling
 
-- [ ] Configure Vitest.
-- [ ] Configure React Testing Library.
-- [ ] Add one trivial passing test to verify setup.
+- [x] Configure Vitest.
+- [x] Configure React Testing Library.
+- [x] Add one trivial passing test to verify setup.
 
 Acceptance:
 
@@ -82,8 +82,8 @@ or the chosen equivalent runs successfully.
 
 ## T0.4 End-to-end tooling
 
-- [ ] Configure Playwright.
-- [ ] Add a minimal smoke test.
+- [x] Configure Playwright.
+- [x] Add a minimal smoke test.
 
 Acceptance:
 
@@ -93,11 +93,11 @@ The smoke test can launch the application and verify the initial page.
 
 ## T0.5 Continuous integration
 
-- [ ] Add a basic CI workflow.
-- [ ] Run type checking.
-- [ ] Run linting.
-- [ ] Run unit tests.
-- [ ] Run production build.
+- [x] Add a basic CI workflow.
+- [x] Run type checking.
+- [x] Run linting.
+- [x] Run unit tests.
+- [x] Run production build.
 
 Do not add deployment complexity unless separately requested.
 
@@ -107,11 +107,11 @@ Do not add deployment complexity unless separately requested.
 
 ## T1.1 Define fundamental IDs and primitives
 
-- [ ] Define stable game ID type/pattern.
-- [ ] Define player ID.
-- [ ] Define tile ID.
-- [ ] Define coordinate.
-- [ ] Define orientation/direction where needed.
+- [x] Define stable game ID type/pattern.
+- [x] Define player ID.
+- [x] Define tile ID.
+- [x] Define coordinate.
+- [x] Define orientation/direction where needed.
 
 Keep domain types independent of React.
 
@@ -119,11 +119,11 @@ Keep domain types independent of React.
 
 ## T1.2 Define tile model
 
-- [ ] Define tile instance.
-- [ ] Support normal letter tiles.
-- [ ] Support blank tiles.
-- [ ] Ensure blank base score is zero.
-- [ ] Keep represented blank letter separate from physical tile identity.
+- [x] Define tile instance.
+- [x] Support normal letter tiles.
+- [x] Support blank tiles.
+- [x] Ensure blank base score is zero.
+- [x] Keep represented blank letter separate from physical tile identity.
 
 Tests:
 
@@ -135,30 +135,30 @@ Tests:
 
 ## T1.3 Define board model
 
-- [ ] Define board dimensions/configuration.
-- [ ] Define board cells.
-- [ ] Define multiplier/special-square representation.
-- [ ] Define committed board occupancy.
-- [ ] Prevent more than one committed tile per cell.
+- [x] Define board dimensions/configuration.
+- [x] Define board cells.
+- [x] Define multiplier/special-square representation.
+- [x] Define committed board occupancy.
+- [x] Prevent more than one committed tile per cell.
 
 ---
 
 ## T1.4 Define player and rack model
 
-- [ ] Define player.
-- [ ] Define display name.
-- [ ] Define score.
-- [ ] Define rack ownership.
-- [ ] Keep player identity independent of display name.
+- [x] Define player.
+- [x] Define display name.
+- [x] Define score.
+- [x] Define rack ownership.
+- [x] Keep player identity independent of display name.
 
 ---
 
 ## T1.5 Define tile bag
 
-- [ ] Define remaining tile storage.
-- [ ] Support deterministic ordering in tests.
-- [ ] Support random shuffle in normal play.
-- [ ] Implement draw operation.
+- [x] Define remaining tile storage.
+- [x] Support deterministic ordering in tests.
+- [x] Support random shuffle in normal play.
+- [x] Implement draw operation.
 
 Tests:
 
@@ -170,11 +170,11 @@ Tests:
 
 ## T1.6 Define pending move
 
-- [ ] Define pending tile placement.
-- [ ] Associate pending move with proposing player.
-- [ ] Support blank represented letters.
-- [ ] Distinguish pending from committed tiles.
-- [ ] Define relevant pending-move statuses.
+- [x] Define pending tile placement.
+- [x] Associate pending move with proposing player.
+- [x] Support blank represented letters.
+- [x] Distinguish pending from committed tiles.
+- [x] Define relevant pending-move statuses.
 
 ---
 
@@ -191,41 +191,41 @@ WAITING_FOR_OPPONENT_APPROVAL
 FINISHED
 ```
 
-- [ ] Define proposing player where relevant.
-- [ ] Define reviewing player where relevant.
-- [ ] Avoid relying only on `currentPlayerId` to represent review responsibility.
+- [x] Define proposing player where relevant.
+- [x] Define reviewing player where relevant.
+- [x] Avoid relying only on `currentPlayerId` to represent review responsibility.
 
 ---
 
 ## T1.8 Define game history
 
-- [ ] Use structured history events.
-- [ ] Avoid storing presentation strings as authoritative history.
-- [ ] Include event ordering/sequence.
-- [ ] Support normal moves.
-- [ ] Support pass.
-- [ ] Support exchange.
-- [ ] Support unknown-word proposal.
-- [ ] Support acceptance/rejection.
-- [ ] Support game completion.
+- [x] Use structured history events.
+- [x] Avoid storing presentation strings as authoritative history.
+- [x] Include event ordering/sequence.
+- [x] Support normal moves.
+- [x] Support pass.
+- [x] Support exchange.
+- [x] Support unknown-word proposal.
+- [x] Support acceptance/rejection.
+- [x] Support game completion.
 
 ---
 
 ## T1.9 Define game result
 
-- [ ] Define final player scores.
-- [ ] Define winner or tie.
-- [ ] Store any final score adjustments required by rules.
-- [ ] Ensure active games do not contain completed results.
+- [x] Define final player scores.
+- [x] Define winner or tie.
+- [x] Store any final score adjustments required by rules.
+- [x] Ensure active games do not contain completed results.
 
 ---
 
 ## T1.10 Define complete GameState
 
-- [ ] Combine domain concepts into authoritative state.
-- [ ] Keep UI-only state out.
-- [ ] Keep local handoff state out.
-- [ ] Ensure state can be serialized.
+- [x] Combine domain concepts into authoritative state.
+- [x] Keep UI-only state out.
+- [x] Keep local handoff state out.
+- [x] Ensure state can be serialized.
 
 Tests should enforce important invariants from `content-model.md`.
 
@@ -244,12 +244,12 @@ Verify:
 - [ ] Letter distribution.
 - [ ] Letter point values.
 - [ ] Number/value of blank tiles.
-- [ ] Allowed rack sizes.
-- [ ] Bonus for using the complete rack.
-- [ ] Starting-player rule.
-- [ ] Exchange rule.
-- [ ] Pass/end conditions.
-- [ ] Final scoring.
+- [x] Allowed rack sizes.
+- [x] Bonus for using the complete rack.
+- [x] Starting-player rule.
+- [x] Exchange rule.
+- [x] Pass/end conditions.
+- [x] Final scoring.
 
 Do not use Swedish Scrabble values as substitutes.
 
@@ -259,11 +259,11 @@ If reliable sources conflict materially, stop and surface the conflict.
 
 ## T2.2 Encode Swedish tile configuration
 
-- [ ] Create data-driven tile definitions.
-- [ ] Encode every Swedish letter used by the game.
-- [ ] Encode quantities.
-- [ ] Encode point values.
-- [ ] Encode blanks.
+- [x] Create data-driven tile definitions.
+- [x] Encode every Swedish letter used by the game.
+- [x] Encode quantities.
+- [x] Encode point values.
+- [x] Encode blanks.
 
 Tests:
 
@@ -276,9 +276,9 @@ Tests:
 
 ## T2.3 Encode board configuration
 
-- [ ] Encode dimensions.
-- [ ] Encode all special squares.
-- [ ] Keep board data separate from board-state occupancy.
+- [x] Encode dimensions.
+- [x] Encode all special squares.
+- [x] Keep board data separate from board-state occupancy.
 
 Tests:
 
@@ -290,9 +290,9 @@ Tests:
 
 ## T2.4 Encode rack configuration
 
-- [ ] Support the agreed rack-size options: 6, 7, and 8.
-- [ ] Encode the correct all-tiles bonus for each supported rack size.
-- [ ] Avoid scattering these values through engine code.
+- [x] Support the agreed rack-size options: 6, 7, and 8.
+- [x] Encode the correct all-tiles bonus for each supported rack size.
+- [x] Avoid scattering these values through engine code.
 
 ---
 
@@ -300,23 +300,23 @@ Tests:
 
 ## T3.1 Create new game
 
-- [ ] Accept two player names.
-- [ ] Accept rack size.
-- [ ] Create stable player IDs.
-- [ ] Create tile instances.
-- [ ] Shuffle tile bag.
-- [ ] Draw initial racks.
-- [ ] Determine starting player according to rules.
-- [ ] Initialize score/history/turn state.
+- [x] Accept two player names.
+- [x] Accept rack size.
+- [x] Create stable player IDs.
+- [x] Create tile instances.
+- [x] Shuffle tile bag.
+- [x] Draw initial racks.
+- [x] Determine starting player according to rules.
+- [x] Initialize score/history/turn state.
 
 ---
 
 ## T3.2 Deterministic initialization tests
 
-- [ ] Allow injected/random-seed or deterministic tile order.
-- [ ] Verify starting racks.
-- [ ] Verify remaining bag.
-- [ ] Verify starting-player behaviour.
+- [x] Allow injected/random-seed or deterministic tile order.
+- [x] Verify starting racks.
+- [x] Verify remaining bag.
+- [x] Verify starting-player behaviour.
 
 ---
 
@@ -324,34 +324,34 @@ Tests:
 
 ## T4.1 Place tile
 
-- [ ] Only current player can place a rack tile.
-- [ ] Tile must belong to that player.
-- [ ] Target must be available.
-- [ ] Tile becomes pending rather than committed.
+- [x] Only current player can place a rack tile.
+- [x] Tile must belong to that player.
+- [x] Target must be available.
+- [x] Tile becomes pending rather than committed.
 
 ---
 
 ## T4.2 Move pending tile
 
-- [ ] Move a pending tile to another valid empty coordinate.
-- [ ] Preserve tile identity.
-- [ ] Do not allow moving committed tiles.
+- [x] Move a pending tile to another valid empty coordinate.
+- [x] Preserve tile identity.
+- [x] Do not allow moving committed tiles.
 
 ---
 
 ## T4.3 Remove pending tile
 
-- [ ] Return pending tile to the player's rack.
-- [ ] Preserve blank identity/behaviour appropriately.
+- [x] Return pending tile to the player's rack.
+- [x] Preserve blank identity/behaviour appropriately.
 
 ---
 
 ## T4.4 Blank selection
 
-- [ ] Require a represented letter when a blank is placed.
-- [ ] Support Swedish alphabet letters required by the game.
-- [ ] Allow changing represented letter while pending.
-- [ ] Lock represented letter after commit.
+- [x] Require a represented letter when a blank is placed.
+- [x] Support Swedish alphabet letters required by the game.
+- [x] Allow changing represented letter while pending.
+- [x] Lock represented letter after commit.
 
 ---
 
@@ -359,11 +359,11 @@ Tests:
 
 Tests:
 
-- [ ] Opponent tile cannot be placed.
-- [ ] Same tile cannot be placed twice.
-- [ ] Occupied committed cell cannot be overwritten.
-- [ ] Two pending tiles cannot occupy one coordinate.
-- [ ] Committed tile cannot be moved.
+- [x] Opponent tile cannot be placed.
+- [x] Same tile cannot be placed twice.
+- [x] Occupied committed cell cannot be overwritten.
+- [x] Two pending tiles cannot occupy one coordinate.
+- [x] Committed tile cannot be moved.
 
 ---
 
@@ -371,29 +371,29 @@ Tests:
 
 ## T5.1 Validate line alignment
 
-- [ ] All newly placed tiles must satisfy the configured same-line rule.
-- [ ] Reject illegal diagonal/mixed placements.
+- [x] All newly placed tiles must satisfy the configured same-line rule.
+- [x] Reject illegal diagonal/mixed placements.
 
 ---
 
 ## T5.2 Validate gaps
 
-- [ ] Account for committed tiles between newly placed tiles.
-- [ ] Reject illegal empty gaps.
+- [x] Account for committed tiles between newly placed tiles.
+- [x] Reject illegal empty gaps.
 
 ---
 
 ## T5.3 Validate board connection
 
-- [ ] Apply first-move connection/start requirements.
-- [ ] Apply later-move connection requirements.
+- [x] Apply first-move connection/start requirements.
+- [x] Apply later-move connection requirements.
 
 ---
 
 ## T5.4 Validate board boundaries and collisions
 
-- [ ] Reject out-of-range coordinates.
-- [ ] Reject illegal collisions.
+- [x] Reject out-of-range coordinates.
+- [x] Reject illegal collisions.
 
 ---
 
@@ -411,15 +411,15 @@ Do not make the engine depend on UI copy.
 
 Add cases for:
 
-- [ ] Valid first move.
-- [ ] Invalid first move.
-- [ ] Valid horizontal move.
-- [ ] Valid vertical move.
-- [ ] Illegal gap.
-- [ ] Disconnected placement.
-- [ ] Collision.
-- [ ] Extension.
-- [ ] Crossing placement.
+- [x] Valid first move.
+- [x] Invalid first move.
+- [x] Valid horizontal move.
+- [x] Valid vertical move.
+- [x] Illegal gap.
+- [x] Disconnected placement.
+- [x] Collision.
+- [x] Extension.
+- [x] Crossing placement.
 
 ---
 
@@ -427,31 +427,31 @@ Add cases for:
 
 ## T6.1 Build temporary resulting board
 
-- [ ] Overlay pending tiles on committed board for analysis.
-- [ ] Do not commit during validation.
+- [x] Overlay pending tiles on committed board for analysis.
+- [x] Do not commit during validation.
 
 ---
 
 ## T6.2 Detect main word
 
-- [ ] Detect horizontal main word.
-- [ ] Detect vertical main word.
-- [ ] Include adjacent committed tiles.
+- [x] Detect horizontal main word.
+- [x] Detect vertical main word.
+- [x] Include adjacent committed tiles.
 
 ---
 
 ## T6.3 Detect crossing words
 
-- [ ] Check perpendicular words for each newly placed tile.
-- [ ] Ignore non-word single-letter fragments according to the defined rules.
-- [ ] Avoid duplicate word results.
+- [x] Check perpendicular words for each newly placed tile.
+- [x] Ignore non-word single-letter fragments according to the defined rules.
+- [x] Avoid duplicate word results.
 
 ---
 
 ## T6.4 Blank handling
 
-- [ ] Use represented blank letter when constructing words.
-- [ ] Preserve physical blank identity for scoring.
+- [x] Use represented blank letter when constructing words.
+- [x] Preserve physical blank identity for scoring.
 
 ---
 
@@ -459,12 +459,12 @@ Add cases for:
 
 Cover:
 
-- [ ] Main word only.
-- [ ] Main + one crossing word.
-- [ ] Main + multiple crossing words.
-- [ ] Existing-word extension.
-- [ ] One tile creating words in both directions.
-- [ ] Blank inside word.
+- [x] Main word only.
+- [x] Main + one crossing word.
+- [x] Main + multiple crossing words.
+- [x] Existing-word extension.
+- [x] One tile creating words in both directions.
+- [x] Blank inside word.
 
 ---
 
@@ -472,36 +472,36 @@ Cover:
 
 ## T7.1 Score normal letters
 
-- [ ] Use configured Swedish point values.
+- [x] Use configured Swedish point values.
 
 ---
 
 ## T7.2 Score special squares
 
-- [ ] Implement all special-square behaviour defined by the verified board.
-- [ ] Apply a square's effect only when appropriate for newly placed tiles.
-- [ ] Do not reactivate consumed multipliers for old tiles.
+- [x] Implement all special-square behaviour defined by the verified board.
+- [x] Apply a square's effect only when appropriate for newly placed tiles.
+- [x] Do not reactivate consumed multipliers for old tiles.
 
 ---
 
 ## T7.3 Score crossing words
 
-- [ ] Score every newly formed word.
-- [ ] Correctly reuse the newly placed tile in each applicable word calculation.
+- [x] Score every newly formed word.
+- [x] Correctly reuse the newly placed tile in each applicable word calculation.
 
 ---
 
 ## T7.4 Score blanks
 
-- [ ] Blank contributes zero base tile points.
-- [ ] Represented letter still participates in word construction.
+- [x] Blank contributes zero base tile points.
+- [x] Represented letter still participates in word construction.
 
 ---
 
 ## T7.5 Complete-rack bonus
 
-- [ ] Apply the correct bonus when all rack tiles are used.
-- [ ] Respect selected rack size.
+- [x] Apply the correct bonus when all rack tiles are used.
+- [x] Respect selected rack size.
 
 ---
 
@@ -520,13 +520,13 @@ Return a structured result containing enough information for:
 
 Cover:
 
-- [ ] Plain word.
-- [ ] Letter multiplier.
-- [ ] Word multiplier.
-- [ ] Crossing words.
-- [ ] Blank.
-- [ ] Multiple special squares.
-- [ ] Complete-rack bonus.
+- [x] Plain word.
+- [x] Letter multiplier.
+- [x] Word multiplier.
+- [x] Crossing words.
+- [x] Blank.
+- [x] Multiple special squares.
+- [x] Complete-rack bonus.
 
 Use verified expected values.
 
@@ -536,10 +536,10 @@ Use verified expected values.
 
 ## T8.1 Select Swedish dictionary source
 
-- [ ] Choose source.
-- [ ] Verify license.
-- [ ] Document attribution/distribution requirements.
-- [ ] Record dictionary version/source information.
+- [x] Choose source.
+- [x] Verify license.
+- [x] Document attribution/distribution requirements.
+- [x] Record dictionary version/source information.
 
 Do not commit a dictionary with incompatible licensing.
 
@@ -547,34 +547,34 @@ Do not commit a dictionary with incompatible licensing.
 
 ## T8.2 Build preprocessing pipeline
 
-- [ ] Read source data.
-- [ ] Normalize entries.
-- [ ] Transform to runtime format.
-- [ ] Remove unwanted metadata if unnecessary.
-- [ ] Produce deterministic output.
+- [x] Read source data.
+- [x] Normalize entries.
+- [x] Transform to runtime format.
+- [x] Remove unwanted metadata if unnecessary.
+- [x] Produce deterministic output.
 
 ---
 
 ## T8.3 Implement normalization
 
-- [ ] Case normalization.
-- [ ] Unicode normalization.
-- [ ] Correct Å/Ä/Ö handling.
-- [ ] Use one shared normalization function.
+- [x] Case normalization.
+- [x] Unicode normalization.
+- [x] Correct Å/Ä/Ö handling.
+- [x] Use one shared normalization function.
 
 Tests:
 
-- [ ] Upper/lower case.
-- [ ] Swedish letters.
-- [ ] Unicode-equivalent strings.
+- [x] Upper/lower case.
+- [x] Swedish letters.
+- [x] Unicode-equivalent strings.
 
 ---
 
 ## T8.4 Runtime dictionary lookup
 
-- [ ] Load dictionary efficiently.
-- [ ] Support exact normalized membership lookup.
-- [ ] Avoid network dependency during a local game.
+- [x] Load dictionary efficiently.
+- [x] Support exact normalized membership lookup.
+- [x] Avoid network dependency during a local game.
 
 ---
 
@@ -595,9 +595,9 @@ FORBIDDEN_WORD
 
 ## T9.2 Proper names
 
-- [ ] Names are not allowed.
-- [ ] Place names are not allowed.
-- [ ] Implement the strategy defined in `dictionary.md`.
+- [x] Names are not allowed.
+- [x] Place names are not allowed.
+- [x] Implement the strategy defined in `dictionary.md`.
 
 Do not assume absence from the dictionary alone proves a word is a name.
 
@@ -607,11 +607,11 @@ Do not assume absence from the dictionary alone proves a word is a name.
 
 Ensure agreed categories can be legal, including:
 
-- [ ] Countries.
-- [ ] Months.
-- [ ] Weekdays.
-- [ ] Normal verb conjugations.
-- [ ] Plurals.
+- [x] Countries.
+- [x] Months.
+- [x] Weekdays.
+- [x] Normal verb conjugations.
+- [x] Plurals.
 
 Their exact validity may depend on dictionary/rule data.
 
@@ -619,9 +619,9 @@ Their exact validity may depend on dictionary/rule data.
 
 ## T9.4 Abbreviations
 
-- [ ] Abbreviations are generally forbidden.
-- [ ] Support a maintained explicit exception list.
-- [ ] Keep exceptions data-driven.
+- [x] Abbreviations are generally forbidden.
+- [x] Support a maintained explicit exception list.
+- [x] Keep exceptions data-driven.
 
 ---
 
@@ -629,10 +629,10 @@ Their exact validity may depend on dictionary/rule data.
 
 Verify:
 
-- [ ] Dictionary word → `DICTIONARY_WORD`.
-- [ ] Accepted game word → `ACCEPTED_IN_GAME`.
-- [ ] Missing but allowable proposal → `UNKNOWN_WORD`.
-- [ ] Explicitly forbidden form → `FORBIDDEN_WORD`.
+- [x] Dictionary word → `DICTIONARY_WORD`.
+- [x] Accepted game word → `ACCEPTED_IN_GAME`.
+- [x] Missing but allowable proposal → `UNKNOWN_WORD`.
+- [x] Explicitly forbidden form → `FORBIDDEN_WORD`.
 
 ---
 
@@ -640,24 +640,24 @@ Verify:
 
 ## T10.1 Store accepted words per game
 
-- [ ] Normalize before storage.
-- [ ] Scope to one game.
-- [ ] Preserve useful history metadata without creating conflicting sources of truth.
+- [x] Normalize before storage.
+- [x] Scope to one game.
+- [x] Preserve useful history metadata without creating conflicting sources of truth.
 
 ---
 
 ## T10.2 Accepted-word lookup
 
-- [ ] Check accepted vocabulary as part of classification.
-- [ ] Accepted word should not require repeated opponent approval.
+- [x] Check accepted vocabulary as part of classification.
+- [x] Accepted word should not require repeated opponent approval.
 
 ---
 
 ## T10.3 Isolation tests
 
-- [ ] Accepted in Game A does not affect Game B.
-- [ ] Accepted word does not mutate global dictionary.
-- [ ] Case differences do not create duplicate accepted entries.
+- [x] Accepted in Game A does not affect Game B.
+- [x] Accepted word does not mutate global dictionary.
+- [x] Case differences do not create duplicate accepted entries.
 
 ---
 
@@ -683,15 +683,15 @@ Do not mutate committed state during intermediate validation.
 
 Atomically:
 
-- [ ] Commit pending tiles.
-- [ ] Apply score.
-- [ ] Draw replacements.
-- [ ] Update bag.
-- [ ] Record history.
-- [ ] Clear pending move.
-- [ ] Update pass/end counters.
-- [ ] Check game end.
-- [ ] Advance turn if game continues.
+- [x] Commit pending tiles.
+- [x] Apply score.
+- [x] Draw replacements.
+- [x] Update bag.
+- [x] Record history.
+- [x] Clear pending move.
+- [x] Update pass/end counters.
+- [x] Check game end.
+- [x] Advance turn if game continues.
 
 ---
 
@@ -701,13 +701,13 @@ Use `examples/normal-move-example.md`.
 
 Verify:
 
-- [ ] Score applied once.
-- [ ] Pending tiles become committed.
-- [ ] Replacement tiles drawn.
-- [ ] Bag updated.
-- [ ] History created.
-- [ ] Turn advances.
-- [ ] Accepted vocabulary unchanged.
+- [x] Score applied once.
+- [x] Pending tiles become committed.
+- [x] Replacement tiles drawn.
+- [x] Bag updated.
+- [x] History created.
+- [x] Turn advances.
+- [x] Accepted vocabulary unchanged.
 
 ---
 
@@ -715,29 +715,29 @@ Verify:
 
 ## T12.1 Detect unknown word in submitted move
 
-- [ ] Do not commit.
-- [ ] Calculate provisional score.
-- [ ] Store/return all unknown words.
-- [ ] Enter proposer-confirmation state.
+- [x] Do not commit.
+- [x] Calculate provisional score.
+- [x] Store/return all unknown words.
+- [x] Enter proposer-confirmation state.
 
 ---
 
 ## T12.2 Proposer chooses Ändra
 
-- [ ] Return to editable placement.
-- [ ] Preserve pending tiles.
-- [ ] Do not hand off turn.
-- [ ] Do not modify score/bag/history as if rejected by opponent.
+- [x] Return to editable placement.
+- [x] Preserve pending tiles.
+- [x] Do not hand off turn.
+- [x] Do not modify score/bag/history as if rejected by opponent.
 
 ---
 
 ## T12.3 Proposer chooses Spela ändå
 
-- [ ] Enter waiting-for-opponent state.
-- [ ] Identify proposing player.
-- [ ] Identify reviewing opponent.
-- [ ] Preserve complete proposed move.
-- [ ] Do not score or draw yet.
+- [x] Enter waiting-for-opponent state.
+- [x] Identify proposing player.
+- [x] Identify reviewing opponent.
+- [x] Preserve complete proposed move.
+- [x] Do not score or draw yet.
 
 ---
 
@@ -745,33 +745,33 @@ Verify:
 
 Atomically:
 
-- [ ] Verify correct reviewer.
-- [ ] Commit entire move.
-- [ ] Apply score once.
-- [ ] Draw replacements.
-- [ ] Add every unknown word in the move to accepted vocabulary.
-- [ ] Record history.
-- [ ] Advance normal turn to reviewer/opponent.
-- [ ] Check game end.
+- [x] Verify correct reviewer.
+- [x] Commit entire move.
+- [x] Apply score once.
+- [x] Draw replacements.
+- [x] Add every unknown word in the move to accepted vocabulary.
+- [x] Record history.
+- [x] Advance normal turn to reviewer/opponent.
+- [x] Check game end.
 
 ---
 
 ## T12.5 Opponent rejects
 
-- [ ] Verify correct reviewer.
-- [ ] Award no points.
-- [ ] Draw no tiles.
-- [ ] Add no accepted words.
-- [ ] Keep proposing player as turn owner.
-- [ ] Preserve all newly placed tiles as editable pending tiles.
+- [x] Verify correct reviewer.
+- [x] Award no points.
+- [x] Draw no tiles.
+- [x] Add no accepted words.
+- [x] Keep proposing player as turn owner.
+- [x] Preserve all newly placed tiles as editable pending tiles.
 
 ---
 
 ## T12.6 Whole-move approval
 
-- [ ] Multiple unknown words are presented together.
-- [ ] Opponent accepts/rejects whole move.
-- [ ] No per-word partial acceptance.
+- [x] Multiple unknown words are presented together.
+- [x] Opponent accepts/rejects whole move.
+- [x] No per-word partial acceptance.
 
 ---
 
@@ -800,7 +800,7 @@ unknown + forbidden
 
 - [ ] Double acceptance cannot double-score.
 - [ ] Stale rejection cannot undo committed move.
-- [ ] Wrong player cannot review.
+- [x] Wrong player cannot review.
 
 ---
 
@@ -814,22 +814,22 @@ Use `examples/disputed-word-example.md` as the reference scenario.
 
 ## T13.1 Pass
 
-- [ ] Implement pass.
-- [ ] Record history.
-- [ ] Update relevant consecutive-pass state.
-- [ ] Advance turn.
-- [ ] Check end conditions.
+- [x] Implement pass.
+- [x] Record history.
+- [x] Update relevant consecutive-pass state.
+- [x] Advance turn.
+- [x] Check end conditions.
 
 ---
 
 ## T13.2 Tile exchange
 
-- [ ] Select rack tiles.
-- [ ] Validate exchange is permitted.
-- [ ] Return/exchange tiles according to verified rules.
-- [ ] Draw replacements correctly.
-- [ ] Record history.
-- [ ] Advance turn.
+- [x] Select rack tiles.
+- [x] Validate exchange is permitted.
+- [x] Return/exchange tiles according to verified rules.
+- [x] Draw replacements correctly.
+- [x] Record history.
+- [x] Advance turn.
 
 Use deterministic tests.
 
@@ -839,11 +839,11 @@ Use deterministic tests.
 
 Implement all verified end conditions.
 
-- [ ] Detect game end.
-- [ ] Calculate final score adjustments.
-- [ ] Create final result.
-- [ ] Determine winner/tie.
-- [ ] Prevent further gameplay actions.
+- [x] Detect game end.
+- [x] Calculate final score adjustments.
+- [x] Create final result.
+- [x] Determine winner/tie.
+- [x] Prevent further gameplay actions.
 
 ---
 
@@ -853,18 +853,18 @@ Implement all verified end conditions.
 
 Build the initial game entry screen.
 
-- [ ] New local game action.
-- [ ] Resume saved game when available.
+- [x] New local game action.
+- [x] Resume saved game when available.
 
 ---
 
 ## T14.2 Game setup
 
-- [ ] Player 1 name.
-- [ ] Player 2 name.
-- [ ] Rack size: 6 / 7 / 8.
-- [ ] Start game.
-- [ ] Input validation.
+- [x] Player 1 name.
+- [x] Player 2 name.
+- [x] Rack size: 6 / 7 / 8.
+- [x] Start game.
+- [x] Input validation.
 
 Use Swedish UI copy.
 
@@ -872,30 +872,30 @@ Use Swedish UI copy.
 
 ## T14.3 Board component
 
-- [ ] Render complete board.
-- [ ] Render special squares.
-- [ ] Render committed tiles.
-- [ ] Render pending tiles distinctly.
-- [ ] Support interaction on practical screen sizes.
+- [x] Render complete board.
+- [x] Render special squares.
+- [x] Render committed tiles.
+- [x] Render pending tiles distinctly.
+- [x] Support interaction on practical screen sizes.
 
 ---
 
 ## T14.4 Rack component
 
-- [ ] Render active player's rack.
-- [ ] Render letter values.
-- [ ] Support selecting tiles.
-- [ ] Support returning pending tiles.
-- [ ] Never intentionally render opponent rack in active-player view.
+- [x] Render active player's rack.
+- [x] Render letter values.
+- [x] Support selecting tiles.
+- [x] Support returning pending tiles.
+- [x] Never intentionally render opponent rack in active-player view.
 
 ---
 
 ## T14.5 Tile placement interaction
 
-- [ ] Select rack tile and board square.
-- [ ] Move pending tile.
-- [ ] Remove pending tile.
-- [ ] Make touch interaction usable.
+- [x] Select rack tile and board square.
+- [x] Move pending tile.
+- [x] Remove pending tile.
+- [x] Make touch interaction usable.
 
 Do not require drag-and-drop as the only interaction.
 
@@ -905,10 +905,10 @@ Do not require drag-and-drop as the only interaction.
 
 Show:
 
-- [ ] Player names.
-- [ ] Scores.
-- [ ] Current turn/review status.
-- [ ] Remaining tile count.
+- [x] Player names.
+- [x] Scores.
+- [x] Current turn/review status.
+- [x] Remaining tile count.
 
 Do not reveal bag contents.
 
@@ -918,9 +918,9 @@ Do not reveal bag contents.
 
 Add:
 
-- [ ] `Spela`
-- [ ] `Passa`
-- [ ] `Byt brickor`
+- [x] `Spela`
+- [x] `Passa`
+- [x] `Byt brickor`
 
 Enable/disable based on meaningful application/engine state.
 
@@ -932,18 +932,18 @@ Enable/disable based on meaningful application/engine state.
 
 When placing a blank:
 
-- [ ] Ask which letter it represents.
-- [ ] Include Swedish Å, Ä, Ö.
-- [ ] Store choice in pending placement.
-- [ ] Allow change while pending.
+- [x] Ask which letter it represents.
+- [x] Include Swedish Å, Ä, Ö.
+- [x] Store choice in pending placement.
+- [x] Allow change while pending.
 
 ---
 
 ## T15.2 Blank rendering
 
-- [ ] Clearly display represented letter.
-- [ ] Preserve visual distinction if useful.
-- [ ] Do not show normal letter score for blank.
+- [x] Clearly display represented letter.
+- [x] Preserve visual distinction if useful.
+- [x] Do not show normal letter score for blank.
 
 ---
 
@@ -966,10 +966,10 @@ Keep presentation strings outside the engine.
 
 ## T16.2 Forbidden-word feedback
 
-- [ ] Explain that the move cannot be played.
+- [x] Explain that the move cannot be played.
 - [ ] Identify relevant forbidden word(s).
-- [ ] Return user to editing.
-- [ ] Do not offer opponent approval.
+- [x] Return user to editing.
+- [x] Do not offer opponent approval.
 
 ---
 
@@ -981,11 +981,11 @@ When unknown words are found:
 
 Show:
 
-- [ ] Unknown word(s).
-- [ ] Explanation that they are absent from the dictionary.
-- [ ] Provisional score.
-- [ ] `Ändra`.
-- [ ] `Spela ändå`.
+- [x] Unknown word(s).
+- [x] Explanation that they are absent from the dictionary.
+- [x] Provisional score.
+- [x] `Ändra`.
+- [x] `Spela ändå`.
 
 ---
 
@@ -993,12 +993,12 @@ Show:
 
 Show:
 
-- [ ] Proposed board.
-- [ ] Unknown word(s).
-- [ ] Proposer name.
-- [ ] Provisional score.
-- [ ] `Neka`.
-- [ ] `Godkänn`.
+- [x] Proposed board.
+- [x] Unknown word(s).
+- [x] Proposer name.
+- [x] Provisional score.
+- [x] `Neka`.
+- [x] `Godkänn`.
 
 Do not show either rack during review.
 
@@ -1008,9 +1008,9 @@ Do not show either rack during review.
 
 After approval:
 
-- [ ] Explain that move was accepted.
-- [ ] Indicate whose turn begins.
-- [ ] Require explicit `Börja tur` before revealing reviewer/new current player's rack.
+- [x] Explain that move was accepted.
+- [x] Indicate whose turn begins.
+- [x] Require explicit `Börja tur` before revealing reviewer/new current player's rack.
 
 ---
 
@@ -1018,10 +1018,10 @@ After approval:
 
 After rejection:
 
-- [ ] Explain that move was rejected.
-- [ ] Hand device back to proposer.
-- [ ] Reveal proposer rack only after explicit continuation.
-- [ ] Restore rejected pending placement for editing.
+- [x] Explain that move was rejected.
+- [x] Hand device back to proposer.
+- [x] Reveal proposer rack only after explicit continuation.
+- [x] Restore rejected pending placement for editing.
 
 ---
 
@@ -1050,10 +1050,10 @@ Exact names may differ.
 
 After a completed turn:
 
-- [ ] Hide racks.
-- [ ] Show next player's name.
-- [ ] Require `Fortsätt`.
-- [ ] Reveal only next player's rack afterwards.
+- [x] Hide racks.
+- [x] Show next player's name.
+- [x] Require `Fortsätt`.
+- [x] Reveal only next player's rack afterwards.
 
 ---
 
@@ -1061,10 +1061,10 @@ After a completed turn:
 
 After `Spela ändå`:
 
-- [ ] Hide proposer rack.
-- [ ] Show reviewer handoff.
-- [ ] Require explicit continuation.
-- [ ] Open review without showing racks.
+- [x] Hide proposer rack.
+- [x] Show reviewer handoff.
+- [x] Require explicit continuation.
+- [x] Open review without showing racks.
 
 ---
 
@@ -1072,10 +1072,10 @@ After `Spela ändå`:
 
 Test that the wrong rack is not rendered during:
 
-- [ ] Normal handoff.
-- [ ] Opponent review.
-- [ ] Rejection handback.
-- [ ] Resume handoff.
+- [x] Normal handoff.
+- [x] Opponent review.
+- [x] Rejection handback.
+- [x] Resume handoff.
 
 Remember: local privacy is UX privacy, not strong security.
 
@@ -1100,48 +1100,48 @@ gameState
 
 Persist after:
 
-- [ ] Game creation.
-- [ ] Pending placement changes.
-- [ ] Blank changes.
-- [ ] Move commit.
-- [ ] Unknown proposal confirmation.
-- [ ] Acceptance.
-- [ ] Rejection.
-- [ ] Pass.
-- [ ] Exchange.
-- [ ] Game end.
+- [x] Game creation.
+- [x] Pending placement changes.
+- [x] Blank changes.
+- [x] Move commit.
+- [x] Unknown proposal confirmation.
+- [x] Acceptance.
+- [x] Rejection.
+- [x] Pass.
+- [x] Exchange.
+- [x] Game end.
 
 ---
 
 ## T19.3 Load saved game
 
-- [ ] Parse safely.
-- [ ] Validate schema/configuration version.
-- [ ] Handle corrupt data gracefully.
-- [ ] Do not reveal rack immediately.
+- [x] Parse safely.
+- [x] Validate schema/configuration version.
+- [x] Handle corrupt data gracefully.
+- [x] Do not reveal rack immediately.
 
 ---
 
 ## T19.4 Resume normal turn
 
-- [ ] Determine correct player from game state.
-- [ ] Enter neutral handoff.
-- [ ] Restore pending placement.
+- [x] Determine correct player from game state.
+- [x] Enter neutral handoff.
+- [x] Restore pending placement.
 
 ---
 
 ## T19.5 Resume opponent review
 
-- [ ] Determine correct reviewer.
-- [ ] Enter neutral handoff.
-- [ ] Restore proposal exactly.
+- [x] Determine correct reviewer.
+- [x] Enter neutral handoff.
+- [x] Restore proposal exactly.
 
 ---
 
 ## T19.6 Resume after rejection
 
-- [ ] Return to proposing player.
-- [ ] Restore editable rejected placement.
+- [x] Return to proposing player.
+- [x] Restore editable rejected placement.
 
 ---
 
@@ -1149,8 +1149,8 @@ Persist after:
 
 If an unfinished game exists:
 
-- [ ] Warn before replacing it.
-- [ ] Replace only after confirmation.
+- [x] Warn before replacing it.
+- [x] Replace only after confirmation.
 
 ---
 
@@ -1168,12 +1168,12 @@ Render structured events as Swedish presentation.
 
 Support at least:
 
-- [ ] Word move + score.
-- [ ] Pass.
-- [ ] Exchange.
-- [ ] Unknown-word proposal.
-- [ ] Acceptance.
-- [ ] Rejection.
+- [x] Word move + score.
+- [x] Pass.
+- [x] Exchange.
+- [x] Unknown-word proposal.
+- [x] Acceptance.
+- [x] Rejection.
 
 ---
 
@@ -1181,10 +1181,10 @@ Support at least:
 
 Show:
 
-- [ ] Final scores.
-- [ ] Final adjustments.
-- [ ] Winner or tie.
-- [ ] New-game action.
+- [x] Final scores.
+- [x] Final adjustments.
+- [x] Winner or tie.
+- [x] New-game action.
 
 ---
 
@@ -1196,14 +1196,14 @@ Follow `ui-design.md`.
 
 Improve:
 
-- [ ] Typography.
-- [ ] Spacing.
-- [ ] Board readability.
-- [ ] Tile appearance.
-- [ ] Score hierarchy.
-- [ ] Dialogs.
-- [ ] Handoff states.
-- [ ] History.
+- [x] Typography.
+- [x] Spacing.
+- [x] Board readability.
+- [x] Tile appearance.
+- [x] Score hierarchy.
+- [x] Dialogs.
+- [x] Handoff states.
+- [x] History.
 
 Do not sacrifice rule clarity for decoration.
 
@@ -1222,21 +1222,21 @@ Test and fix:
 
 ## T21.3 Touch usability
 
-- [ ] Adequate touch targets.
-- [ ] No essential hover-only controls.
-- [ ] Board/rack interaction works without precise mouse input.
+- [x] Adequate touch targets.
+- [x] No essential hover-only controls.
+- [x] Board/rack interaction works without precise mouse input.
 
 ---
 
 ## T21.4 Accessibility
 
-- [ ] Semantic controls.
-- [ ] Visible keyboard focus.
-- [ ] Form labels.
+- [x] Semantic controls.
+- [x] Visible keyboard focus.
+- [x] Form labels.
 - [ ] Dialog focus management.
-- [ ] Keyboard-operable core actions.
-- [ ] Do not rely only on color.
-- [ ] Respect reduced-motion preferences where animations exist.
+- [x] Keyboard-operable core actions.
+- [x] Do not rely only on color.
+- [x] Respect reduced-motion preferences where animations exist.
 
 ---
 
@@ -1245,14 +1245,14 @@ Test and fix:
 Add drag-and-drop as an enhancement on top of the existing select-tile-then-select-square
 interaction (ui-design.md section 11, tech-stack.md section 37).
 
-- [ ] Drag a rack tile onto an empty board square to place it.
-- [ ] Drag a pending tile to another empty square to move it.
-- [ ] Drag a pending tile back onto the rack to return it.
-- [ ] Support mouse and touch pointers.
-- [ ] Keep click/tap-to-place fully working; nothing becomes drag-only.
-- [ ] Do not introduce a drag-and-drop library unless native pointer handling becomes
+- [x] Drag a rack tile onto an empty board square to place it.
+- [x] Drag a pending tile to another empty square to move it.
+- [x] Drag a pending tile back onto the rack to return it.
+- [x] Support mouse and touch pointers.
+- [x] Keep click/tap-to-place fully working; nothing becomes drag-only.
+- [x] Do not introduce a drag-and-drop library unless native pointer handling becomes
       unnecessarily complex.
-- [ ] The `Board`/`Rack` components still only emit placement intent; the engine/application
+- [x] The `Board`/`Rack` components still only emit placement intent; the engine/application
       layer keeps deciding legality (ui-design.md section 52-53).
 
 ---
@@ -1372,6 +1372,62 @@ correctness
 ```
 
 Do not begin online multiplayer merely to avoid fixing local-game issues.
+
+---
+
+# 27a. Phase 4D — Local game modifiers (Crisscross, Replace, Illegal)
+
+Follow `game-modifiers.md`. Do not begin until the open questions in its section 11 that apply to
+these three modifiers have been resolved and recorded in `decisions.md`.
+
+## T32.1 Modifier selection and compatibility validation
+
+- [ ] Add `modifiers` to `GameConfiguration` per `content-model.md` section 8.
+- [ ] Implement the compatibility check (`game-modifiers.md` section 5) as engine-level
+      validation at game-configuration time, not only a UI-level restriction.
+- [ ] Add a settings/game-setup UI section for selecting modifiers before starting a game.
+- [ ] Test that an incompatible combination is rejected by the engine even if a caller bypasses
+      the UI.
+
+---
+
+## T32.2 Crisscross mode
+
+- [ ] Relax physical placement validation to allow a connected multi-branch cluster of new tiles,
+      per `game-modifiers.md` section 6.
+- [ ] Verify word detection correctly derives and scores every word formed by a multi-branch
+      placement, including two or more lines composed entirely of new tiles.
+- [ ] Test a T-shaped and a plus-shaped placement, each forming multiple new words.
+- [ ] Test that a disconnected new-tile island is still rejected.
+- [ ] Test first-move-must-cover-centre and connect-to-existing-board rules against the cluster
+      as a whole, per section 6's clarification.
+
+---
+
+## T32.3 Replace mode
+
+- [ ] Allow a move to place a new tile on a committed board cell; move the displaced tile to the
+      replacing player's rack, per `game-modifiers.md` section 7.
+- [ ] Implement the same-turn replace-chaining restriction on a freshly displaced tile, and its
+      expiry after one full turn.
+- [ ] Reject a replace placement targeting a cell that is part of the current pending move.
+- [ ] Confirm multiplier squares do not reactivate on a replace placement.
+- [ ] Re-derive and validate/score the words affected by the replaced cell through the normal
+      pipeline, including the disputed-word flow when applicable.
+- [ ] Implement the resolved open question on displaced blank-tile handling
+      (`game-modifiers.md` section 11, item 2).
+- [ ] Test that earlier committed moves keep their already-awarded score after a later replace.
+
+---
+
+## T32.4 Illegal mode
+
+- [ ] Block committing a move that forms a `DICTIONARY_WORD`, per `game-modifiers.md` section 8.
+- [ ] Route every move through the proposal/approval flow, per the resolved open question on
+      partially-dictionary-valid multi-word moves (`game-modifiers.md` section 11, item 4).
+- [ ] Implement the resolved open question on `ACCEPTED_IN_GAME` word handling
+      (`game-modifiers.md` section 11, item 3).
+- [ ] Confirm `FORBIDDEN_WORD` (one-letter words) remains blocked unchanged.
 
 ---
 
@@ -1594,6 +1650,42 @@ English
 But verify and define its rules independently.
 
 Do not reuse Swedish values accidentally.
+
+---
+
+# 35a. Phase 8A — Multi-language game modifiers (Polyglot, Wild)
+
+Follow `game-modifiers.md`. Do not begin until the open questions in its section 11 that apply to
+these two modifiers have been resolved and recorded in `decisions.md`.
+
+## T33.1 Polyglot mode
+
+- [ ] Configure a game with two or more selected languages.
+- [ ] Evaluate dictionary membership as valid if any selected language's dictionary matches, per
+      `game-modifiers.md` section 9.
+- [ ] Test a word valid in one selected language but not another is classified `DICTIONARY_WORD`.
+- [ ] Implement the resolved Illegal + Polyglot interaction (`game-modifiers.md` section 11,
+      item 5) if Illegal mode is also selected.
+
+---
+
+## T33.2 Wild mode
+
+- [ ] Configure a game with an ordered list of two or more languages.
+- [ ] Rotate the active validating language after every full round, cycling back to the start.
+- [ ] Implement the resolved open question on accepted-vocabulary scope across a language
+      rotation (`game-modifiers.md` section 11, item 6).
+- [ ] Test that a move is validated against whichever language was active at commit time, not the
+      currently active language after later rotations.
+
+---
+
+## T33.3 Polyglot and Wild combination
+
+- [ ] Keep Polyglot and Wild mutually exclusive in the compatibility table unless/until the
+      project owner resolves `game-modifiers.md` section 11 item 7.
+- [ ] If resolved to allow combination, implement and test the agreed combined behaviour, and
+      update the compatibility table in `game-modifiers.md`.
 
 ---
 

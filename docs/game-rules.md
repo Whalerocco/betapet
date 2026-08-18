@@ -636,6 +636,8 @@ A future language/game configuration may define:
 
 The core engine should not contain Swedish-specific assumptions unless those assumptions are part of the configured Swedish rule set.
 
+Separately, the game also plans optional, opt-in **gameplay modifiers** that deliberately override specific sections of this document when a game is explicitly configured to use them — for example allowing non-linear tile placement in one move, or allowing a tile to be placed on top of an already-played tile. These are specified in `game-modifiers.md` and are not part of the standard rule set described in this document unless a game explicitly enables them.
+
 ---
 
 ## 34. Rule authority and unresolved verification

@@ -163,8 +163,11 @@ GameConfiguration
 ├── rackSize
 ├── dictionaryDefinition
 ├── wordRules
-└── scoringRules
+├── scoringRules
+└── modifiers
 ```
+
+`modifiers` records which optional gameplay modifiers (see `game-modifiers.md`) are active for this game, plus any modifier-specific settings, such as the selected language list used by Polyglot or Wild mode. An absent or empty selection means the standard rule set described in `game-rules.md` applies unchanged. `modifiers` is not implemented for Version 1; it is reserved here so the field does not need to be retrofitted later.
 
 For Version 1:
 
@@ -880,6 +883,8 @@ handoffRequired = true
 ```
 
 is a UI/privacy flow concern, not an Alfapet rule.
+
+Non-rule UI/device preferences (for example a visual theme, or an animation preference) belong here conceptually, not in `GameConfiguration.modifiers` (section 8) — the two must not be merged. See `game-modifiers.md` section 3 for this distinction.
 
 ---
 
