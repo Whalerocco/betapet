@@ -1,0 +1,60 @@
+import { expect, test } from "@playwright/test";
+import {
+  continueHandoff,
+  findTwoLetterWord,
+  getCurrentPlayerName,
+  getRackLetters,
+  otherPlayerName,
+  placeWordAtCentre,
+  startNewGame,
+  submitMove,
+} from "./helpers";
+
+// roadmap.md Milestone 4.3 / tasks.md T22.2: unknown move -> proposer confirms -> review
+// handoff -> opponent accepts -> move commits -> opponent starts their own turn.
+test("an unknown word can be proposed, accepted, and commits the move", async ({
+  page,
+}) => {
+  await startNewGame(page);
+  await continueHandoff(page);
+
+  const proposer = await getCurrentPlayerName(page);
+  const reviewer = otherPlayerName(proposer);
+
+  const rackLetters = await getRackLetters(page);
+  const pick = findTwoLetterWord(rackLetters, ["UNKNOWN_WORD"]);
+  test.skip(
+    !pick,
+    `No two-letter non-dictionary combination could be formed from this rack: ${rackLetters.join(", ")}`,
+  );
+  if (!pick) return;
+
+  await placeWordAtCentre(page, pick.letters);
+  await submitMove(page);
+
+  const noticeDialog = page.getByRole("dialog", { name: "Okänt ord" });
+  await expect(noticeDialog).toBeVisible();
+  await expect(noticeDialog).toContainText(pick.word);
+  await noticeDialog.getByRole("button", { name: "Spela ändå" }).click();
+
+  await expect(
+    page.getByText(`behöver ta ställning till ${proposer}s läggning`),
+  ).toBeVisible();
+  await continueHandoff(page);
+
+  await expect(page.getByText(`vill spela "${pick.word}"`)).toBeVisible();
+  await page.getByRole("button", { name: "Godkänn" }).click();
+
+  await expect(page.getByText("Läggningen godkändes.")).toBeVisible();
+  await continueHandoff(page);
+
+  // The reviewer's own turn now begins, and the word is a committed part of the board.
+  await expect(page.getByText(`Din tur: ${reviewer}`)).toBeVisible();
+  await expect(page.locator('[data-coordinate="7,7"]')).toContainText(
+    pick.word[0],
+  );
+});
+
+// Reusing an accepted word for the remainder of the game is covered at the engine level
+// (roadmap.md Milestone 2.3); reproducing it here would need a rack containing the exact
+// letters to replay the same word, which isn't controllable through the UI alone.
