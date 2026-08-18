@@ -1213,10 +1213,10 @@ Do not sacrifice rule clarity for decoration.
 
 Test and fix:
 
-- [ ] Desktop.
-- [ ] Tablet.
-- [ ] Mobile portrait.
-- [ ] Mobile landscape where practical.
+- [x] Desktop.
+- [x] Tablet.
+- [x] Mobile portrait.
+- [x] Mobile landscape where practical.
 
 ---
 
@@ -1233,7 +1233,7 @@ Test and fix:
 - [x] Semantic controls.
 - [x] Visible keyboard focus.
 - [x] Form labels.
-- [ ] Dialog focus management.
+- [x] Dialog focus management.
 - [x] Keyboard-operable core actions.
 - [x] Do not rely only on color.
 - [x] Respect reduced-motion preferences where animations exist.
@@ -1308,16 +1308,16 @@ unknown move
 
 Automate at least:
 
-- [ ] Refresh during normal pending move.
-- [ ] Refresh awaiting review.
-- [ ] Refresh after rejection.
+- [x] Refresh during normal pending move.
+- [x] Refresh awaiting review.
+- [x] Refresh after rejection.
 
 ---
 
 ## T22.5 Complete-game scenario
 
-- [ ] Drive a deterministic game into an end condition.
-- [ ] Verify final scoring/result.
+- [x] Drive a deterministic game into an end condition.
+- [x] Verify final scoring/result.
 
 ---
 
