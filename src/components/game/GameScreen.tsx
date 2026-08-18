@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent } from "react";
 import { describeGameError } from "../../application/game-controller/errorMessages";
 import type {
   GameAction,
@@ -23,6 +23,7 @@ import type { GameState } from "../../game/model/game";
 import type { PlayerId, TileId } from "../../game/model/ids";
 import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
+import { Dialog } from "../common/Dialog";
 import { Tile } from "../common/Tile";
 import type { DragPointerPosition } from "../common/useTileDrag";
 import { useTileDrag } from "../common/useTileDrag";
@@ -94,6 +95,14 @@ export function GameScreen({
     new Set(),
   );
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  /**
+   * Submitting a move that turns out unknown flips turnState.type away from PLAYER_TURN, which
+   * unmounts the whole footer — including the "Spela" button that triggered it — before
+   * UnknownWordNotice's Dialog ever mounts. Capturing it here, synchronously in the click
+   * handler, is the only point where it's still the actually-focused element (Dialog.tsx
+   * restoreFocusTo doc).
+   */
+  const submitTriggerRef = useRef<Element | null>(null);
   /**
    * Hooks must run unconditionally before any of the early returns below (Rules of Hooks), so
    * this is wired here even though `handleTileDrop` — a plain hoisted function declaration — is
@@ -407,6 +416,7 @@ export function GameScreen({
   }
 
   function handleSubmit() {
+    submitTriggerRef.current = document.activeElement;
     dispatchTracked({ type: "SUBMIT_MOVE", playerId: currentPlayerId });
   }
 
@@ -462,13 +472,23 @@ export function GameScreen({
   }
 
   const hasPendingMove = state.pendingMove !== undefined;
+  /**
+   * REQUIRES_PLAYER_CONFIRMATION keeps the footer mounted (not just PLAYER_TURN) so the "Spela"
+   * button that opens UnknownWordNotice's dialog stays an attached, focusable DOM node — a
+   * detached element can't receive focus back when the dialog closes (Dialog.tsx restoreFocusTo
+   * doc). The dialog's native backdrop/inert behaviour already prevents any real interaction
+   * with this footer while it's open, so leaving these enabled underneath is safe.
+   */
+  const footerActive =
+    state.turnState.type === "PLAYER_TURN" ||
+    state.turnState.type === "REQUIRES_PLAYER_CONFIRMATION";
   const canSubmit =
-    state.turnState.type === "PLAYER_TURN" &&
+    footerActive &&
     hasPendingMove &&
     (state.pendingMove?.placedTiles.length ?? 0) > 0;
-  const canPass = state.turnState.type === "PLAYER_TURN" && !hasPendingMove;
+  const canPass = footerActive && !hasPendingMove;
   const canStartExchange = canPass;
-  const canClear = state.turnState.type === "PLAYER_TURN" && hasPendingMove;
+  const canClear = footerActive && hasPendingMove;
   const dragOverCoordinate = dragState
     ? resolveDropTarget(dragState.position).coordinate
     : undefined;
@@ -502,6 +522,7 @@ export function GameScreen({
           scorePreview={state.pendingMove?.scorePreview?.total ?? 0}
           onEdit={handleCancelProposal}
           onConfirm={handleConfirmProposal}
+          restoreFocusTo={submitTriggerRef}
         />
       )}
 
@@ -525,17 +546,22 @@ export function GameScreen({
           />
 
           {editingPlacedTile && (
-            <div className={styles.blankPicker}>
-              <BlankLetterPicker
-                label="Ändra bokstav för den blanka brickan:"
-                alphabet={deps.alphabet}
-                value={editingPlacedTile.representedLetter}
-                onSelect={handleChangeEditingBlankLetter}
-              />
-              <button type="button" onClick={handleRemoveEditingTile}>
-                Ta bort bricka
-              </button>
-            </div>
+            <Dialog
+              titleText="Ändra bokstav för den blanka brickan"
+              onClose={() => setEditingBlankTileId(undefined)}
+            >
+              <div className={styles.blankPicker}>
+                <BlankLetterPicker
+                  label="Ändra bokstav för den blanka brickan:"
+                  alphabet={deps.alphabet}
+                  value={editingPlacedTile.representedLetter}
+                  onSelect={handleChangeEditingBlankLetter}
+                />
+                <button type="button" onClick={handleRemoveEditingTile}>
+                  Ta bort bricka
+                </button>
+              </div>
+            </Dialog>
           )}
         </div>
 
@@ -546,7 +572,7 @@ export function GameScreen({
         />
       </div>
 
-      {state.turnState.type === "PLAYER_TURN" && (
+      {footerActive && (
         <div className={styles.footer}>
           <div className={styles.rackRow}>
             <Rack
@@ -568,12 +594,17 @@ export function GameScreen({
           </div>
 
           {selectedIsUnresolvedBlank && (
-            <BlankLetterPicker
-              label="Vilken bokstav ska den blanka brickan vara?"
-              alphabet={deps.alphabet}
-              value={pendingBlankLetter}
-              onSelect={setPendingBlankLetter}
-            />
+            <Dialog
+              titleText="Välj bokstav för den blanka brickan"
+              onClose={clearSelection}
+            >
+              <BlankLetterPicker
+                label="Vilken bokstav ska den blanka brickan vara?"
+                alphabet={deps.alphabet}
+                value={pendingBlankLetter}
+                onSelect={setPendingBlankLetter}
+              />
+            </Dialog>
           )}
 
           <TurnActions

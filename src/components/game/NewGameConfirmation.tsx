@@ -1,3 +1,4 @@
+import { Dialog } from "../common/Dialog";
 import styles from "./NewGameConfirmation.module.css";
 
 export interface NewGameConfirmationProps {
@@ -11,17 +12,23 @@ export function NewGameConfirmation({
   onConfirm,
 }: NewGameConfirmationProps) {
   return (
-    <div className={styles.confirmation}>
-      <p>Det finns redan ett pågående spel.</p>
-      <p>Vill du avsluta det och starta ett nytt?</p>
-      <div className={styles.buttonRow}>
-        <button type="button" onClick={onCancel}>
-          Avbryt
-        </button>
-        <button type="button" className={styles.primary} onClick={onConfirm}>
-          Starta nytt
-        </button>
+    <Dialog titleText="Starta nytt spel?" onClose={onCancel}>
+      <div className={styles.confirmation}>
+        <p>Det finns redan ett pågående spel.</p>
+        <p>Vill du avsluta det och starta ett nytt?</p>
+        <div className={styles.buttonRow}>
+          <button type="button" onClick={onCancel}>
+            Avbryt
+          </button>
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={onConfirm}
+          >
+            Starta nytt
+          </button>
+        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

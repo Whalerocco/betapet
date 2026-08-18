@@ -1,3 +1,5 @@
+import type { RefObject } from "react";
+import { Dialog } from "../common/Dialog";
 import styles from "./UnknownWordNotice.module.css";
 
 export interface UnknownWordNoticeProps {
@@ -5,6 +7,8 @@ export interface UnknownWordNoticeProps {
   readonly scorePreview: number;
   readonly onEdit: () => void;
   readonly onConfirm: () => void;
+  /** Forwarded to Dialog — see its restoreFocusTo doc. */
+  readonly restoreFocusTo?: RefObject<Element | null>;
 }
 
 /**
@@ -17,22 +21,33 @@ export function UnknownWordNotice({
   scorePreview,
   onEdit,
   onConfirm,
+  restoreFocusTo,
 }: UnknownWordNoticeProps) {
   const wordList = words.map((word) => `"${word}"`).join(", ");
 
   return (
-    <div className={styles.notice}>
-      <p>{wordList} finns inte i ordlistan.</p>
-      <p>{scorePreview} poäng om läggningen godkänns.</p>
-      <p>Vill du spela läggningen ändå?</p>
-      <div className={styles.buttonRow}>
-        <button type="button" onClick={onEdit}>
-          Ändra
-        </button>
-        <button type="button" className={styles.primary} onClick={onConfirm}>
-          Spela ändå
-        </button>
+    <Dialog
+      titleText="Okänt ord"
+      onClose={onEdit}
+      restoreFocusTo={restoreFocusTo}
+    >
+      <div className={styles.notice}>
+        <p>{wordList} finns inte i ordlistan.</p>
+        <p>{scorePreview} poäng om läggningen godkänns.</p>
+        <p>Vill du spela läggningen ändå?</p>
+        <div className={styles.buttonRow}>
+          <button type="button" onClick={onEdit}>
+            Ändra
+          </button>
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={onConfirm}
+          >
+            Spela ändå
+          </button>
+        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
