@@ -41,27 +41,16 @@
   --font-sans:
     var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, sans-serif;
-  --tile-size: 2.6rem;
+  /*
+   * Scales continuously with viewport width instead of jumping between fixed breakpoints, so the
+   * 15-column board's actual rendered width (15 tiles + 14 1px gaps + board padding + page
+   * padding, ~4rem of non-tile chrome) never exceeds the viewport on narrow phones. The 1.25rem
+   * floor keeps tiles legible; below ~364px width the board falls back to the horizontal
+   * scrolling ui-design.md section 41 already allows for tight mobile space management.
+   */
+  --tile-size: clamp(1.15rem, calc((100vw - 4rem) / 15), 2.6rem);
   --touch-target: 2.75rem;
   --transition-fast: 120ms ease;
-}
-
-@media (max-width: 56rem) {
-  :root {
-    --tile-size: 2.2rem;
-  }
-}
-
-@media (max-width: 34rem) {
-  :root {
-    --tile-size: 1.85rem;
-  }
-}
-
-@media (max-width: 24rem) {
-  :root {
-    --tile-size: 1.55rem;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
