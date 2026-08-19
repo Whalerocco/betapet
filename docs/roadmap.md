@@ -1109,9 +1109,7 @@ Follow `game-modifiers.md`.
 - `GameConfiguration.modifiers`, per `content-model.md`.
 - Engine-level validation of modifier combinations using the compatibility table in `game-modifiers.md` — this must not be a UI-only check.
 
-## Before implementation
-
-Resolve the open questions in `game-modifiers.md` section 11 that apply to these three modifiers (displaced-tile ownership and blank handling for Replace mode; accepted-word and partial-move handling for Illegal mode). Record the resolution in `decisions.md`.
+Resolved by DEC-008: displaced-tile ownership and blank handling for Replace mode; accepted-word and partial-move handling for Illegal mode.
 
 ## Do not yet build
 

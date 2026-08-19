@@ -127,22 +127,19 @@ Scoring itself follows the standard rules unchanged: every newly covered square'
 
 ### Summary
 
-A player may place a new tile on a board cell that already holds a committed tile, instead of only on an empty cell. The displaced tile returns to the current player's rack.
+A player may place a new tile on a board cell that already holds a committed tile, instead of only on an empty cell. The displaced tile returns to the *replacing* player's rack (DEC-008) — a player may take a tile the opponent had on the board.
 
 ### Rule change
 
 This overrides the implicit assumption throughout `game-rules.md` sections 7–8 that a move only ever places tiles on empty cells, and modifies section 28 ("tiles cannot normally be moved after a completed turn") for this specific case.
 
 - A move may include one or more "replace placements": a new tile placed on a cell that currently holds a previously committed tile.
-- When a replace placement is committed, the tile it displaced is removed from the board and added to the current player's rack.
+- When a replace placement is committed, the tile it displaced is removed from the board and added to the *replacing* player's rack (DEC-008) — not returned to whichever player originally played it.
+- If the displaced tile is a blank, it resets to a reusable blank: its previous represented-letter assignment is discarded, and it can be assigned a different letter the next time it's played, the same as a blank that was never committed (DEC-008).
 - A displaced tile is temporarily restricted: for the remainder of the turn in which it was displaced, if the same player plays it again that turn, it may only be placed on an empty cell (it cannot itself be used to displace another tile in the same turn — no replace-chaining within one move). Once at least one full turn has passed with the tile still in the player's rack, this restriction lifts and the tile becomes usable exactly like any other rack tile, including for another replace placement.
 - A replace placement may only target a *committed* board tile. It cannot target a tile that is part of the current player's own not-yet-committed pending move (use the normal move/remove-pending-tile actions for that instead).
 - Multiplier squares are unaffected by a replace: per section 22/23, a square's multiplier only applies the first time it is covered, and a replaced cell was already covered before. A replace placement scores only the newly placed tile's letter value at that position (times any surviving word multiplier for the word, as usual — the cell's own letter/word multiplier does not reactivate).
 - The words affected by a replace are re-derived exactly like any other move: the horizontal and vertical runs through the replaced cell are "words affected by this move" per section 9, and go through the normal validation/scoring/dictionary pipeline (including the disputed-word flow if the resulting word is unknown). Earlier, already-committed moves keep the score they were already awarded; replacing a tile does not retroactively change history.
-
-### Open questions
-
-See section 11 — blank-tile handling and which player's rack receives the displaced tile both need a decision before implementation.
 
 ---
 
@@ -156,13 +153,10 @@ Only words that are *not* recognized as standard dictionary words may be played.
 
 This overrides `game-rules.md` section 11 (standard dictionary validity) for the purpose of what may be *submitted*, without changing section 15–19's approval mechanic itself:
 
-- A move may not be committed if it forms a word classified `DICTIONARY_WORD` (`dictionary.md`).
-- Every move's formed words must instead go through the proposal/approval flow described in section 15–19, exactly as an ordinary unknown word does today.
+- A move may not be submitted at all if *any* word it forms classifies as `DICTIONARY_WORD` (DEC-008) — not only when every word does. This is stricter than today's ordinary multi-word approval unit, which only needs one non-dictionary word to enter the proposal flow; under Illegal mode, every formed word must be non-dictionary.
+- `ACCEPTED_IN_GAME` words remain playable (DEC-008): Illegal mode only blocks `DICTIONARY_WORD`, treating previously-accepted words as their own category rather than folding them back into "dictionary word" once accepted.
+- Every submittable move's formed words go through the proposal/approval flow described in section 15–19, exactly as an ordinary unknown word does today.
 - `FORBIDDEN_WORD` (currently: one-letter words only, per `decisions.md` DEC-007) is unaffected — those remain hard-blocked in Illegal mode too.
-
-### Open questions
-
-Whether `ACCEPTED_IN_GAME` words (previously approved this game) remain playable, and how a partially-dictionary-valid multi-word move is treated, are open — see section 11.
 
 ---
 
@@ -210,13 +204,18 @@ Whether accepted vocabulary is scoped per active language or shared across the w
 
 Do not resolve these silently during implementation. Each should become a `decisions.md` entry once answered, and this document updated to match.
 
-1. **Replace mode — which rack receives the displaced tile.** Section 7 assumes the replacing player's own rack. Confirm this is intended (it lets a player take tiles the opponent originally played), rather than, for example, returning the tile to its original player.
-2. **Replace mode — displaced blank tiles.** `game-rules.md` section 20 says a blank's represented letter is "permanently" fixed once committed. If a blank tile is displaced back to a rack under Replace mode, does it reset to a reusable blank, or keep representing its old letter forever? Both are defensible; this document does not choose one.
-3. **Illegal mode — `ACCEPTED_IN_GAME` words.** Once a word has been accepted into a game's vocabulary (section 17 of `game-rules.md`), is it still playable under Illegal mode (since it's now "accepted," arguably no longer illegal), or does it remain playable only because it is still not a *standard* dictionary word? Needs an explicit answer.
-4. **Illegal mode — partially-dictionary-valid multi-word moves.** If a single move forms several words and only some are dictionary words, is the whole move blocked (strict reading of "only illegal words are allowed"), or is it treated like today's multi-word approval unit (blocked only if *no* word in the move is non-dictionary)? Needs an explicit answer.
-5. **Illegal + Polyglot interaction detail.** Confirmed direction (a word must be illegal in every selected language) is recorded in section 8's compatibility notes as the working assumption, but has not been explicitly confirmed by the project owner.
-6. **Wild mode — accepted-vocabulary scope.** Is a word accepted while one language was active automatically treated as accepted when the active language later changes, or is accepted vocabulary tracked per language? `content-model.md` section 28 currently models accepted vocabulary as one flat set per game, which would need extending either way.
-7. **Polyglot + Wild combination.** Currently `UNDECIDED`/mutually exclusive per section 5. Decide whether any combined behaviour is wanted, and if so, define it, before removing the exclusion.
+Resolved by DEC-008 (all four questions that were blocking Milestone 4.5):
+
+- ~~Replace mode — which rack receives the displaced tile.~~ The replacing player's own rack.
+- ~~Replace mode — displaced blank tiles.~~ Reset to a reusable blank.
+- ~~Illegal mode — `ACCEPTED_IN_GAME` words.~~ Remain playable; only `DICTIONARY_WORD` is blocked.
+- ~~Illegal mode — partially-dictionary-valid multi-word moves.~~ Blocked if *any* formed word is a dictionary word.
+
+Still open (out of scope until Milestone 8.1, since both require Polyglot and/or Wild mode):
+
+1. **Illegal + Polyglot interaction detail.** Confirmed direction (a word must be illegal in every selected language) is recorded in section 8's compatibility notes as the working assumption, but has not been explicitly confirmed by the project owner.
+2. **Wild mode — accepted-vocabulary scope.** Is a word accepted while one language was active automatically treated as accepted when the active language later changes, or is accepted vocabulary tracked per language? `content-model.md` section 28 currently models accepted vocabulary as one flat set per game, which would need extending either way.
+3. **Polyglot + Wild combination.** Currently `UNDECIDED`/mutually exclusive per section 5. Decide whether any combined behaviour is wanted, and if so, define it, before removing the exclusion.
 
 ---
 

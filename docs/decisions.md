@@ -942,3 +942,75 @@ Relevant files:
 - `docs/game-rules.md`
 - `docs/examples/disputed-word-example.md`
 - `docs/examples/normal-move-example.md`
+
+## DEC-008 — Replace mode and Illegal mode: resolving game-modifiers.md's open questions
+
+**Date:** 2026-08-18
+**Status:** ACCEPTED
+**Area:** Engine / Game State
+
+### Context
+
+`docs/game-modifiers.md` section 11 recorded four open questions blocking implementation of
+Replace mode and Illegal mode (roadmap Milestone 4.5), explicitly left unresolved rather than
+guessed per `CLAUDE.md`'s instruction not to invent gameplay behaviour. The project owner
+answered all four directly.
+
+### Decision
+
+1. **Replace mode — displaced-tile ownership.** The tile displaced by a replace placement goes
+   to the *replacing* player's rack, not back to whoever originally played it. A player can take
+   a tile the opponent had on the board.
+2. **Replace mode — displaced blanks.** A blank tile displaced back to a rack resets to a
+   reusable blank: its previous represented-letter assignment is discarded, and it can be
+   assigned a different letter the next time it's played, the same as a blank that was never
+   committed.
+3. **Illegal mode — `ACCEPTED_IN_GAME` words.** These remain playable. `ACCEPTED_IN_GAME` is
+   treated as its own category, distinct from `DICTIONARY_WORD`, for the purposes of Illegal
+   mode's "only illegal words are allowed" restriction — only `DICTIONARY_WORD` is blocked.
+4. **Illegal mode — partially-dictionary-valid multi-word moves.** A move is blocked outright if
+   *any* word it forms classifies as `DICTIONARY_WORD`, not only when every word does. This is
+   the strict reading of "only illegal words are allowed": every word the move forms must be
+   non-dictionary for the move to be submittable at all.
+
+### Alternatives considered
+
+For (1): returning the displaced tile to its original owner instead — rejected, the project
+owner explicitly chose the "steal" behaviour.
+
+For (2): keeping the blank's old represented letter permanently, per the literal wording of
+`game-rules.md` section 20 — rejected in favor of resetting, since a displaced blank is
+conceptually back in a rack, the same state as any blank before its first commitment.
+
+For (3): blocking `ACCEPTED_IN_GAME` words alongside `DICTIONARY_WORD` — this was this
+document's own recommended default (it read "no longer illegal" most literally), but the project
+owner explicitly chose the opposite: accepted words keep a separate identity from real
+dictionary words and remain playable under Illegal mode.
+
+For (4): only blocking a move when every formed word is a dictionary word (matching today's
+ordinary multi-word approval unit, where a move needs only one non-dictionary word to enter the
+proposal flow) — rejected in favor of the stricter all-words-must-be-non-dictionary reading.
+
+### Rationale
+
+These are explicit project-owner answers to genuinely open design questions, not inferred
+interpretations of a silent specification — recorded per `docs/decisions.md` section 18's
+"Updating specifications" process.
+
+### Consequences
+
+- `docs/game-modifiers.md` sections 7, 8, and 11 are updated to state these as decided rules
+  rather than open questions.
+- Milestone 4.5 (Crisscross, Replace, Illegal mode) can now proceed to implementation.
+- Item 5 in section 11 (Illegal + Polyglot interaction) and item 6-7 (Wild mode
+  accepted-vocabulary scope; Polyglot + Wild combination) remain open, since Polyglot and Wild
+  belong to the later Milestone 8.1 and were out of scope for this round of questions.
+
+### Revisit when
+
+Not expected to be revisited; these are settled project-owner decisions. If Milestone 8.1's
+Polyglot/Wild work later reveals a conflict with rule (3) or (4) above, raise it as a new
+decision rather than silently overriding this one.
+
+Relevant files:
+- `docs/game-modifiers.md`
