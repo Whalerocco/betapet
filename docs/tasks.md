@@ -1325,15 +1325,15 @@ Automate at least:
 
 Before declaring Version 1 complete:
 
-- [ ] Unit tests pass.
+- [x] Unit tests pass.
 - [ ] Integration tests pass.
-- [ ] End-to-end tests pass.
-- [ ] Type checking passes.
-- [ ] Linting passes.
-- [ ] Production build passes.
+- [x] End-to-end tests pass.
+- [x] Type checking passes.
+- [x] Linting passes.
+- [x] Production build passes.
 - [ ] Swedish configuration has been verified.
-- [ ] Dictionary license/source is documented.
-- [ ] No online/backend code is required for local play.
+- [x] Dictionary license/source is documented.
+- [x] No online/backend code is required for local play.
 - [ ] Manual two-person hot-seat test completed.
 - [ ] Manual mobile/tablet test completed.
 
@@ -1377,57 +1377,74 @@ Do not begin online multiplayer merely to avoid fixing local-game issues.
 
 # 27a. Phase 4D — Local game modifiers (Crisscross, Replace, Illegal)
 
-Follow `game-modifiers.md`. Do not begin until the open questions in its section 11 that apply to
-these three modifiers have been resolved and recorded in `decisions.md`.
+Follow `game-modifiers.md`. The open questions blocking this phase are resolved (DEC-008).
 
 ## T32.1 Modifier selection and compatibility validation
 
-- [ ] Add `modifiers` to `GameConfiguration` per `content-model.md` section 8.
-- [ ] Implement the compatibility check (`game-modifiers.md` section 5) as engine-level
+- [x] Add `modifiers` to `GameConfiguration` per `content-model.md` section 8.
+- [x] Implement the compatibility check (`game-modifiers.md` section 5) as engine-level
       validation at game-configuration time, not only a UI-level restriction.
 - [ ] Add a settings/game-setup UI section for selecting modifiers before starting a game.
 - [ ] Test that an incompatible combination is rejected by the engine even if a caller bypasses
-      the UI.
+      the UI. (Not yet possible to test with a real rejection: every pair among the three
+      currently-implemented modifiers is COMPATIBLE or COMPATIBLE_WITH_INTERACTION, not
+      UNDECIDED — the rejection path itself is exercised once Milestone 8.1 adds a real
+      UNDECIDED pair.)
 
 ---
 
 ## T32.2 Crisscross mode
 
-- [ ] Relax physical placement validation to allow a connected multi-branch cluster of new tiles,
+- [x] Relax physical placement validation to allow a connected multi-branch cluster of new tiles,
       per `game-modifiers.md` section 6.
-- [ ] Verify word detection correctly derives and scores every word formed by a multi-branch
+- [x] Verify word detection correctly derives and scores every word formed by a multi-branch
       placement, including two or more lines composed entirely of new tiles.
-- [ ] Test a T-shaped and a plus-shaped placement, each forming multiple new words.
-- [ ] Test that a disconnected new-tile island is still rejected.
-- [ ] Test first-move-must-cover-centre and connect-to-existing-board rules against the cluster
+- [x] Test a T-shaped and a plus-shaped placement, each forming multiple new words.
+- [x] Test that a disconnected new-tile island is still rejected.
+- [x] Test first-move-must-cover-centre and connect-to-existing-board rules against the cluster
       as a whole, per section 6's clarification.
 
 ---
 
 ## T32.3 Replace mode
 
-- [ ] Allow a move to place a new tile on a committed board cell; move the displaced tile to the
+- [x] Allow a move to place a new tile on a committed board cell; move the displaced tile to the
       replacing player's rack, per `game-modifiers.md` section 7.
-- [ ] Implement the same-turn replace-chaining restriction on a freshly displaced tile, and its
+- [x] Implement the same-turn replace-chaining restriction on a freshly displaced tile, and its
       expiry after one full turn.
-- [ ] Reject a replace placement targeting a cell that is part of the current pending move.
-- [ ] Confirm multiplier squares do not reactivate on a replace placement.
-- [ ] Re-derive and validate/score the words affected by the replaced cell through the normal
+- [x] Reject a replace placement targeting a cell that is part of the current pending move.
+- [x] Confirm multiplier squares do not reactivate on a replace placement.
+- [x] Re-derive and validate/score the words affected by the replaced cell through the normal
       pipeline, including the disputed-word flow when applicable.
-- [ ] Implement the resolved open question on displaced blank-tile handling
+- [x] Implement the resolved open question on displaced blank-tile handling
       (`game-modifiers.md` section 11, item 2).
-- [ ] Test that earlier committed moves keep their already-awarded score after a later replace.
+- [x] Test that earlier committed moves keep their already-awarded score after a later replace.
+
+Also implemented, beyond the original checklist: the board and rack stay consistent at every
+step (a displaced tile moves out of the board and into the rack immediately at placement time,
+not deferred to commit — board.ts `removeCommittedTile` doc), and undoing a replace placement
+(REMOVE_TILE, "Rensa", or moving a pending tile elsewhere) fully reverses the displacement,
+restoring the original tile to the board and out of the rack. Replacing the board's only
+remaining committed tile is handled correctly too (`isFirstMoveOverride` /
+`physicalValidation.ts`) rather than being misread as the game's first move.
+
+Not yet done: no settings/game-setup UI wiring exists for Replace mode (or any modifier) — see
+T32.1.
 
 ---
 
 ## T32.4 Illegal mode
 
-- [ ] Block committing a move that forms a `DICTIONARY_WORD`, per `game-modifiers.md` section 8.
-- [ ] Route every move through the proposal/approval flow, per the resolved open question on
+- [x] Block committing a move that forms a `DICTIONARY_WORD`, per `game-modifiers.md` section 8.
+- [x] Route every move through the proposal/approval flow, per the resolved open question on
       partially-dictionary-valid multi-word moves (`game-modifiers.md` section 11, item 4).
-- [ ] Implement the resolved open question on `ACCEPTED_IN_GAME` word handling
+- [x] Implement the resolved open question on `ACCEPTED_IN_GAME` word handling
       (`game-modifiers.md` section 11, item 3).
-- [ ] Confirm `FORBIDDEN_WORD` (one-letter words) remains blocked unchanged.
+- [ ] Confirm `FORBIDDEN_WORD` (one-letter words) remains blocked unchanged. (The Illegal-mode
+      check sits after the existing forbidden-word check in `submitMove.ts` and doesn't touch
+      it, but there's no direct test proving this combination — `detectFormedWords` structurally
+      never returns a single-letter word today, so `FORBIDDEN_WORD` may not be reachable via a
+      real move at all; see tasks.md T12.7/T12.8 for the same pre-existing gap.)
 
 ---
 
