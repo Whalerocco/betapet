@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createSwedishWordClassificationRules } from "../dictionary/swedishWordClassificationRules";
-import { placeCommittedTile } from "../model/board";
+import { isOccupied, placeCommittedTile } from "../model/board";
 import type { GameState } from "../model/game";
-import { createTileId, type TileId } from "../model/ids";
+import { addHistoryEvent, nextSequence } from "../model/history";
+import { createHistoryEventId, createTileId, type TileId } from "../model/ids";
 import type { Player } from "../model/player";
 import { createBlankTile, createLetterTile, type Tile } from "../model/tile";
+import { playerTurn } from "../model/turnState";
 import { buildEngineTestGame as buildTestGame } from "../testing/fixtures";
 import { placeTile } from "./placeTile";
 import { submitMove } from "./submitMove";
@@ -454,5 +456,546 @@ describe("submitMove: game end", () => {
     if (result.state.status === "FINISHED") {
       expect(result.state.result.winnerPlayerIds).toEqual([setup.playerOneId]);
     }
+  });
+});
+
+describe("submitMove: Crisscross mode", () => {
+  /** Places a T-shaped, entirely-new-tile cluster: horizontal "DOG" crossing vertical "OGRE". */
+  function buildTCluster() {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["D", "O", "G", "G", "R", "E"],
+      modifiers: new Set(["CRISSCROSS"]),
+    });
+    const [d, o, g1, g2, r, e] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+
+    let state = setup.state;
+    const placements: [TileId, number, number][] = [
+      [d, 0, -1],
+      [o, 0, 0],
+      [g1, 0, 1],
+      [g2, 1, 0],
+      [r, 2, 0],
+      [e, 3, 0],
+    ];
+    for (const [tileId, rowOffset, columnOffset] of placements) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: {
+          row: centre.row + rowOffset,
+          column: centre.column + columnOffset,
+        },
+      });
+      expect(result.success).toBe(true);
+      if (result.success) state = result.state;
+    }
+    return { setup, state };
+  }
+
+  it("detects both words of a connected multi-branch first move when the modifier is active", () => {
+    const { setup, state } = buildTCluster();
+
+    const result = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // DOG/OGRE are not Swedish dictionary words, so this proposes rather than commits directly —
+    // either way, both words must have been detected and reached the pending move.
+    const words = result.state.pendingMove?.wordResults?.map((w) => w.word);
+    expect(words?.sort()).toEqual(["DOG", "OGRE"]);
+    // Every fixture tile is worth 1 point with no multipliers on this test board (fixtures.ts):
+    // DOG (3 tiles) + OGRE (4 tiles), with the shared O scored once per word it belongs to,
+    // exactly as an ordinary crossing word already is (scoreMove.ts) — no crisscross-specific
+    // scoring logic exists, or needs to.
+    expect(result.state.pendingMove?.scorePreview?.total).toBe(3 + 4);
+  });
+
+  it("rejects the identical placement when Crisscross mode is not configured", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["D", "O", "G", "G", "R", "E"],
+    });
+    const [d, o, g1, g2, r, e] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+
+    let state = setup.state;
+    const placements: [TileId, number, number][] = [
+      [d, 0, -1],
+      [o, 0, 0],
+      [g1, 0, 1],
+      [g2, 1, 0],
+      [r, 2, 0],
+      [e, 3, 0],
+    ];
+    for (const [tileId, rowOffset, columnOffset] of placements) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: {
+          row: centre.row + rowOffset,
+          column: centre.column + columnOffset,
+        },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.code).toBe("INVALID_PLACEMENT");
+    expect(result.error.messageKey).toBe("notInLine");
+  });
+});
+
+describe("submitMove: Illegal mode", () => {
+  it("blocks a dictionary-valid word (DEC-008)", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["B", "I", "L"],
+      modifiers: new Set(["ILLEGAL"]),
+    });
+    const [b, i, l] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    let state = setup.state;
+    for (const [tileId, offset] of [
+      [b, 0],
+      [i, 1],
+      [l, 2],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.code).toBe("DICTIONARY_WORD_NOT_ALLOWED");
+    expect(result.error.details).toEqual({ word: "BIL" });
+    // Nothing committed: still the same player's turn, tiles still pending.
+    expect(state.turnState).toEqual({
+      type: "PLAYER_TURN",
+      playerId: setup.playerOneId,
+    });
+  });
+
+  it("still allows a genuinely unknown word, subject to the normal proposal flow", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["T", "V"],
+      modifiers: new Set(["ILLEGAL"]),
+    });
+    const [t, v] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    const placedT = placeTile(setup.state, setup.board, [], {
+      playerId: setup.playerOneId,
+      tileId: t,
+      coordinate: centre,
+    });
+    if (!placedT.success) throw new Error("setup failed");
+    const placedV = placeTile(placedT.state, setup.board, [], {
+      playerId: setup.playerOneId,
+      tileId: v,
+      coordinate: { row: centre.row, column: centre.column + 1 },
+    });
+    if (!placedV.success) throw new Error("setup failed");
+
+    const result = submitMove(
+      placedV.state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.turnState).toEqual({
+      type: "REQUIRES_PLAYER_CONFIRMATION",
+      playerId: setup.playerOneId,
+    });
+  });
+
+  it("blocks a multi-word move if even one of its words is dictionary-valid", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["B", "I", "L"],
+      modifiers: new Set(["ILLEGAL"]),
+    });
+    // An existing "X" positioned so placing "BIL" horizontally through the centre also forms a
+    // vertical crossing word "IX" at the I — not a real Swedish word, unlike "BIL" itself. The
+    // move must still be blocked, because DEC-008 blocks the whole move if *any* formed word is
+    // dictionary-valid, not only when every word is.
+    const centre = setup.board.centreCoordinate;
+    const existingX = letterTile(setup.tiles, "X", 1);
+    const board = placeCommittedTile(
+      setup.state.board,
+      { row: centre.row + 1, column: centre.column + 1 },
+      existingX,
+    );
+    let state = { ...setup.state, board };
+
+    const [b, i, l] = state.players[0].rack.tileIds;
+    for (const [tileId, offset] of [
+      [b, 0],
+      [i, 1],
+      [l, 2],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.code).toBe("DICTIONARY_WORD_NOT_ALLOWED");
+    expect(result.error.details).toEqual({ word: "BIL" });
+  });
+});
+
+describe("submitMove: Replace mode", () => {
+  it("replaces the board's only remaining committed tile without being misread as a first move", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["A", "T"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    // A committed tile away from the centre, with a matching history entry: this simulates a
+    // game deep enough that the board's only current tile isn't the actual first move, even
+    // though replacing it will momentarily empty board.occupiedCells before this move commits.
+    const away = {
+      row: setup.board.centreCoordinate.row + 3,
+      column: setup.board.centreCoordinate.column + 3,
+    };
+    const existingTileId = createTileId();
+    setup.tiles[existingTileId] = createLetterTile(existingTileId, "S", 1);
+    const board = placeCommittedTile(setup.state.board, away, existingTileId);
+    const history = addHistoryEvent(setup.state.history, {
+      id: createHistoryEventId(),
+      sequence: nextSequence(setup.state.history),
+      type: "WORD_MOVE_COMMITTED",
+      playerId: setup.playerTwoId,
+      payload: {
+        placedTiles: [],
+        words: ["S"],
+        scoreAwarded: 1,
+        usedUnknownWordApproval: false,
+      },
+    });
+    const state = { ...setup.state, board, history };
+    const [a, t] = state.players[0].rack.tileIds;
+
+    // Replace S with A, then extend it with a new T to form "AT" — a lone replace can't form a
+    // word by itself, same as any single isolated tile.
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: a, coordinate: away },
+      { allowReplace: true },
+    );
+    expect(replaced.success).toBe(true);
+    if (!replaced.success) return;
+    // Confirms the premise: the board really is empty right up until submit.
+    expect(isOccupied(replaced.state.board, away)).toBe(false);
+
+    const extended = placeTile(
+      replaced.state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: t,
+        coordinate: { row: away.row, column: away.column + 1 },
+      },
+      { allowReplace: true },
+    );
+    expect(extended.success).toBe(true);
+    if (!extended.success) return;
+
+    const result = submitMove(
+      extended.state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    // The key assertion: this was accepted as a legal, connected placement, rather than
+    // rejected as an (incorrect) first move or as disconnected from the board.
+    expect(result.success).toBe(true);
+  });
+
+  it("leaves the displaced tile usably in the rack after a full commit, untouched by the draw", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["B", "I", "L"],
+      bagLetters: ["Å", "Ä", "Ö"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    // An existing tile sits exactly where "I" will replace it; "B" and "L" fill the empty cells
+    // on either side, all three together forming "BIL" (a real Swedish word) through the centre.
+    const existingTileId = createTileId();
+    setup.tiles[existingTileId] = createLetterTile(existingTileId, "X", 1);
+    const board = placeCommittedTile(setup.state.board, centre, existingTileId);
+    const state = { ...setup.state, board };
+    const [b, i, l] = state.players[0].rack.tileIds;
+
+    let working = state;
+    for (const [tileId, columnOffset] of [
+      [b, -1],
+      [i, 0],
+      [l, 1],
+    ] as const) {
+      const result = placeTile(
+        working,
+        setup.board,
+        [],
+        {
+          playerId: setup.playerOneId,
+          tileId,
+          coordinate: { row: centre.row, column: centre.column + columnOffset },
+        },
+        { allowReplace: true },
+      );
+      expect(result.success).toBe(true);
+      if (result.success) working = result.state;
+    }
+
+    const result = submitMove(
+      working,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // BIL is a dictionary word: this commits directly rather than proposing.
+    expect(result.state.pendingMove).toBeUndefined();
+    expect(isOccupied(result.state.board, centre)).toBe(true);
+
+    const player = result.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    // 3 tiles played, 3 drawn from the bag as ordinary replacements, plus the displaced "X"
+    // granted by the replace — the rack grows by exactly one beyond the usual break-even.
+    expect(player.rack.tileIds).toContain(existingTileId);
+    expect(player.rack.tileIds).toHaveLength(4);
+  });
+
+  it("still requires the actual first move of the game to cover the centre", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["A", "B"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    let state = setup.state;
+    for (const [tileId, column] of [
+      [state.players[0].rack.tileIds[0], 0],
+      [state.players[0].rack.tileIds[1], 1],
+    ] as const) {
+      const result = placeTile(
+        state,
+        setup.board,
+        [],
+        { playerId: setup.playerOneId, tileId, coordinate: { row: 0, column } },
+        { allowReplace: true },
+      );
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.code).toBe("FIRST_MOVE_MUST_COVER_CENTER");
+  });
+
+  it("keeps an earlier committed move's score after a later replace touches one of its tiles", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["B", "I", "L"],
+      bagLetters: ["Å", "Ä", "Ö", "X"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    const [b, i, l] = setup.state.players[0].rack.tileIds;
+    let state = setup.state;
+    for (const [tileId, columnOffset] of [
+      [b, -1],
+      [i, 0],
+      [l, 1],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + columnOffset },
+      });
+      if (result.success) state = result.state;
+    }
+    const committed = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+    expect(committed.success).toBe(true);
+    if (!committed.success) return;
+    // BIL is a dictionary word: it commits directly, scoring 3 (no multipliers on this board).
+    expect(committed.state.pendingMove).toBeUndefined();
+    const playerOneScoreAfterFirstMove = committed.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!.score;
+    expect(playerOneScoreAfterFirstMove).toBe(3);
+
+    // Hand player two a tile to replace with (bypassing normal draw mechanics — this test only
+    // cares about what a later replace does to the *first* player's already-awarded score).
+    const [replacementTileId, ...restOfBag] = committed.state.tileBag.tileIds;
+    const playersWithTwoHoldingATile = committed.state.players.map((p) =>
+      p.id === setup.playerTwoId
+        ? { ...p, rack: { tileIds: [replacementTileId] } }
+        : p,
+    ) as [Player, Player];
+    const stateForPlayerTwo = {
+      ...committed.state,
+      players: playersWithTwoHoldingATile,
+      tileBag: { tileIds: restOfBag },
+      currentPlayerId: setup.playerTwoId,
+      turnState: playerTurn(setup.playerTwoId),
+    };
+
+    const replaced = placeTile(
+      stateForPlayerTwo,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerTwoId,
+        tileId: replacementTileId,
+        coordinate: centre,
+      },
+      { allowReplace: true },
+    );
+    expect(replaced.success).toBe(true);
+    if (!replaced.success) return;
+
+    const secondResult = submitMove(
+      replaced.state,
+      setup.configuration,
+      rules,
+      setup.playerTwoId,
+    );
+    expect(secondResult.success).toBe(true);
+    if (!secondResult.success) return;
+
+    const playerOneScoreAfter = secondResult.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!.score;
+    expect(playerOneScoreAfter).toBe(playerOneScoreAfterFirstMove);
+  });
+
+  it("lets a displaced tile be used to replace another tile again once its move has committed", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["B", "I", "L"],
+      // More than enough for the 3-tile draw: an empty bag combined with player two's
+      // (irrelevant, here) empty rack would otherwise end the game right after the first commit
+      // (game-rules.md section 29 / DEC-005), before this test gets to its second placeTile.
+      bagLetters: ["Å", "Ä", "Ö", "V", "N", "M", "P", "R", "S"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    // Two pre-existing committed tiles: "I" replaces the first (forming "BIL" through centre);
+    // the second, well away from it, is what the displaced "X" will replace next.
+    const firstExisting = createTileId();
+    setup.tiles[firstExisting] = createLetterTile(firstExisting, "X", 1);
+    const secondExisting = createTileId();
+    setup.tiles[secondExisting] = createLetterTile(secondExisting, "Y", 1);
+    const farAway = { row: centre.row + 4, column: centre.column + 4 };
+    let board = placeCommittedTile(setup.state.board, centre, firstExisting);
+    board = placeCommittedTile(board, farAway, secondExisting);
+    const [b, i, l] = setup.state.players[0].rack.tileIds;
+    let state = { ...setup.state, board };
+    for (const [tileId, columnOffset] of [
+      [b, -1],
+      [i, 0],
+      [l, 1],
+    ] as const) {
+      const result = placeTile(
+        state,
+        setup.board,
+        [],
+        {
+          playerId: setup.playerOneId,
+          tileId,
+          coordinate: { row: centre.row, column: centre.column + columnOffset },
+        },
+        { allowReplace: true },
+      );
+      if (result.success) state = result.state;
+    }
+    const firstCommit = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+    expect(firstCommit.success).toBe(true);
+    if (!firstCommit.success) return;
+    // Confirms the premise: within that same move, "X" could not have replaced anything else —
+    // this is exactly what the earlier "no chaining" test already covers directly.
+
+    // A brand new pending move (whoever's turn it is) is unaffected by the previous move's
+    // now-committed history — the chaining restriction only ever looked at the *current*
+    // pending move's own placements, so a fresh one has nothing to restrict.
+    const stateForPlayerOneAgain = {
+      ...firstCommit.state,
+      currentPlayerId: setup.playerOneId,
+      turnState: playerTurn(setup.playerOneId),
+    };
+    const player = stateForPlayerOneAgain.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    expect(player.rack.tileIds).toContain(firstExisting);
+
+    const replaced = placeTile(
+      stateForPlayerOneAgain,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: firstExisting,
+        coordinate: farAway,
+      },
+      { allowReplace: true },
+    );
+
+    expect(replaced.success).toBe(true);
   });
 });

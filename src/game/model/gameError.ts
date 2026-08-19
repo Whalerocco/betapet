@@ -16,7 +16,9 @@ export type GameErrorCode =
   | "PROPOSAL_NOT_AVAILABLE"
   | "PROPOSAL_ALREADY_CONFIRMED"
   | "NOT_AUTHORIZED_TO_APPROVE"
-  | "EXCHANGE_NOT_ALLOWED";
+  | "EXCHANGE_NOT_ALLOWED"
+  | "DICTIONARY_WORD_NOT_ALLOWED"
+  | "REPLACE_CHAINING_NOT_ALLOWED";
 
 export interface GameError {
   readonly code: GameErrorCode;

@@ -41,10 +41,20 @@ export function submitMove(
     return actionFailure("INVALID_GAME_STATE", "noPendingMove");
   }
 
+  // A move can only be non-first if some earlier move actually committed — regardless of how
+  // many tiles the board currently holds, which Replace mode (game-modifiers.md section 7) can
+  // momentarily reduce to zero mid-edit (physicalValidation.ts isFirstMoveOverride doc).
+  const anyMoveEverCommitted = state.history.events.some(
+    (event) => event.type === "WORD_MOVE_COMMITTED",
+  );
   const physical = validatePhysicalPlacement(
     state.board,
     configuration.boardDefinition,
     pendingMove.placedTiles,
+    {
+      allowMultiBranch: configuration.modifiers.has("CRISSCROSS"),
+      isFirstMoveOverride: anyMoveEverCommitted ? false : undefined,
+    },
   );
   if (!physical.valid) {
     return { success: false, error: physical.error };
@@ -72,6 +82,23 @@ export function submitMove(
       word: forbidden.word,
       reason: forbidden.reason,
     });
+  }
+
+  if (configuration.modifiers.has("ILLEGAL")) {
+    // game-modifiers.md section 8 / DEC-008: every formed word must be non-dictionary, not only
+    // one of them — the whole move is blocked if any word is a real dictionary word.
+    // ACCEPTED_IN_GAME words are unaffected (DEC-008): they're a distinct category, not folded
+    // back into DICTIONARY_WORD once accepted.
+    const dictionaryWord = wordResults.find(
+      (result) => result.status === "DICTIONARY_WORD",
+    );
+    if (dictionaryWord) {
+      return actionFailure(
+        "DICTIONARY_WORD_NOT_ALLOWED",
+        "dictionaryWordNotAllowed",
+        { word: dictionaryWord.word },
+      );
+    }
   }
 
   const scoreResult = scoreMove(

@@ -23,6 +23,10 @@ const ERROR_MESSAGES: Record<GameErrorCode, string> = {
   NOT_AUTHORIZED_TO_APPROVE: "Du kan inte godkänna den här läggningen.",
   EXCHANGE_NOT_ALLOWED:
     "Det finns inte tillräckligt med brickor kvar i påsen för att byta.",
+  DICTIONARY_WORD_NOT_ALLOWED:
+    "I detta läge får bara ord som inte finns i ordlistan spelas.",
+  REPLACE_CHAINING_NOT_ALLOWED:
+    "Den brickan kan inte ersätta en annan bricka förrän nästa tur.",
 };
 
 export function describeGameError(error: GameError): string {

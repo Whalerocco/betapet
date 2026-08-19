@@ -95,6 +95,7 @@ export function dispatchGameAction(
           coordinate: action.coordinate,
           representedLetter: action.representedLetter,
         },
+        { allowReplace: deps.configuration.modifiers.has("REPLACE") },
       );
     case "REMOVE_TILE":
       return removePendingTile(state, {

@@ -1,6 +1,6 @@
 import { getTileIdAt, type BoardState } from "../model/board";
 import type { Coordinate, Orientation } from "../model/coordinate";
-import { coordinatesEqual } from "../model/coordinate";
+import { coordinateKey, coordinatesEqual } from "../model/coordinate";
 import type { FormedWord } from "../model/formedWord";
 import type { TileId } from "../model/ids";
 import {
@@ -133,24 +133,29 @@ export function detectFormedWords(
       );
     }
   } else {
-    addWord(
-      collectLine(
-        boardState,
-        tiles,
-        placedTiles,
-        placedTiles[0].coordinate,
-        "HORIZONTAL",
-      ),
-    );
-    addWord(
-      collectLine(
-        boardState,
-        tiles,
-        placedTiles,
-        placedTiles[0].coordinate,
-        "VERTICAL",
-      ),
-    );
+    // Reached both for an ordinary single-tile placement and, under Crisscross mode
+    // (game-modifiers.md section 6), for a genuinely non-collinear multi-branch cluster — in
+    // that case every newly placed tile needs its own two-direction check, not just the first,
+    // since a branch's own line may not pass through any other branch's tiles at all. Two
+    // branches that do share a line (e.g. both touch the shared intersection tile) would
+    // otherwise each rediscover the same word; the seen-set dedupes by exact coordinate list.
+    const seen = new Set<string>();
+    for (const placed of placedTiles) {
+      for (const lineOrientation of ["HORIZONTAL", "VERTICAL"] as const) {
+        const word = collectLine(
+          boardState,
+          tiles,
+          placedTiles,
+          placed.coordinate,
+          lineOrientation,
+        );
+        if (!word) continue;
+        const key = `${lineOrientation}:${word.coordinates.map(coordinateKey).join(";")}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        addWord(word);
+      }
+    }
   }
 
   return words;

@@ -7,6 +7,7 @@ import {
   getTileIdAt,
   isOccupied,
   placeCommittedTile,
+  removeCommittedTile,
 } from "./board";
 
 describe("createBoardDefinition", () => {
@@ -87,5 +88,47 @@ describe("board state occupancy", () => {
     const original = createBoardState();
     placeCommittedTile(original, { row: 0, column: 0 }, createTileId());
     expect(isOccupied(original, { row: 0, column: 0 })).toBe(false);
+  });
+});
+
+describe("removeCommittedTile", () => {
+  it("vacates a previously occupied cell", () => {
+    const placed = placeCommittedTile(
+      createBoardState(),
+      { row: 3, column: 4 },
+      createTileId(),
+    );
+    const removed = removeCommittedTile(placed, { row: 3, column: 4 });
+    expect(isOccupied(removed, { row: 3, column: 4 })).toBe(false);
+  });
+
+  it("leaves other occupied cells untouched", () => {
+    let state = placeCommittedTile(
+      createBoardState(),
+      { row: 3, column: 4 },
+      createTileId(),
+    );
+    const otherTileId = createTileId();
+    state = placeCommittedTile(state, { row: 5, column: 5 }, otherTileId);
+
+    const removed = removeCommittedTile(state, { row: 3, column: 4 });
+
+    expect(getTileIdAt(removed, { row: 5, column: 5 })).toBe(otherTileId);
+  });
+
+  it("throws when the cell is not occupied", () => {
+    expect(() =>
+      removeCommittedTile(createBoardState(), { row: 0, column: 0 }),
+    ).toThrow();
+  });
+
+  it("does not mutate the original state", () => {
+    const placed = placeCommittedTile(
+      createBoardState(),
+      { row: 0, column: 0 },
+      createTileId(),
+    );
+    removeCommittedTile(placed, { row: 0, column: 0 });
+    expect(isOccupied(placed, { row: 0, column: 0 })).toBe(true);
   });
 });

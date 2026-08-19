@@ -183,4 +183,49 @@ describe("detectFormedWords", () => {
     expect(words).toHaveLength(1);
     expect(words[0].text).toBe("KÖ");
   });
+
+  describe("Crisscross mode: multi-branch clusters of entirely new tiles", () => {
+    it("detects two independent words from a T-shaped cluster sharing one tile", () => {
+      const tiles: Record<TileId, Tile> = {};
+      const board = createBoardState();
+      // Horizontal "DOG" at row 7, columns 5-7. Vertical "OGRE" down column 6 from the shared O.
+      const placedTiles = [
+        pendingLetter(tiles, { row: 7, column: 5 }, "D"),
+        pendingLetter(tiles, { row: 7, column: 6 }, "O"),
+        pendingLetter(tiles, { row: 7, column: 7 }, "G"),
+        pendingLetter(tiles, { row: 8, column: 6 }, "G"),
+        pendingLetter(tiles, { row: 9, column: 6 }, "R"),
+        pendingLetter(tiles, { row: 10, column: 6 }, "E"),
+      ];
+
+      const words = detectFormedWords(board, tiles, placedTiles);
+
+      expect(words).toHaveLength(2);
+      expect(words.map((w) => w.text).sort()).toEqual(["DOG", "OGRE"]);
+    });
+
+    it("does not double-count a shared line reached from more than one of its own tiles", () => {
+      const tiles: Record<TileId, Tile> = {};
+      const board = createBoardState();
+      // A plus-shape: every arm's tiles would each independently rediscover the same two lines.
+      const placedTiles = [
+        pendingLetter(tiles, { row: 7, column: 6 }, "A"),
+        pendingLetter(tiles, { row: 7, column: 7 }, "B"),
+        pendingLetter(tiles, { row: 7, column: 8 }, "A"),
+        pendingLetter(tiles, { row: 6, column: 7 }, "A"),
+        pendingLetter(tiles, { row: 8, column: 7 }, "A"),
+      ];
+
+      const words = detectFormedWords(board, tiles, placedTiles);
+
+      // Without dedup this would be 6 (each of the 5 tiles rediscovering whichever of the two
+      // lines it belongs to); properly deduped, each line is counted exactly once.
+      expect(words).toHaveLength(2);
+      expect(words.map((w) => w.text)).toEqual(["ABA", "ABA"]);
+      expect(words.map((w) => w.orientation).sort()).toEqual([
+        "HORIZONTAL",
+        "VERTICAL",
+      ]);
+    });
+  });
 });

@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
 import { SWEDISH_ALPHABET } from "../configuration/swedishAlphabet";
+import { isOccupied, placeCommittedTile } from "../model/board";
 import type { GameState } from "../model/game";
+import { createTileId, type TileId } from "../model/ids";
 import type { Player } from "../model/player";
-import { letterTileIdsInRack, relocateTileToRack } from "../testing/fixtures";
+import { createLetterTile, type Tile } from "../model/tile";
+import {
+  buildEngineTestGame,
+  letterTileIdsInRack,
+  relocateTileToRack,
+} from "../testing/fixtures";
 import { createGame } from "./createGame";
 import { movePendingTile } from "./movePendingTile";
 import { placeTile } from "./placeTile";
+
+function letterTile(tiles: Record<TileId, Tile>, letter: string): TileId {
+  const id = createTileId();
+  tiles[id] = createLetterTile(id, letter, 1);
+  return id;
+}
 
 function currentPlayer(state: GameState): Player {
   return state.players.find((p) => p.id === state.currentPlayerId)!;
@@ -174,5 +187,47 @@ describe("movePendingTile", () => {
       success: false,
       error: { code: "INVALID_PLACEMENT", messageKey: "invalidPlacement" },
     });
+  });
+});
+
+describe("movePendingTile: relocating a Replace-mode placement", () => {
+  it("undoes the displacement at the old coordinate when moved to an empty cell", () => {
+    const setup = buildEngineTestGame();
+    const existingTileId = letterTile(setup.tiles, "S");
+    const centre = setup.board.centreCoordinate;
+    const board = placeCommittedTile(setup.state.board, centre, existingTileId);
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId, coordinate: centre },
+      { allowReplace: true },
+    );
+    if (!replaced.success) throw new Error("setup failed");
+
+    const newCoordinate = { row: centre.row, column: centre.column + 1 };
+    const moved = movePendingTile(replaced.state, setup.board, {
+      playerId: setup.playerOneId,
+      tileId,
+      coordinate: newCoordinate,
+    });
+
+    expect(moved.success).toBe(true);
+    if (!moved.success) return;
+    // The displaced tile is back where it was, and out of the rack again.
+    expect(isOccupied(moved.state.board, centre)).toBe(true);
+    const player = moved.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    expect(player.rack.tileIds).not.toContain(existingTileId);
+    // The moving tile is now an ordinary pending placement at the new coordinate.
+    const pending = moved.state.pendingMove?.placedTiles.find(
+      (p) => p.tileId === tileId,
+    );
+    expect(pending?.coordinate).toEqual(newCoordinate);
+    expect(pending?.replacedTileId).toBeUndefined();
   });
 });

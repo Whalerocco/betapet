@@ -1,12 +1,15 @@
 import {
   isOccupied,
   isWithinBounds,
+  placeCommittedTile,
   type BoardDefinition,
+  type BoardState,
 } from "../model/board";
 import { coordinatesEqual, type Coordinate } from "../model/coordinate";
 import { createGameState, type GameState } from "../model/game";
 import type { PlayerId, TileId } from "../model/ids";
 import { createPendingMove } from "../model/pendingMove";
+import { removeTileFromRack, type Player } from "../model/player";
 import { checkEditPreconditions } from "./actionPreconditions";
 import { actionFailure, type ActionResult } from "./gameError";
 
@@ -16,7 +19,14 @@ export interface MovePendingTileParams {
   readonly coordinate: Coordinate;
 }
 
-/** Moves an already-pending tile to a new empty coordinate, preserving its identity. */
+/**
+ * Moves an already-pending tile to a new empty coordinate, preserving its identity. Only empty
+ * targets are supported — moving a pending tile onto another committed tile (a second Replace)
+ * is not implemented; use REMOVE_TILE followed by a fresh PLACE_TILE for that. If the tile being
+ * moved was itself a Replace-mode placement (game-modifiers.md section 7) at its old coordinate,
+ * that displacement is reversed first: the tile it had displaced returns to the board there, and
+ * out of the rack, before the move proceeds — the destination is always an ordinary placement.
+ */
 export function movePendingTile(
   state: GameState,
   boardDefinition: BoardDefinition,
@@ -53,7 +63,26 @@ export function movePendingTile(
     return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
   }
 
-  const movedTile = { ...placedTile, coordinate: params.coordinate };
+  let board: BoardState = state.board;
+  let players = state.players;
+  if (placedTile.replacedTileId !== undefined) {
+    board = placeCommittedTile(
+      board,
+      placedTile.coordinate,
+      placedTile.replacedTileId,
+    );
+    players = players.map((p) =>
+      p.id === params.playerId
+        ? { ...p, rack: removeTileFromRack(p.rack, placedTile.replacedTileId!) }
+        : p,
+    ) as [Player, Player];
+  }
+
+  const movedTile = {
+    ...placedTile,
+    coordinate: params.coordinate,
+    replacedTileId: undefined,
+  };
   const newPendingMove = createPendingMove(params.playerId, [
     ...otherPlacedTiles,
     movedTile,
@@ -61,6 +90,11 @@ export function movePendingTile(
 
   return {
     success: true,
-    state: createGameState({ ...state, pendingMove: newPendingMove }),
+    state: createGameState({
+      ...state,
+      board,
+      players,
+      pendingMove: newPendingMove,
+    }),
   };
 }

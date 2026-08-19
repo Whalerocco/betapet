@@ -271,3 +271,58 @@ describe("scoreMove", () => {
     expect(result.total).toBe(5);
   });
 });
+
+describe("scoreWord: Replace mode does not reactivate a cell's multiplier", () => {
+  it("scores a replace placement at plain letter value, ignoring the cell's letter multiplier", () => {
+    const tiles: Record<TileId, Tile> = {};
+    const a = newLetter(tiles, 0, 0, "A", 1);
+    const b = newLetter(tiles, 0, 1, "B", 4);
+    // B replaces an earlier tile at a LETTER_X2 square — that multiplier was already spent.
+    const replacedTile: PendingPlacedTile = {
+      ...b.placed,
+      replacedTileId: createTileId(),
+    };
+    const placedTiles = [a.placed, replacedTile];
+    const board = testBoard([
+      { coordinate: { row: 0, column: 1 }, multiplier: "LETTER_X2" },
+    ]);
+    const formedWord = word(
+      "AB",
+      [a.tileId, b.tileId],
+      [a.placed.coordinate, b.placed.coordinate],
+    );
+
+    const result = scoreWord(board, placedTiles, tiles, formedWord);
+
+    // Without the fix this would be 1 + (4 x 2) = 9, matching the ordinary-placement test above.
+    expect(result.total).toBe(1 + 4);
+  });
+
+  it("still applies the multiplier for a genuinely new placement in the same word as a replace", () => {
+    const tiles: Record<TileId, Tile> = {};
+    const a = newLetter(tiles, 0, 0, "A", 1);
+    const b = newLetter(tiles, 0, 1, "B", 4);
+    const c = newLetter(tiles, 0, 2, "C", 8);
+    const replacedB: PendingPlacedTile = {
+      ...b.placed,
+      replacedTileId: createTileId(),
+    };
+    const placedTiles = [a.placed, replacedB, c.placed];
+    const board = testBoard([
+      { coordinate: { row: 0, column: 1 }, multiplier: "LETTER_X2" },
+      { coordinate: { row: 0, column: 2 }, multiplier: "WORD_X3" },
+    ]);
+    const formedWord = word(
+      "ABC",
+      [a.tileId, b.tileId, c.tileId],
+      [a.placed.coordinate, b.placed.coordinate, c.placed.coordinate],
+    );
+
+    const result = scoreWord(board, placedTiles, tiles, formedWord);
+
+    // B's LETTER_X2 is suppressed (a replace), but C's WORD_X3 still applies (a genuinely new
+    // placement): (1 + 4 + 8) x 3 = 39, same as the equivalent non-replace test above.
+    expect(result.total).toBe(39);
+    expect(result.wordMultiplier).toBe(3);
+  });
+});

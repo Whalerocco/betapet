@@ -21,6 +21,7 @@ import {
   type GameConfiguration,
   type RackSize,
 } from "../model/gameConfiguration";
+import type { ModifierId } from "../model/modifiers";
 
 export function createTestBoardDefinition(): BoardDefinition {
   return createBoardDefinition(5, 5, { row: 2, column: 2 }, [
@@ -144,6 +145,7 @@ export function buildEngineTestGame(
     playerOneRackLetters?: string[];
     bagLetters?: string[];
     rackSize?: RackSize;
+    modifiers?: ReadonlySet<ModifierId>;
   } = {},
 ): EngineTestGame {
   const board = createBoardDefinition(15, 15, { row: 7, column: 7 }, []);
@@ -153,6 +155,7 @@ export function buildEngineTestGame(
     "sv",
     board,
     rackSize,
+    options.modifiers,
   );
   const tiles: Record<TileId, Tile> = {};
 

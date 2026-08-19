@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
 import { SWEDISH_ALPHABET } from "../configuration/swedishAlphabet";
+import { isOccupied, placeCommittedTile } from "../model/board";
 import type { GameState } from "../model/game";
+import { createTileId, type TileId } from "../model/ids";
 import type { Player } from "../model/player";
-import { letterTileIdsInRack } from "../testing/fixtures";
+import { createLetterTile, type Tile } from "../model/tile";
+import { buildEngineTestGame, letterTileIdsInRack } from "../testing/fixtures";
 import { createGame } from "./createGame";
 import { placeTile } from "./placeTile";
 import { removePendingTile } from "./removePendingTile";
+
+function letterTile(tiles: Record<TileId, Tile>, letter: string): TileId {
+  const id = createTileId();
+  tiles[id] = createLetterTile(id, letter, 1);
+  return id;
+}
 
 function currentPlayer(state: GameState): Player {
   return state.players.find((p) => p.id === state.currentPlayerId)!;
@@ -117,5 +126,50 @@ describe("removePendingTile", () => {
       success: false,
       error: { code: "INVALID_TILE", messageKey: "tileNotPending" },
     });
+  });
+});
+
+describe("removePendingTile: undoing a Replace-mode placement", () => {
+  it("puts the displaced tile back on the board and out of the rack", () => {
+    const setup = buildEngineTestGame();
+    const existingTileId = letterTile(setup.tiles, "S");
+    const board = placeCommittedTile(
+      setup.state.board,
+      setup.board.centreCoordinate,
+      existingTileId,
+    );
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: setup.board.centreCoordinate,
+      },
+      { allowReplace: true },
+    );
+    expect(replaced.success).toBe(true);
+    if (!replaced.success) return;
+
+    const undone = removePendingTile(replaced.state, {
+      playerId: setup.playerOneId,
+      tileId,
+    });
+
+    expect(undone.success).toBe(true);
+    if (!undone.success) return;
+    expect(
+      isOccupied(undone.state.board, setup.board.centreCoordinate),
+    ).toBe(true);
+    const player = undone.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    expect(player.rack.tileIds).not.toContain(existingTileId);
+    expect(player.rack.tileIds).toContain(tileId);
+    expect(undone.state.pendingMove).toBeUndefined();
   });
 });

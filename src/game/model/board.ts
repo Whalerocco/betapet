@@ -130,3 +130,27 @@ export function placeCommittedTile(
   }
   return { occupiedCells: [...state.occupiedCells, { coordinate, tileId }] };
 }
+
+/**
+ * Removes a committed tile from the board (Replace mode, game-modifiers.md section 7): the
+ * displaced tile itself moves to the replacing player's rack immediately, at placement time
+ * (placeTile.ts), not deferred to commit — the same way an ordinary placement moves a tile out
+ * of the rack immediately. That keeps every tile in exactly one location at all times
+ * (content-model.md section 55), and leaves `board` and the pending move mutually consistent for
+ * word detection and physical validation, which never need Replace-mode-specific handling as a
+ * result.
+ */
+export function removeCommittedTile(
+  state: BoardState,
+  coordinate: Coordinate,
+): BoardState {
+  if (!isOccupied(state, coordinate)) {
+    throw new Error(`Cell ${coordinateKey(coordinate)} is not occupied`);
+  }
+  const key = coordinateKey(coordinate);
+  return {
+    occupiedCells: state.occupiedCells.filter(
+      (cell) => coordinateKey(cell.coordinate) !== key,
+    ),
+  };
+}

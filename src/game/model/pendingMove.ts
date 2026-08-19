@@ -9,6 +9,14 @@ export interface PendingPlacedTile {
   readonly tileId: TileId;
   readonly coordinate: Coordinate;
   readonly representedLetter?: string;
+  /**
+   * Set only under Replace mode (game-modifiers.md section 7): the tile this placement displaced
+   * from the board. Its presence marks the placement as a replace rather than an ordinary
+   * empty-cell placement — used to suppress multiplier reactivation (scoreMove.ts), block
+   * same-turn replace-chaining (placeTile.ts), and reverse the displacement if this placement is
+   * later removed or moved (removePendingTile.ts, clearPendingMove.ts, movePendingTile.ts).
+   */
+  readonly replacedTileId?: TileId;
 }
 
 export type PendingMoveStatus =

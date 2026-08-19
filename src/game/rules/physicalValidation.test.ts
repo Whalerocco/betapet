@@ -9,6 +9,15 @@ function placed(row: number, column: number): PendingPlacedTile {
   return { tileId: createTileId(), coordinate: { row, column } };
 }
 
+/** A pending tile that replaces a committed tile (game-modifiers.md section 7). */
+function replaced(row: number, column: number): PendingPlacedTile {
+  return {
+    tileId: createTileId(),
+    coordinate: { row, column },
+    replacedTileId: createTileId(),
+  };
+}
+
 /** A committed "KABEL" (5 letters) sitting at row 5, columns 5-9. */
 function boardWithKabel() {
   let board = createBoardState();
@@ -189,6 +198,183 @@ describe("validatePhysicalPlacement", () => {
     expect(result).toEqual({
       valid: false,
       error: { code: "INVALID_PLACEMENT", messageKey: "illegalGap" },
+    });
+  });
+
+  describe("Crisscross mode (allowMultiBranch)", () => {
+    it("accepts an L-shaped cluster connected to the existing board, that a normal move rejects", () => {
+      const board = boardWithKabel();
+      const placement = [placed(6, 5), placed(6, 6), placed(7, 6)];
+
+      // Same placement: rejected under the standard single-line rule...
+      expect(
+        validatePhysicalPlacement(board, SCRABBLE_BOARD_DEFINITION, placement),
+      ).toEqual({
+        valid: false,
+        error: { code: "INVALID_PLACEMENT", messageKey: "notInLine" },
+      });
+
+      // ...but accepted once Crisscross mode allows a connected multi-branch cluster. (6,5) is
+      // adjacent to the existing K at (5,5), and the whole L connects through the shared (6,6).
+      expect(
+        validatePhysicalPlacement(board, SCRABBLE_BOARD_DEFINITION, placement, {
+          allowMultiBranch: true,
+        }),
+      ).toEqual({ valid: true });
+    });
+
+    it("accepts a T-shaped first move covering the centre through one branch", () => {
+      const board = createBoardState();
+      const centre = SCRABBLE_BOARD_DEFINITION.centreCoordinate;
+      // Horizontal bar of the T at the centre row, vertical stem going down from its middle.
+      const placement = [
+        placed(centre.row, centre.column - 1),
+        placed(centre.row, centre.column),
+        placed(centre.row, centre.column + 1),
+        placed(centre.row + 1, centre.column),
+        placed(centre.row + 2, centre.column),
+      ];
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        placement,
+        { allowMultiBranch: true },
+      );
+      expect(result).toEqual({ valid: true });
+    });
+
+    it("rejects two branches that don't connect to each other or the existing board", () => {
+      const board = boardWithKabel();
+      const placement = [
+        // Touches the existing board, on its own.
+        placed(6, 5),
+        // A second, completely disconnected pair elsewhere on the board.
+        placed(0, 0),
+        placed(0, 1),
+      ];
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        placement,
+        { allowMultiBranch: true },
+      );
+      expect(result).toEqual({
+        valid: false,
+        error: { code: "INVALID_PLACEMENT", messageKey: "notConnectedCluster" },
+      });
+    });
+
+    it("accepts centre coverage by only one branch of a connected multi-branch first move", () => {
+      const board = createBoardState();
+      const centre = SCRABBLE_BOARD_DEFINITION.centreCoordinate;
+      // Horizontal branch covers the centre; the vertical branch, connected through
+      // (centre.row, centre.column - 1), never touches the centre itself.
+      const placement = [
+        placed(centre.row, centre.column - 1),
+        placed(centre.row, centre.column),
+        placed(centre.row - 1, centre.column - 1),
+        placed(centre.row - 2, centre.column - 1),
+      ];
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        placement,
+        { allowMultiBranch: true },
+      );
+      expect(result).toEqual({ valid: true });
+    });
+
+    it("rejects a connected multi-branch first move that never covers the centre", () => {
+      const board = createBoardState();
+      const centre = SCRABBLE_BOARD_DEFINITION.centreCoordinate;
+      const placement = [
+        placed(centre.row - 1, centre.column - 1),
+        placed(centre.row - 1, centre.column),
+        placed(centre.row - 2, centre.column),
+      ];
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        placement,
+        { allowMultiBranch: true },
+      );
+      expect(result).toEqual({
+        valid: false,
+        error: {
+          code: "FIRST_MOVE_MUST_COVER_CENTER",
+          messageKey: "firstMoveMustCoverCentre",
+        },
+      });
+    });
+  });
+
+  describe("isFirstMoveOverride", () => {
+    it("treats an empty board as a non-first move when overridden to false", () => {
+      // Simulates Replace mode having just vacated the board's only remaining committed tile:
+      // the board is empty, but this is not genuinely the game's first move.
+      const board = createBoardState();
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        // Not covering the centre — would only be legal because this isn't a first move.
+        [placed(0, 0), placed(0, 1)],
+        { isFirstMoveOverride: false },
+      );
+      expect(result).toEqual({
+        valid: false,
+        error: { code: "MOVE_NOT_CONNECTED", messageKey: "moveNotConnected" },
+      });
+      // Contrast: without the override, the same empty board demands centre coverage instead.
+      const withoutOverride = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        [placed(0, 0), placed(0, 1)],
+      );
+      expect(withoutOverride).toEqual({
+        valid: false,
+        error: {
+          code: "FIRST_MOVE_MUST_COVER_CENTER",
+          messageKey: "firstMoveMustCoverCentre",
+        },
+      });
+    });
+
+    it("defaults to inferring from board occupancy when not provided", () => {
+      const board = boardWithKabel();
+      const result = validatePhysicalPlacement(board, SCRABBLE_BOARD_DEFINITION, [
+        placed(6, 5),
+      ]);
+      // A non-empty board without an override is correctly treated as a later move.
+      expect(result).toEqual({ valid: true });
+    });
+  });
+
+  describe("Replace mode connectivity", () => {
+    it("treats a lone replace placement as connected, even with no occupied neighbours", () => {
+      // Board is empty (as it would be right after Replace mode vacated the board's only
+      // remaining committed tile) — the replace placement must still count as connected.
+      const board = createBoardState();
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        [replaced(6, 5)],
+        { isFirstMoveOverride: false },
+      );
+      expect(result).toEqual({ valid: true });
+    });
+
+    it("still rejects a genuinely disconnected ordinary placement (not a replace)", () => {
+      const board = createBoardState();
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        [placed(6, 5)],
+        { isFirstMoveOverride: false },
+      );
+      expect(result).toEqual({
+        valid: false,
+        error: { code: "MOVE_NOT_CONNECTED", messageKey: "moveNotConnected" },
+      });
     });
   });
 });

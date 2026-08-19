@@ -48,14 +48,25 @@ export function scoreWord(
   tiles: Readonly<Record<TileId, Tile>>,
   word: FormedWord,
 ): WordScore {
-  const placedTileIds = new Set(placedTiles.map((p) => p.tileId));
+  const placedByTileId = new Map(placedTiles.map((p) => [p.tileId, p]));
+
+  /**
+   * A multiplier only activates the first time its cell is ever covered (game-rules.md section
+   * 22). Ordinarily that's exactly "was this tile newly placed", since a normal placement can
+   * only ever target an empty cell — but a Replace-mode placement (game-modifiers.md section 7)
+   * is newly placed on a cell that was already covered before, so its own multiplier must not
+   * reactivate. `replacedTileId` (set only for a replace) is what tells the two cases apart.
+   */
+  function activatesMultiplier(tileId: TileId): boolean {
+    const placed = placedByTileId.get(tileId);
+    return placed !== undefined && placed.replacedTileId === undefined;
+  }
 
   const letterScores: LetterScore[] = word.coordinates.map(
     (coordinate, index) => {
       const tileId = word.tileIds[index];
       const basePoints = tiles[tileId].points;
-      const isNewlyPlaced = placedTileIds.has(tileId);
-      const multiplier: Multiplier = isNewlyPlaced
+      const multiplier: Multiplier = activatesMultiplier(tileId)
         ? getMultiplierAt(boardDefinition, coordinate)
         : "NONE";
 
@@ -73,7 +84,7 @@ export function scoreWord(
 
   let wordMultiplier = 1;
   word.coordinates.forEach((coordinate, index) => {
-    if (!placedTileIds.has(word.tileIds[index])) return;
+    if (!activatesMultiplier(word.tileIds[index])) return;
     const factor = wordMultiplierFactor(
       getMultiplierAt(boardDefinition, coordinate),
     );
