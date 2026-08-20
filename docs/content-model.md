@@ -631,25 +631,34 @@ It does not need to be persisted forever if it can be reliably reconstructed, bu
 
 Accepted vocabulary belongs to an individual game.
 
-Conceptually:
+Conceptually, each entry is a normalized word plus an optional language tag (DEC-012):
 
 ```text
 AcceptedVocabulary
-└── normalizedWords[]
+└── entries[]
+    ├── word
+    └── languageCode?
 ```
+
+`languageCode` is set only for a word accepted while Wild mode (section 10 / `game-modifiers.md`
+section 10) had that language active, scoping the acceptance to that one language — the word
+becomes `ACCEPTED_IN_GAME` again only when that same language is active later, not under every
+Wild language. A word accepted outside Wild mode (a plain or Polyglot game) omits `languageCode`
+and remains valid regardless of language, exactly as before DEC-012.
 
 Example:
 
 ```text
 [
-  "GRÖMP",
-  "FLÄRP"
+  { "word": "GRÖMP" },
+  { "word": "FLÄRP", "languageCode": "de" }
 ]
 ```
 
 Words must be stored using the same normalization function as dictionary lookup.
 
-The collection should behave as a set: duplicate entries have no additional meaning.
+The collection should behave as a set keyed on `(word, languageCode)`: duplicate entries for the
+same pair have no additional meaning, but the same word may appear once per distinct language.
 
 ---
 
@@ -816,7 +825,12 @@ Examples:
 NO_TILES_AND_NO_MORE_PLAY
 CONSECUTIVE_PASSES
 NO_PLAYER_CAN_PLAY
+MANUALLY_ENDED
 ```
+
+`MANUALLY_ENDED` covers the "Avsluta spel" action (game-rules.md section 29, DEC-013): either
+player ending the game immediately rather than one of the three standard Alfapet conditions being
+met. Final scoring is calculated identically regardless of which reason applies.
 
 The exact rule interpretation comes from `game-rules.md`.
 

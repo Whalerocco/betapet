@@ -32,6 +32,13 @@ Milestone 8 — Additional languages and future expansion
 
 Version 1 ends after Milestone 4.
 
+**Sequencing note (DEC-010):** a scoped-down slice of Milestone 8 — `LanguageDefinition`/dictionary
+support only, for German, French, English, and Spanish, explicitly *not* new per-language tile
+sets, boards, or UI translations — together with Milestone 8.1 (Polyglot and Wild mode), is being
+built ahead of Milestone 5, since both modifiers are dictionary-only and don't depend on anything
+from Milestone 5-7. See sections "# 37" and "# 37a" below and `decisions.md` DEC-010. Milestone 5
+onward otherwise keeps its position and stays gated on the project owner's explicit go-ahead.
+
 ---
 
 # 3. Milestone 0 — Project foundation
@@ -166,7 +173,7 @@ A complete game state can be created, serialized conceptually, and inspected in 
 
 ## Goal
 
-Encode the actual Swedish Alfapet game configuration.
+Encode Betapet's Swedish game configuration.
 
 This is an accuracy-critical task.
 
@@ -186,7 +193,15 @@ Verify rather than assume:
 
 Use the documented Alfapet rules and other reliable references where needed.
 
-Do not substitute Scrabble values or board layout.
+**Board dimensions, multiplier positions, tile distribution, and tile values are the standard
+Scrabble board and Swedish Scrabble tile set, per `decisions.md` DEC-001 and DEC-009** — a real
+Alfapet board/tile source could not be verified after an extensive search (DEC-001), and the
+project owner has since decided to adopt the Scrabble-derived configuration as Betapet's actual,
+permanent configuration rather than an interim placeholder (DEC-009). A verified Alfapet
+board/tile configuration may be added later as an additional selectable option; see DEC-009's
+consequences. All other items in the list above (rack-size choices, bonuses, starting-player
+rule, exchange rules, end-game rules, final scoring) remain genuinely Alfapet-derived and
+unaffected by this substitution.
 
 ## Deliverables
 
@@ -1301,9 +1316,17 @@ Users can tell what requires their attention without repeatedly opening every ma
 
 # 37. Milestone 8 — Additional languages
 
-Only begin after Swedish gameplay is mature.
+Full scope (per-language tile sets, boards, and UI translations) still only begins once Swedish
+gameplay is mature, in its original roadmap position.
 
-The architecture should allow:
+**Scoped-down slice pulled ahead of Milestone 5 (DEC-010):** `LanguageDefinition`/dictionary
+support only — no new tile sets, boards, or UI translations — for German, French, English, and
+Spanish, built specifically to make Milestone 8.1's Polyglot and Wild mode meaningful. This is a
+deliberately narrower scope than the architecture below; see `game-modifiers.md` sections 9-10
+("the board, tile set, and rack letters are not affected") for why the narrower scope is
+sufficient for these two modifiers.
+
+The full architecture should still eventually allow:
 
 ```text
 LanguageDefinition
@@ -1314,13 +1337,13 @@ Board/rules if language-specific
 UI translations
 ```
 
-Potential first addition:
+Potential first full addition (tile set, board, and all):
 
 ```text
 English
 ```
 
-But do not assume English uses the same:
+But do not assume a new language uses the same:
 
 - Tile distribution
 - Point values
@@ -1328,7 +1351,10 @@ But do not assume English uses the same:
 - Word rules
 - Board configuration
 
-Each language/ruleset should be explicit.
+Each language/ruleset should be explicit. Dictionary sourcing for the four languages in the
+scoped-down slice follows the same process used for Swedish (DEC-001/DEC-003): candidate sources
+are researched and their licenses presented for explicit approval before any data is downloaded
+or committed.
 
 ---
 
@@ -1340,6 +1366,9 @@ Extend the modifier system introduced in Milestone 4.5 with the two modifiers th
 
 Follow `game-modifiers.md`.
 
+Per DEC-010, this milestone (together with the scoped-down Milestone 8 slice above) is being done
+ahead of Milestone 5, not after full Milestone 8.
+
 ## Modifiers introduced in this milestone
 
 - Polyglot mode — a word is valid if it exists in any of several selected languages.
@@ -1347,11 +1376,22 @@ Follow `game-modifiers.md`.
 
 ## Before implementation
 
-Resolve the open questions in `game-modifiers.md` section 11 that apply to these two modifiers (accepted-vocabulary scope for Wild mode, and whether/how Polyglot and Wild can combine). Record the resolution in `decisions.md`, and update the compatibility table in `game-modifiers.md` if the Polyglot/Wild exclusion changes.
+~~Resolve the open questions in `game-modifiers.md` section 11 that apply to these two modifiers~~
+Resolved by DEC-010: illegal-in-every-language for Illegal+Polyglot, and Polyglot/Wild stay
+mutually exclusive for now. DEC-010's third answer (a flat game-wide accepted vocabulary for Wild
+mode) was later superseded by DEC-012 after playtesting: Wild-mode accepted vocabulary is now
+scoped per language instead. `game-modifiers.md` section 11 has been updated to match both.
 
 ## Exit criteria
 
 A local game configured with two or more languages can be started with Polyglot mode, Wild mode, or neither, and their rule changes behave as specified in `game-modifiers.md`. Polyglot and Wild mode remain mutually exclusive unless the corresponding open question has been explicitly resolved.
+
+**Met.** `GameSetup.tsx` offers Polyglot/Wild with a language picker (Swedish always included;
+German/French/English/Spanish selectable, ≥1 additional language required); each language's
+dictionary loads via a code-split dynamic import only when actually selected, so a plain
+Swedish-only game's bundle is unaffected. Polyglot and Wild stay mutually exclusive per DEC-010 —
+the UI disables one while the other is selected, and `createGameConfiguration` rejects the
+combination even if a caller bypassed the UI. See `docs/tasks.md` T33.1-T33.3.
 
 ---
 

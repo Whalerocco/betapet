@@ -314,7 +314,11 @@ The interaction should not allow removal of committed tiles.
 
 # 14. Blank tile placement
 
-When a player places a blank tile, immediately ask which letter it represents.
+Ask which letter a blank tile represents at *placement* time, not at selection time: the player
+selects the blank tile from the rack (by tap or drag) same as any other tile, targets a board
+square, and only then is the letter prompt shown, resolving that specific placement. This keeps
+the interaction symmetrical with an ordinary letter tile — select, then target a square — rather
+than interrupting the player before they've picked a square at all.
 
 Conceptually:
 
@@ -326,7 +330,8 @@ A B C D E F ...
 Å Ä Ö
 ```
 
-The player must choose before the pending placement can be submitted.
+The player must choose before the tile actually lands on the board; dismissing the prompt leaves
+the blank tile selected (not placed) so the player can retarget a different square instead.
 
 The alphabet selector must include Swedish:
 
@@ -334,7 +339,11 @@ The alphabet selector must include Swedish:
 A–Z Å Ä Ö
 ```
 
-The choice remains editable while the tile is pending.
+The picker must be fully usable from a keyboard (arrow keys/type-ahead to change the letter,
+Enter/Space to confirm), not only by tap or click.
+
+The choice remains editable while the tile is pending — tapping an already-placed blank tile
+reopens the same picker to change its letter.
 
 Once committed, it cannot change.
 
@@ -381,11 +390,12 @@ The UI may later show score gained by the current pending move as a preview.
 
 # 17. Score preview
 
-Once the current placement is physically valid enough to score, the UI may display:
-
-```text
-Den här läggningen ger 18 poäng
-```
+Once the current placement is physically valid and forms at least one word, the UI shows the
+total score the move would receive if submitted right now, as a small badge on the board rather
+than separate inline text — anchored on the pending move's first (reading-order) tile, one badge
+for the whole move regardless of how many words it forms. The badge disappears whenever the
+placement isn't currently valid (disconnected, a gap, no word yet) — there's nothing coherent to
+preview in that state, and showing a stale or zero value there would be misleading.
 
 This score is only a preview.
 
@@ -407,13 +417,20 @@ During a normal editable turn, the main actions are:
 Spela
 Byt brickor
 Passa
+Avsluta spel
 ```
 
 Secondary actions may include:
 
 ```text
-Ta tillbaka brickor
+Rensa
+Blanda brickor
 ```
+
+`Avsluta spel` (section 35a) ends the game immediately at either player's choice, instead of
+waiting for the standard end conditions — it needs its own confirmation dialog given how
+consequential it is. `Rensa` returns every pending tile to the rack in one step; `Blanda brickor`
+reshuffles the rack's own tile order without affecting whose turn it is or what's on the board.
 
 The UI should not clutter the game area with many equal-weight buttons.
 
@@ -750,7 +767,8 @@ Anna: BIL +7
 
 History should be generated from structured game events.
 
-On smaller screens, history may be collapsed behind a button.
+The panel defaults to expanded, with a `<details>`-style toggle so it can still be collapsed away
+when it's not needed.
 
 ---
 
@@ -813,6 +831,25 @@ Din tur avslutas utan att du spelar några brickor.
 ```
 
 Avoid requiring confirmation for low-risk editing actions, but turn-ending actions deserve confirmation.
+
+---
+
+# 35a. Manually ending the game
+
+An explicit "Avsluta spel" action (game-rules.md section 29, DEC-013) lets either player end the
+game immediately, without waiting for the standard end conditions. Because this is irreversible
+for the whole match, not just the current turn, it needs a confirmation dialog with stronger
+wording than the passing confirmation above.
+
+Example:
+
+```text
+Vill du avsluta spelet i förtid?
+
+Slutpoängen räknas ut som vanligt, men detta kan inte ångras.
+
+[ Avbryt ] [ Avsluta spel ]
+```
 
 ---
 
@@ -1160,6 +1197,7 @@ Use dialogs for decisions that interrupt the normal flow:
 
 - Unknown-word confirmation
 - Pass confirmation
+- Manual end-game confirmation
 - Tile exchange confirmation
 - New-game overwrite
 - Blank letter choice

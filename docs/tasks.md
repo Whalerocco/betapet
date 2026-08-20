@@ -235,15 +235,15 @@ Tests should enforce important invariants from `content-model.md`.
 
 ## T2.1 Verify rule data
 
-Before encoding values, verify the Alfapet rules against the sources documented for the project.
+Before encoding values, verify the rule data against the sources documented for the project.
 
 Verify:
 
-- [ ] Board size.
-- [ ] Board special-square layout.
-- [ ] Letter distribution.
-- [ ] Letter point values.
-- [ ] Number/value of blank tiles.
+- [x] Board size.
+- [x] Board special-square layout.
+- [x] Letter distribution.
+- [x] Letter point values.
+- [x] Number/value of blank tiles.
 - [x] Allowed rack sizes.
 - [x] Bonus for using the complete rack.
 - [x] Starting-player rule.
@@ -251,9 +251,19 @@ Verify:
 - [x] Pass/end conditions.
 - [x] Final scoring.
 
-Do not use Swedish Scrabble values as substitutes.
-
 If reliable sources conflict materially, stop and surface the conflict.
+
+The board size/layout, letter distribution, letter point values, and blank-tile count are the
+standard Scrabble board and Swedish Scrabble tile set, not real Alfapet data. `decisions.md`
+DEC-001 records an extensive, unsuccessful search (~10 sources, including two images that turned
+out to depict Scrabble components) for genuine Alfapet data, after which the project owner
+instructed Version 1 to use the Scrabble-derived values as an interim substitute. DEC-009 records
+the project owner's later decision to stop treating that as interim and adopt it as Betapet's
+actual, permanent board/tile configuration instead. These five items are checked because they are
+now verified against that adopted reference — the standard Scrabble board and Swedish Scrabble
+tile set, cross-checked by the tests in T2.2/T2.3 — not because real Alfapet data was found. A
+verified Alfapet board/tile configuration may still be added later as an additional selectable
+option (DEC-009's consequences); that is separate future work, not a correction of these items.
 
 ---
 
@@ -798,8 +808,16 @@ unknown + forbidden
 
 ## T12.8 Duplicate/stale action protection
 
-- [ ] Double acceptance cannot double-score.
-- [ ] Stale rejection cannot undo committed move.
+- [x] Double acceptance cannot double-score. `commitMove` clears `pendingMove` and moves
+      `turnState` out of `WAITING_FOR_OPPONENT_APPROVAL` as part of the same atomic transition
+      that awards the score, so a second `acceptProposedMove` call against the resulting state
+      already fails the same `turnState.type` guard used for "wrong player cannot review" below —
+      no separate guard was needed, just a test proving it (`disputedWord.test.ts`, "duplicate/
+      stale action protection (T12.8)").
+- [x] Stale rejection cannot undo committed move. Same guard: once `acceptProposedMove` has
+      committed, `turnState` is no longer `WAITING_FOR_OPPONENT_APPROVAL`, so a subsequent
+      `rejectProposedMove` against that state is rejected before it can touch the board, score,
+      or turn (tested alongside the item above).
 - [x] Wrong player cannot review.
 
 ---
@@ -967,7 +985,12 @@ Keep presentation strings outside the engine.
 ## T16.2 Forbidden-word feedback
 
 - [x] Explain that the move cannot be played.
-- [ ] Identify relevant forbidden word(s).
+- [x] Identify relevant forbidden word(s). `submitMove.ts` already reported the word via
+      `error.details.word`; `describeGameError` (`errorMessages.ts`) now quotes it into the
+      Swedish message (`Ordet "X" är inte tillåtet.`) instead of only showing the generic
+      message, with a fallback for the rare case no word is present. `submitMove.ts` blocks the
+      whole move on the first forbidden word found, so at most one word is ever reported per
+      rejection — a UI list isn't needed.
 - [x] Return user to editing.
 - [x] Do not offer opponent approval.
 
@@ -1326,12 +1349,21 @@ Automate at least:
 Before declaring Version 1 complete:
 
 - [x] Unit tests pass.
-- [ ] Integration tests pass.
+- [x] Integration tests pass. No separate integration-test tool/script is defined anywhere in
+      `tech-stack.md`; this project's Vitest suite already includes tests that integrate several
+      engine layers together in one run rather than testing a function in isolation — for
+      example `submitMove.test.ts` (physical validation → word detection → classification →
+      scoring → commit, across the normal, Crisscross, Replace, and Illegal-mode paths),
+      `localGameStorage.test.ts`/`page.test.tsx` (setup UI → engine → persistence round-trip),
+      and the resume-flow tests under `application/`. Those are what this checklist item refers
+      to, and they pass as part of `npm test` (54 files, 411 tests, 2026-08-19).
 - [x] End-to-end tests pass.
 - [x] Type checking passes.
 - [x] Linting passes.
 - [x] Production build passes.
-- [ ] Swedish configuration has been verified.
+- [x] Swedish configuration has been verified, against the Scrabble-derived board/tile
+      configuration DEC-009 adopted as Betapet's permanent Version 1 configuration (see T2.1) —
+      not against the physical Alfapet game.
 - [x] Dictionary license/source is documented.
 - [x] No online/backend code is required for local play.
 - [ ] Manual two-person hot-seat test completed.
@@ -1384,12 +1416,19 @@ Follow `game-modifiers.md`. The open questions blocking this phase are resolved 
 - [x] Add `modifiers` to `GameConfiguration` per `content-model.md` section 8.
 - [x] Implement the compatibility check (`game-modifiers.md` section 5) as engine-level
       validation at game-configuration time, not only a UI-level restriction.
-- [ ] Add a settings/game-setup UI section for selecting modifiers before starting a game.
-- [ ] Test that an incompatible combination is rejected by the engine even if a caller bypasses
-      the UI. (Not yet possible to test with a real rejection: every pair among the three
-      currently-implemented modifiers is COMPATIBLE or COMPATIBLE_WITH_INTERACTION, not
-      UNDECIDED — the rejection path itself is exercised once Milestone 8.1 adds a real
-      UNDECIDED pair.)
+- [x] Add a settings/game-setup UI section for selecting modifiers before starting a game.
+      `GameSetup.tsx` renders one checkbox per modifier with Swedish label/description, disables
+      a checkbox that would create an `UNDECIDED` pair with the current selection (defense in
+      depth around `validateModifierSelection`, which is also re-checked on submit), and shows an
+      interaction note for Crisscross+Replace. The selection now flows all the way through
+      `createGame`/`createSwedishGameConfiguration` into the running `GameConfiguration`, and is
+      persisted/restored via `localGameStorage` (schema bumped to v2; a pre-modifiers v1 save is
+      treated as INCOMPATIBLE rather than assumed to have none) so a resumed game keeps enforcing
+      the modifiers it was created with instead of silently losing them.
+- [x] Test that an incompatible combination is rejected by the engine even if a caller bypasses
+      the UI. Now that Milestone 8.1 (Polyglot/Wild) has landed, Polyglot+Wild is a real
+      `UNDECIDED` pair (DEC-010) — `modifiers.test.ts`'s "rejects Polyglot and Wild combined, per
+      DEC-010" calls `validateModifierSelection` directly, independent of `GameSetup.tsx`.
 
 ---
 
@@ -1403,6 +1442,12 @@ Follow `game-modifiers.md`. The open questions blocking this phase are resolved 
 - [x] Test that a disconnected new-tile island is still rejected.
 - [x] Test first-move-must-cover-centre and connect-to-existing-board rules against the cluster
       as a whole, per section 6's clarification.
+
+Corrected 2026-08-20 (DEC-014): the original connectivity check treated any existing board tile
+as a valid bridge between two new-tile groups, which incorrectly accepted two unrelated groups
+that never touched each other directly. `isCrisscrossConnected` now requires the newly placed
+tiles' own lines to share a cell with each other; a regression test reproduces the exact reported
+scenario (two groups bridged only through an existing crossing pair of words).
 
 ---
 
@@ -1426,10 +1471,13 @@ not deferred to commit — board.ts `removeCommittedTile` doc), and undoing a re
 (REMOVE_TILE, "Rensa", or moving a pending tile elsewhere) fully reverses the displacement,
 restoring the original tile to the board and out of the rack. Replacing the board's only
 remaining committed tile is handled correctly too (`isFirstMoveOverride` /
-`physicalValidation.ts`) rather than being misread as the game's first move.
+`physicalValidation.ts`) rather than being misread as the game's first move. Moving an
+already-pending tile onto a *different* occupied cell (drag-relocating a replace placement) is
+also supported (`movePendingTile.ts`'s `allowReplace` option, added 2026-08-20 after a reported
+bug: it previously only supported moving onto an empty cell).
 
-Not yet done: no settings/game-setup UI wiring exists for Replace mode (or any modifier) — see
-T32.1.
+Settings/game-setup UI wiring for Replace mode (and every other modifier) now exists — see
+T32.1, `GameSetup.tsx`.
 
 ---
 
@@ -1440,11 +1488,14 @@ T32.1.
       partially-dictionary-valid multi-word moves (`game-modifiers.md` section 11, item 4).
 - [x] Implement the resolved open question on `ACCEPTED_IN_GAME` word handling
       (`game-modifiers.md` section 11, item 3).
-- [ ] Confirm `FORBIDDEN_WORD` (one-letter words) remains blocked unchanged. (The Illegal-mode
-      check sits after the existing forbidden-word check in `submitMove.ts` and doesn't touch
-      it, but there's no direct test proving this combination — `detectFormedWords` structurally
-      never returns a single-letter word today, so `FORBIDDEN_WORD` may not be reachable via a
-      real move at all; see tasks.md T12.7/T12.8 for the same pre-existing gap.)
+- [x] Confirm `FORBIDDEN_WORD` (one-letter words) remains blocked unchanged.
+      `submitMove.illegalVsForbidden.test.ts` mocks `classifyWord` so a move can form both a
+      FORBIDDEN_WORD and a DICTIONARY_WORD in the same submission, and asserts the move is
+      rejected as FORBIDDEN_WORD, not `DICTIONARY_WORD_NOT_ALLOWED` — proving the ordering in
+      `submitMove.ts` (forbidden-word check before the Illegal-mode check). A mock was needed
+      because `detectFormedWords` still structurally never returns a single-letter word, so this
+      combination remains unreachable via a real board placement; see T12.7/T12.8 for that
+      pre-existing gap, which this task does not close.
 
 ---
 
@@ -1641,30 +1692,54 @@ Support:
 
 # 35. Phase 8 — Additional languages
 
-Do not begin until Swedish gameplay is mature.
+Full scope (per-language tile sets, boards, UI translations) still does not begin until Swedish
+gameplay is mature, in its original roadmap position.
 
-## T31.1 Extract language/ruleset configuration
+**Scoped-down slice pulled ahead of Milestone 5 (DEC-010):** T31.1 below is being done now, but
+narrowed to dictionary/word-rules only — explicitly excluding tile distribution, tile values,
+board differences, and UI translation, which stay out of scope until full Milestone 8 is
+pursued. T31.2 below is superseded by that narrower scope: see "T31.2 (scoped)" below instead of
+"add one full language."
+
+## T31.1 Extract language/ruleset configuration (scoped to dictionary/word rules only)
 
 Ensure clean separation of:
 
-- [ ] Dictionary.
-- [ ] Tile distribution.
-- [ ] Tile values.
-- [ ] Word rules.
-- [ ] UI language.
-- [ ] Board/rule differences where applicable.
+- [x] Dictionary. Confirmed by German's addition: `germanDictionary.ts` implements the same
+      `Dictionary` interface (`src/game/dictionary/dictionary.ts`) Swedish uses, with zero changes
+      to that interface or to `classifyWord.ts`.
+- [x] Word rules. `germanWordClassificationRules.ts` builds the same `WordClassificationRules`
+      shape as Swedish's, from German-specific allow-lists
+      (`allowedCountriesDe.ts`/`allowedMonthsDe.ts`/`allowedWeekdaysDe.ts`/`allowedAbbreviationsDe.ts`).
+
+Deliberately out of scope for this round (DEC-010) — remains for full Milestone 8 later:
+
+```text
+Tile distribution
+Tile values
+UI language
+Board/rule differences
+```
 
 ---
 
-## T31.2 Add first additional language
+## T31.2 (scoped) Add dictionary support for German, French, English, and Spanish
 
-Likely candidate:
+Per DEC-010, not "one first additional language" with its own tile set/board, but dictionary-only
+support for four languages, sufficient for Milestone 8.1's Polyglot/Wild modifiers:
 
-```text
-English
-```
+- [x] German — `hippler/german-wordlist` (CC0-1.0), 675,423 words. See `src/data/dictionary/SOURCE-de.md`.
+- [x] French — Lexique383 (CC BY-SA 4.0), 121,047 words. See `src/data/dictionary/SOURCE-fr.md`
+      (including a resolved license-link discrepancy on the source's own site).
+- [x] English — ENABLE (public domain), 172,823 words. See `src/data/dictionary/SOURCE-en.md`
+      (switched from the originally-approved SCOWL, which turned out to need dictionary-compiler
+      tooling to produce a flat word list; ENABLE needed none).
+- [x] Spanish — Spanish Wiktionary via Wiktextract/kaikki.org (CC BY-SA + GFDL), 826,336 words,
+      with real proper-noun/abbreviation exclusions derived from the source's own `pos` field
+      (28,849 / 255 words respectively). See `src/data/dictionary/SOURCE-es.md`.
 
-But verify and define its rules independently.
+Verify and define each language's dictionary/word rules independently (dictionary source,
+license, normalization, proper-noun/abbreviation handling, allowed countries/months/weekdays).
 
 Do not reuse Swedish values accidentally.
 
@@ -1672,37 +1747,74 @@ Do not reuse Swedish values accidentally.
 
 # 35a. Phase 8A — Multi-language game modifiers (Polyglot, Wild)
 
-Follow `game-modifiers.md`. Do not begin until the open questions in its section 11 that apply to
-these two modifiers have been resolved and recorded in `decisions.md`.
+Follow `game-modifiers.md`. ~~Do not begin until the open questions in its section 11 that apply
+to these two modifiers have been resolved~~ Resolved by DEC-010 — see `game-modifiers.md`
+section 11.
 
 ## T33.1 Polyglot mode
 
-- [ ] Configure a game with two or more selected languages.
-- [ ] Evaluate dictionary membership as valid if any selected language's dictionary matches, per
-      `game-modifiers.md` section 9.
-- [ ] Test a word valid in one selected language but not another is classified `DICTIONARY_WORD`.
-- [ ] Implement the resolved Illegal + Polyglot interaction (`game-modifiers.md` section 11,
-      item 5) if Illegal mode is also selected.
+- [x] Configure a game with two or more selected languages. `GameConfiguration.polyglotLanguages`
+      (`src/game/model/gameConfiguration.ts`), validated (≥2 languages required when `modifiers`
+      has `"POLYGLOT"`) by `createGameConfiguration`. `GameSetup.tsx` now has a language-picker
+      checklist (Swedish always included; German/French/English/Spanish selectable) shown once
+      the Polyglot checkbox is checked, wired through `page.tsx`/`gameController.ts`/
+      `localGameStorage.ts` (schema v3) end to end — see roadmap.md Milestone 8.1.
+- [x] Evaluate dictionary membership as valid if any selected language's dictionary matches, per
+      `game-modifiers.md` section 9. `classifyWordAcrossLanguages`
+      (`src/game/dictionary/classifyWordAcrossLanguages.ts`) calls `classifyWord` once per
+      language and combines results (`DICTIONARY_WORD` if any language matches); `submitMove.ts`
+      uses it uniformly for both the single-language and Polyglot cases via
+      `SubmitMoveOptions.polyglotClassificationRules`.
+- [x] Test a word valid in one selected language but not another is classified `DICTIONARY_WORD`.
+      `submitMove.test.ts` "submitMove: Polyglot mode", using real German+French dictionaries
+      ("HAUS" is German, not French).
+- [x] Confirm the Illegal + Polyglot interaction (DEC-010: illegal in every selected language) if
+      Illegal mode is also selected. Composing the existing Illegal-mode gate with
+      `classifyWordAcrossLanguages`'s "any language matches → DICTIONARY_WORD" already implies
+      this with no extra code path (DEC-010's own rationale), confirmed by a dedicated test.
 
 ---
 
 ## T33.2 Wild mode
 
-- [ ] Configure a game with an ordered list of two or more languages.
-- [ ] Rotate the active validating language after every full round, cycling back to the start.
-- [ ] Implement the resolved open question on accepted-vocabulary scope across a language
-      rotation (`game-modifiers.md` section 11, item 6).
-- [ ] Test that a move is validated against whichever language was active at commit time, not the
-      currently active language after later rotations.
+- [x] Configure a game with an ordered list of two or more languages.
+      `GameConfiguration.wildLanguages` (`src/game/model/gameConfiguration.ts`), order-preserving,
+      validated (≥2 languages required when `modifiers` has `"WILD"`) by `createGameConfiguration`.
+      Setup UI shares Polyglot's language-picker pattern; order is the fixed canonical
+      `ALL_LANGUAGE_CODES` order (Swedish first) rather than click order, to avoid needing a
+      drag-to-reorder control for this first implementation — a documented simplification, not a
+      spec requirement, and easy to revisit later without a breaking change (`wildLanguages` is
+      already an ordered array regardless of how it's populated).
+- [x] Rotate the active validating language after every full round, cycling back to the start.
+      `activeWildLanguageIndex` (`src/game/engine/wildRotation.ts`) derives this from
+      `state.history` — completed turns are `WORD_MOVE_COMMITTED`/`PASS`/`TILES_EXCHANGED`
+      events (a rejected proposal does not count, since it returns control to the same player
+      without completing a turn). `submitMove.ts` uses it to pick exactly one active language's
+      rules from `options.wildClassificationRules` (unlike Polyglot's "any of several").
+      `wildRotation.test.ts` covers round 0/1/2, wraparound, and the rejection-doesn't-count case
+      directly against the pure function.
+- [x] Confirm accepted vocabulary is scoped per Wild-mode language, not shared across rotation
+      (DEC-010, superseded by DEC-012 after playtesting). `acceptedVocabulary.ts`'s
+      `acceptedVocabularySet(state, languageCode?)` filters entries by the language they were
+      accepted under; `submitMove.ts`/`acceptProposedMove.ts` pass the currently-active Wild
+      language when checking/recording acceptance. Covered by `submitMove.test.ts`'s "DEC-012:
+      per-language accepted vocabulary" cases (stays accepted after rotating back to the same
+      language; is unknown again under a different language).
+- [x] Test that a move is validated against whichever language was active at commit time, not the
+      currently active language after later rotations. `submitMove.test.ts` "submitMove: Wild
+      mode", using real German ("REN") and French ("PEU") dictionary words: the same crossing
+      placement commits directly once "fr" becomes active but would require proposer
+      confirmation while "de" is still active, and the earlier round's committed word/history
+      entry is confirmed unchanged after the later rotation.
 
 ---
 
 ## T33.3 Polyglot and Wild combination
 
-- [ ] Keep Polyglot and Wild mutually exclusive in the compatibility table unless/until the
-      project owner resolves `game-modifiers.md` section 11 item 7.
-- [ ] If resolved to allow combination, implement and test the agreed combined behaviour, and
-      update the compatibility table in `game-modifiers.md`.
+- [x] Keep Polyglot and Wild mutually exclusive in the compatibility table (DEC-010; not
+      combined in this round).
+- [ ] If a future decision resolves this differently, implement and test the agreed combined
+      behaviour, and update the compatibility table in `game-modifiers.md`.
 
 ---
 

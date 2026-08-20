@@ -606,6 +606,8 @@ This was an explicit project-owner instruction, given after the gap and the mism
 
 Genuine Swedish Alfapet board/tile data becomes available (e.g. the project owner gets a clear photograph of the physical board and tile bag, or a reliable published source is found). At that point, update `game-rules.md` sections 3 and 4, mark this decision `SUPERSEDED`, and replace the board/tile data files referenced from it.
 
+**Update (DEC-009, 2026-08-19):** the project owner has since decided to stop treating this as a temporary placeholder awaiting Alfapet data and adopt it as Betapet's permanent Version 1 board/tile configuration instead. This entry's account of the search and the original interim framing is left intact as history; DEC-009 is the current word on whether/how this gets revisited.
+
 Relevant files:
 - `docs/game-rules.md` (sections 3, 4, 34)
 - `src/data/board/scrabbleBoard.ts`
@@ -687,7 +689,7 @@ lemmas), which `dictionary.md` section 41 explicitly calls out as something to v
   (885,438 unique playable single-word forms). The raw source files are gitignored and not
   committed; see `scripts/dictionary-raw-sources/README.md` to regenerate.
 - The generated word list is not yet filtered for proper names, place names, or abbreviations —
-  see `src/data/dictionary/SOURCE.md` and roadmap Milestone 2.2.
+  see `src/data/dictionary/SOURCE-sv.md` and roadmap Milestone 2.2.
 - Attribution to Borin, Lönngren, and Forsberg (2017) / Språkbanken must be preserved wherever
   the project's data sources or credits are documented.
 
@@ -699,7 +701,7 @@ quality issues are found during playtesting that a different source would resolv
 Relevant files:
 - `scripts/preprocess-dictionary.ts`
 - `scripts/dictionary-raw-sources/README.md`
-- `src/data/dictionary/SOURCE.md`
+- `src/data/dictionary/SOURCE-sv.md`
 - `src/data/dictionary/sv-saldo-words.json`
 
 ## DEC-004 — Country allow-list scoped to UN member states
@@ -753,7 +755,7 @@ trivial to change.
 
 Relevant files:
 - `src/game/dictionary/allowedCountries.ts`
-- `src/data/dictionary/SOURCE.md`
+- `src/data/dictionary/SOURCE-sv.md`
 
 ## DEC-005 — Game-end condition: bag empty AND a player's rack empty
 
@@ -1014,3 +1016,503 @@ decision rather than silently overriding this one.
 
 Relevant files:
 - `docs/game-modifiers.md`
+
+## DEC-009 — Scrabble board and tile set adopted as Betapet's permanent configuration
+
+**Date:** 2026-08-19
+**Status:** ACCEPTED
+**Area:** Engine / Documentation
+
+### Context
+
+DEC-001 adopted the standard 15×15 Scrabble board and Swedish Scrabble tile distribution as an
+explicitly *interim* substitute for the real Swedish Alfapet board/tile data, after an extensive
+(~10 source) search failed to turn up complete, reliable Alfapet board-layout or letter-distribution
+data. That decision's "Revisit when" condition was genuine Alfapet source material becoming
+available (a correctly-photographed physical board/tile bag, or a reliable published source). No
+such material has emerged, and `tasks.md` T2.1 and the Version 1 release gate have consequently
+carried five permanently-unchecked "verify against real Alfapet" boxes with no realistic path to
+completion.
+
+### Decision
+
+Betapet stops pursuing Alfapet board/tile-set verification and adopts the Scrabble-derived board
+and Swedish Scrabble tile distribution, exactly as already encoded in `src/data/board/scrabbleBoard.ts`
+and `src/data/tiles/swedishScrabbleTiles.ts`, as its actual, permanent Version 1 configuration —
+not a placeholder awaiting replacement. Turn structure, scoring formulas, the word-approval flow,
+and every other Alfapet-derived rule are unaffected; this decision is scoped to the physical
+board layout and tile distribution only, exactly as DEC-001 already scoped it.
+
+A genuine Alfapet board/tile configuration may be added later, if the project owner wants it, as
+an *additional* selectable configuration a player can choose at game setup (conceptually similar
+to how `GameConfiguration.modifiers` already lets a game opt into rule variants) — not as a
+replacement of the Scrabble-derived configuration this decision makes permanent. Designing or
+scheduling that addition is explicitly out of scope here; this decision only removes the
+"unverified, pending replacement" framing from the configuration Betapet already runs on.
+
+### Alternatives considered
+
+- Keep searching for genuine Alfapet source material indefinitely — rejected; DEC-001 already
+  exhausted the reasonably available sources, and there is no new lead to pursue.
+- Keep the "interim substitute, revisit later" framing indefinitely, with no active plan to
+  revisit it — rejected as actively misleading: it left `tasks.md`/the release-gate checklist
+  permanently reporting unresolved verification work that could never actually be resolved,
+  and readers of `game-rules.md`/`CLAUDE.md` would reasonably assume "interim" means a near-term
+  replacement is expected.
+- Immediately design and build dual board/tile-set support (Scrabble + a real Alfapet option) —
+  rejected as premature: no verified Alfapet data exists to build that second option from yet,
+  and `CLAUDE.md`'s "do not prematurely build infrastructure for future features" applies.
+
+### Consequences
+
+- `CLAUDE.md`, `game-rules.md` (sections 1, 3, 4, 34), and `tasks.md` (T2.1, the Milestone 1.1
+  roadmap entry, and the Version 1 release-gate checklist) are updated to describe the
+  Scrabble-derived board/tile set as Betapet's actual configuration rather than an interim
+  substitute, and the five previously-unverifiable checkboxes are checked off against that
+  now-canonical reference (cross-checked by the existing `T2.2`/`T2.3` tests) instead of against
+  the physical Alfapet game.
+- No code or data changes are required — `scrabbleBoard.ts` and `swedishScrabbleTiles.ts` already
+  encode exactly the values this decision makes permanent.
+- `SWEDISH_CONFIGURATION_ID` ("sv-scrabble-v1") and related naming stay as-is; they already
+  describe the Scrabble-derived configuration accurately.
+- If a real Alfapet board/tile option is added later, it should be modeled as an alternate,
+  selectable `BoardDefinition`/tile-set rather than a rewrite of the current one, so existing
+  saved games and the Scrabble-derived configuration keep working unchanged.
+
+### Revisit when
+
+Only if the project owner wants to add a real Alfapet board/tile option later (an addition, per
+the Decision above, not a replacement) — not because the Scrabble-derived configuration is
+considered temporary or wrong.
+
+Relevant files:
+- `CLAUDE.md`
+- `docs/game-rules.md` (sections 1, 3, 4, 34)
+- `docs/tasks.md` (T2.1, Phase 4B)
+- `docs/roadmap.md` (Milestone 1.1)
+- `docs/decisions.md` (DEC-001)
+
+## DEC-010 — Polyglot/Wild open questions resolved; a dictionary-only slice of Milestone 8 (German, French, English, Spanish) pulled ahead of Milestone 5
+
+**Date:** 2026-08-19
+**Status:** ACCEPTED
+**Area:** Engine / Dictionary / Roadmap
+
+### Context
+
+`game-modifiers.md` section 11 recorded three open questions blocking Milestone 8.1 (Polyglot and
+Wild mode), left unresolved rather than guessed per `CLAUDE.md`'s instruction not to invent
+gameplay behaviour. Both `roadmap.md` and `tasks.md` explicitly gate any Milestone 8.1
+implementation on these being resolved and recorded here first. Separately, the project owner
+asked to pull a slice of roadmap Milestone 8 ("Additional languages") forward, ahead of Milestone
+5 (online) — specifically to make Polyglot and Wild mode usable with German, French, English, and
+Spanish, without waiting for the rest of the roadmap's online phase.
+
+### Decision
+
+1. **Illegal + Polyglot interaction.** A word must be illegal (non-dictionary) in *every* selected
+   language to be playable under Illegal mode — not just one. This matches Illegal mode's existing
+   rule (DEC-008) that a move is blocked if *any* formed word is dictionary-valid: composed with
+   Polyglot's "valid if found in any selected language" rule, a word only counts as
+   dictionary-valid (and therefore blocks the move) if at least one language matches, so no
+   separate code path is needed beyond correct composition of the two existing mechanisms.
+2. **Wild mode — accepted-vocabulary scope.** An unknown word accepted by the opponent stays valid
+   for the rest of the game regardless of which language later becomes active. Accepted vocabulary
+   remains one flat set per game, unchanged from today's model (`content-model.md` section 28) —
+   no per-language tracking is added.
+3. **Polyglot + Wild combination.** They stay mutually exclusive (`UNDECIDED` in the compatibility
+   table) for now. No combined behaviour is designed in this round.
+4. **Milestone 8 scope for this round.** Rather than building full Milestone 8 (per-language tile
+   sets, boards, and UI translations — see `roadmap.md` "# 37"), only the dictionary/
+   `LanguageDefinition` slice is built now, for German, French, English, and Spanish, sufficient to
+   make Polyglot and Wild mode meaningful. This matches how both modifiers were already specified
+   in `game-modifiers.md` sections 9-10: "the board, tile set, and rack letters are not affected —
+   the same single physical tile set/board configured for the game is used throughout." Full
+   Milestone 8 (new tile sets/boards/UI translations per language) remains future work in its
+   original roadmap position, not started by this decision. Dictionary sourcing for the four new
+   languages follows the same process as Swedish (DEC-001/DEC-003): candidate sources are
+   researched and their licenses presented for explicit approval before anything is downloaded or
+   committed to the repo.
+
+### Alternatives considered
+
+For (1): only requiring a word to be illegal in *at least one* selected language — rejected, since
+the project owner wanted Illegal mode's existing strictness (already blocking on any single
+dictionary-valid word) to compose consistently rather than becoming looser once Polyglot is added.
+
+For (2): tracking accepted vocabulary per language, so a word accepted under German could revert
+to `UNKNOWN_WORD` once Wild mode rotates to, say, Spanish — rejected as unnecessary extra state
+and a worse player experience (a word the table already agreed was fine becoming disputed again
+later), for no rule this project needs.
+
+For (3): designing a combined Polyglot+Wild mode now (e.g. a rotating subset of languages) —
+rejected as out of scope for this round; `game-modifiers.md` section 5 already flagged this as
+conceivable but undesigned, and nothing requires solving it now.
+
+For (4): building full Milestone 8 (real per-language boards/tile sets/UI translations) now,
+instead of the scoped-down dictionary-only slice — rejected as substantially more work than
+needed to unlock Polyglot/Wild, and outside what was actually requested; building unused
+per-language board/tile infrastructure ahead of need would also cut against `CLAUDE.md`'s
+"do not prematurely build infrastructure for future features."
+
+### Rationale
+
+These are explicit project-owner answers to genuinely open design questions and a genuine
+roadmap-sequencing/scope choice, not inferred interpretations of a silent specification —
+recorded per this file's own "Updating specifications" process, the same pattern DEC-008 used for
+Replace/Illegal mode's open questions.
+
+### Consequences
+
+- `docs/game-modifiers.md` sections 5, 9, 10, 11, and 12 are updated to state these as decided
+  rules rather than open questions, and to describe Milestone 8.1's dependency as the scoped-down
+  Milestone 8 slice rather than the full milestone.
+- `docs/roadmap.md` and `docs/tasks.md` are updated to reflect the scoped-down Milestone 8
+  definition and its reordering ahead of Milestone 5.
+- Milestone 8.1 (Polyglot, Wild) can now proceed to implementation once the scoped-down Milestone
+  8 dictionary groundwork exists for at least one additional language.
+- Dictionary sourcing research for German, French, English, and Spanish follows next, with license
+  approval required before any data is committed — see the follow-up plan for the detailed
+  per-language pipeline design once sources are approved.
+- Milestone 5 (online) and everything after it in the roadmap are unaffected by this decision and
+  remain gated on the project owner's explicit go-ahead, per `roadmap.md`/`CLAUDE.md`.
+
+### Revisit when
+
+Item 3 (Polyglot + Wild combination) could be revisited later if a concrete design for combining
+them emerges. Item 4's scope reduction could be revisited if the project owner later wants full
+per-language tile sets/boards (i.e. actually pursuing full Milestone 8), which would be a separate
+decision, not an automatic extension of this one.
+
+Relevant files:
+- `docs/game-modifiers.md` (sections 5, 9, 10, 11, 12)
+- `docs/roadmap.md` (Milestone 8, Milestone 8.1)
+- `docs/tasks.md` (Phase 8, Phase 8A)
+
+## DEC-011 — Dictionary sources for German, French, English, and Spanish
+
+**Date:** 2026-08-19
+**Status:** ACCEPTED
+**Area:** Dictionary
+
+### Context
+
+DEC-010 pulled a dictionary-only slice of Milestone 8 forward, for German, French, English, and
+Spanish. Following the same process DEC-001/DEC-003 used for Swedish (SALDO, CC-BY-4.0), four
+candidate sources were researched per language, each verified against current, actual license
+text (not assumed from memory), and presented to the project owner for approval before anything
+is downloaded or committed. No source in any of the four languages was assumed equivalent to
+another without checking — licenses varied significantly by language, and two of the four required
+a genuine tradeoff decision rather than a clean pick.
+
+### Decision
+
+- **German**: [`hippler/german-wordlist`](https://github.com/hippler/german-wordlist) (a fork of
+  `enz/german-wordlist`, used by the word game Tanglet), licensed **CC0-1.0** (public domain
+  dedication — no conditions at all, not even attribution). ~686,000 words, plain text, curated
+  specifically for word games: proper nouns, toponyms, abbreviations, archaic words, and outdated
+  spellings are excluded by the source's own curation policy.
+- **English**: [SCOWL](https://wordlist.aspell.net/) (Spell Checking Oriented Word Lists) by Kevin
+  Atkinson, size ≤60. Short permissive notice (copy/modify/distribute/sell without fee, provided
+  the copyright notice is retained) — the same license family Hunspell `en_US` itself is built
+  from. Staying at size ≤60 avoids the one small attribution-text obligation (UKACD) that appears
+  at larger sizes. Comfortably exceeds the project's word-count bar, and is already split into
+  separate words/proper-names/abbreviations files.
+- **French**: [Lexique383](http://www.lexique.org/) (Boris New & Christophe Pallier, CNRS-affiliated),
+  licensed **CC BY-SA 4.0**. ~140,000 word forms with grammatical category/gender/number tagging.
+  No French source matched SALDO's clean attribution-only bar; every viable option carried some
+  copyleft/share-alike obligation. CC BY-SA was chosen over the LGPL-LR-licensed alternative
+  (Morphalou 3.1) because CC licenses are purpose-built for data derivatives (unlike LGPL, which
+  is a software license retrofitted onto data — the same "murkiness" reasoning that ruled out
+  Hunspell `sv` for Swedish) and because Lexique383 is a plain, directly downloadable file rather
+  than requiring ORTOLANG registration.
+- **Spanish**: Spanish Wiktionary via Wiktextract ([kaikki.org/eswiktionary](https://kaikki.org/eswiktionary/index.html)),
+  licensed **CC BY-SA 4.0 + GFDL** (dual, inherited from Wiktionary). ~1,035,000 senses with
+  part-of-speech tagging (community-edited, so tagging completeness isn't guaranteed the way a
+  purpose-built dictionary's would be). Chosen over Hunspell `es` (rla-es project, a disjunctive
+  choice of GPL v3+/LGPL v3+/MPL v1.1+) for the same reason as French: CC BY-SA's terms are
+  unambiguous for a data derivative, where the Hunspell license family already proved murky enough
+  to reject for Swedish.
+
+**Consequence of the French and Spanish choices**: because both are ShareAlike-licensed, the
+French and Spanish word-list files Betapet ships must themselves be redistributable under CC
+BY-SA 4.0 (with attribution), unlike the German (CC0, no obligation) and English (permissive
+notice) files, and unlike Swedish's SALDO file (CC-BY-4.0, attribution only, no share-alike). This
+does not affect Betapet's own application code license — only the specific derived dictionary
+data files for these two languages.
+
+### Alternatives considered
+
+Per-language alternatives and why each was passed over are detailed in the Decision section above
+and in the full research reports (not separately filed; summarized here and in the forthcoming
+`SOURCE-<lang>.md` for each language once built). In short: sources requiring No-Derivatives clauses
+(DWDS for German) or of unclear/proprietary provenance (official Scrabble word lists for English
+and Spanish, RAE for Spanish) were ruled out outright as non-viable, not just less preferred.
+
+### Rationale
+
+Matches the bar `game-rules.md`/`dictionary.md` set for Swedish: offline-redistributable, clearly
+licensed, no live network dependency. Where no attribution-only source existed (French, Spanish),
+the project owner explicitly chose to accept a ShareAlike obligation rather than a software-style
+copyleft license, consistent with the reasoning that already ruled out Hunspell `sv` for Swedish.
+
+### Consequences
+
+- Phase C (per the approved multi-language plan) proceeds: build the preprocessing pipeline for
+  each language, generate `src/data/dictionary/<lang>-<source>-words.json` (plus
+  `-exclusions.json` where the source supports deriving one) and a `SOURCE-<lang>.md`, mirroring
+  the existing Swedish files (renamed `SOURCE.md` → `SOURCE-sv.md` for this reason), one language
+  at a time.
+- The French and Spanish `SOURCE-fr.md`/`SOURCE-es.md` files must state the CC BY-SA 4.0 obligation clearly, since
+  it constrains how those two data files (not the rest of the codebase) may be reused downstream.
+- No data has been downloaded or committed as of this decision — that is the next step.
+
+### Revisit when
+
+If a cleaner attribution-only (non-share-alike) source is later found for French or Spanish, or if
+the chosen sources become unmaintained/removed, revisit and record a new decision rather than
+silently swapping data.
+
+**Update, French implementation (2026-08-19):** while implementing the French dictionary, a
+discrepancy was found on lexique.org's own download page: the license link's visible text reads
+"Creative Commons Attribution – Partage dans les mêmes conditions 4.0" (= CC BY-SA, matching the
+choice above), but the link's underlying URL points to `creativecommons.org/licenses/by-nc/4.0/`
+(Attribution-NonCommercial) instead of `.../by-sa/4.0/`. A GitHub mirror redistributing this exact
+dataset (`SekouDiaoNlp/pylexique`) independently states "License: CC BY SA 4.0" in its own README,
+linking to a file named `LICENSE-CC-BY-SA4.0.txt`. With two independent sources agreeing on BY-SA
+and only the raw href disagreeing, the project owner explicitly confirmed treating this as a
+broken/mistyped link on the live site and proceeding with CC BY-SA 4.0 as originally decided
+above, rather than pausing implementation or switching to Morphalou. See
+`src/data/dictionary/SOURCE-fr.md` for the full detail.
+
+**Update, English implementation (2026-08-19):** the originally-approved SCOWL turned out not to
+be distributable as a simple flat word list during implementation — its generator and GitHub
+releases only offer Hunspell/Aspell dictionary packages requiring affix-expansion tooling to
+produce a flat list, unlike German/French's sources. The project owner was informed and chose to
+switch to **ENABLE** (public domain) instead — the other candidate already researched and
+recommended in the original English research pass. See `src/data/dictionary/SOURCE-en.md` for the
+full detail.
+
+**Update, Spanish implementation (2026-08-19):** implemented as approved, no discrepancy found —
+the export page directly and unambiguously states "This data is made available under the same
+licenses as Wiktionary - both CC-BY-SA and GFDL." Notably, unlike French/English, this source's
+`pos` field does support deriving real proper-noun/abbreviation exclusions the same way SALDO's
+tags do for Swedish, so `allowedCountriesEs.ts` etc. behave like Swedish's allow-lists (genuinely
+overriding an exclusion) rather than being largely inert like French's/English's. See
+`src/data/dictionary/SOURCE-es.md` for the full detail.
+
+All four languages (German, French, English, Spanish) are now implemented at the
+dictionary/classification-rules layer. Remaining work — wiring language selection into
+`GameConfiguration`, `ModifierId` (POLYGLOT/WILD), and the setup UI — is separate follow-up work
+per the approved multi-language plan's Phases D onward, not part of this decision.
+
+Relevant files:
+- `src/data/dictionary/SOURCE-de.md`, `SOURCE-fr.md`, `SOURCE-en.md`, `SOURCE-es.md` (built)
+- `docs/dictionary.md`
+
+## DEC-012 — Wild mode accepted vocabulary is scoped per-language, superseding DEC-010 item 2
+
+**Date:** 2026-08-19
+**Status:** ACCEPTED
+**Area:** Engine / Dictionary
+
+### Context
+
+After playtesting the completed Wild mode implementation, the project owner reported that an
+unknown word accepted by the opponent while one language is active should only stay valid for
+that language — not for every configured Wild language, as DEC-010 item 2 originally decided
+("Accepted vocabulary remains one flat set per game... no per-language tracking is added"). This
+directly reverses that earlier decision, at the project owner's explicit direction, rather than
+correcting a bug: DEC-010 item 2 was itself a deliberate answer to an open question, now replaced
+by a different deliberate answer.
+
+### Decision
+
+An unknown word accepted while Wild-mode language *L* is active becomes valid only when *L* is
+the active language again — not automatically valid under every other configured Wild language.
+Accepted vocabulary entries (`content-model.md` section 28) now carry an optional language tag,
+set only for words accepted under Wild mode; words accepted in a plain or Polyglot game (where
+Wild's per-language rotation doesn't apply) remain untagged and language-agnostic, exactly as
+before.
+
+### Alternatives considered
+
+Keeping DEC-010 item 2's flat/shared behaviour — rejected: it's the very design the project owner
+asked to change, having played the game and found it didn't match their intent for Wild mode.
+
+Tracking a language tag for *every* accepted word, including plain and Polyglot games — rejected
+as unnecessary: those modes have no rotating "active language" concept for a tag to scope against,
+so an always-flat, untagged entry is simpler and behaviourally identical to today for those modes.
+
+### Rationale
+
+This is an explicit, direct correction from the project owner after hands-on play, which
+`CLAUDE.md`'s "if source code conflicts with the specification, assume the specification is
+correct... unless the task explicitly asks to change the specification" and this file's own
+decision-recording process both treat as authoritative — the specification itself is being
+deliberately changed here, not merely reinterpreted.
+
+### Consequences
+
+- `GameState.acceptedVocabulary` changes from a flat `readonly string[]` to a list of
+  `{ word, languageCode? }` entries (`src/game/model/game.ts`).
+- `src/game/engine/acceptedVocabulary.ts`'s `addAcceptedWord`/`acceptedVocabularySet` gain an
+  optional `languageCode` parameter; the language-scoping filter lives entirely there —
+  `classifyWord.ts`/`classifyWordAcrossLanguages.ts` are unchanged, since they only ever consumed
+  an already-filtered flat set.
+- `acceptProposedMove.ts` now takes `GameConfiguration` so it can resolve the Wild-active language
+  at acceptance time (mirroring `submitMove.ts`'s existing use of `activeWildLanguageIndex`) and
+  tag newly accepted words with it.
+- `docs/game-modifiers.md` section 10 ("Accepted vocabulary") and section 11's resolved-item
+  bullet, and `docs/content-model.md` section 28, are updated to describe the new per-language
+  scoping instead of DEC-010's flat model.
+
+### Revisit when
+
+Not anticipated to need revisiting — this is now the intended, played-and-confirmed behaviour for
+Wild mode.
+
+Relevant files:
+- `src/game/model/game.ts`
+- `src/game/engine/acceptedVocabulary.ts`, `commitMove.ts`, `acceptProposedMove.ts`, `submitMove.ts`
+- `docs/game-modifiers.md` (section 10, 11)
+- `docs/content-model.md` (section 28)
+
+## DEC-013 — Manual "Avsluta spel" (end game) action, deviating from the three standard Alfapet end conditions
+
+**Date:** 2026-08-20
+**Status:** ACCEPTED
+**Area:** Engine / UI
+
+### Context
+
+`game-rules.md` section 29 documents the standard Alfapet game-end conditions — empty bag with an
+empty rack, no player can play, or both players passing twice in succession — as the exhaustive
+set. In practice, requiring two full rounds of passing (four consecutive passes) just to bail out
+of a game neither player wants to continue is tedious, and the project owner asked for a direct
+"Avsluta spel" button instead.
+
+### Decision
+
+Either player may end the game immediately at any time via a new `END_GAME` action, without
+needing any of the three standard conditions to hold and without needing it to be their turn.
+Final scoring is computed exactly the same way as any other ending (`calculateFinalResult`,
+game-rules.md section 30 — each player's remaining rack tiles deducted from their score), tagged
+with a new `MANUALLY_ENDED` `EndReason` so the result screen states how the game actually ended.
+The action requires a confirmation dialog (ui-design.md section 35a) given how consequential and
+irreversible it is.
+
+### Alternatives considered
+
+Freezing scores exactly as they stand, skipping the rack deduction — rejected: it would let a
+player dodge the normal end-of-game rack penalty simply by choosing to manually end instead of
+passing/running out the bag, undermining section 30's scoring rule for no reason.
+
+Requiring the other player's approval before ending (mirroring the disputed-word approval flow) —
+rejected as unnecessary extra friction for what's meant to be a quick, low-ceremony way out; a
+confirmation dialog on the initiating player's own side is enough protection against an accidental
+click, and either player already has the equivalent unilateral power to just stop responding.
+
+### Rationale
+
+An explicit project-owner decision after finding the two-passes requirement in practice annoying —
+not an inferred interpretation of a silent specification. Recorded per this file's own process, matching how DEC-008/DEC-012 record similar direct corrections.
+
+### Consequences
+
+- `src/game/model/gameResult.ts`: `EndReason` gains `"MANUALLY_ENDED"`.
+- `src/game/engine/endGame.ts` (new): validates the game is `ACTIVE` and `playerId` is one of the
+  two players, returns any of the current player's in-progress placed tiles to their rack first
+  (via the `returnPendingTilesToRack` helper extracted from `clearPendingMove.ts`, so those tiles
+  still count toward the rack deduction rather than vanishing from the calculation), then jumps
+  straight to `calculateFinalResult`/`status: "FINISHED"` — bypassing `finalizeTurn`/`checkGameEnd`
+  entirely, since those are specifically for the three automatic conditions.
+- `src/application/game-controller/gameController.ts`: new `END_GAME` action, threaded through like
+  every other simple `{playerId}` action (e.g. `PASS`).
+- `TurnActions.tsx` gets a new "Avsluta spel" button and its own confirmation dialog, mirroring the
+  existing "Passa" confirmation pattern exactly (own trigger ref, own dialog, stronger wording).
+- `docs/game-rules.md` section 29, `docs/ui-design.md` sections 35a/54, and this entry document the
+  deviation from the three standard conditions.
+
+### Revisit when
+
+Not anticipated — this is a deliberate, permanent addition to the standard rule set for this
+project, not a placeholder.
+
+Relevant files:
+- `src/game/model/gameResult.ts`
+- `src/game/engine/endGame.ts`, `clearPendingMove.ts`
+- `src/application/game-controller/gameController.ts`
+- `src/components/game/TurnActions.tsx`, `GameOverScreen.tsx`
+- `docs/game-rules.md` (section 29)
+- `docs/ui-design.md` (section 35a, 54)
+
+## DEC-014 — Crisscross connectivity: new tiles must connect to each other directly, not merely bridge through unrelated existing board tiles
+
+**Date:** 2026-08-20
+**Status:** ACCEPTED
+**Area:** Engine / Rules spec
+
+### Context
+
+`game-modifiers.md` section 6 originally specified Crisscross connectivity as: "Every newly
+placed tile is connected — directly or transitively through other newly placed tiles or existing
+board tiles — into one single cluster." The implementation matched this literally: its BFS treated
+every existing committed tile anywhere on the board as a valid stepping stone linking any two new
+tiles together. In play, this let two entirely unrelated new-tile groups both be accepted in one
+move as long as each one independently touched the existing board somewhere — e.g. one group
+extending one arm of an existing crossing pair of words, and a second, unrelated group extending a
+different arm of that same pre-existing structure, with no new tile of either group ever touching
+a new tile of the other. The project owner reported this as a bug after encountering it in play,
+and confirmed the intended rule: newly placed tiles must connect to each other directly (forming
+one cohesive T/plus shape), and that combined structure must additionally touch the existing board
+at some point — not two independently-board-touching groups linked only by the old board's own,
+unrelated, pre-existing shape.
+
+### Decision
+
+Crisscross connectivity is now checked as: every newly placed tile must belong to a 2+ letter line
+(row or column — new tiles plus any existing tiles filling gaps within that one line, exactly what
+a normal single-word move already is), and those lines must connect to each other by sharing a
+cell — e.g. a T or plus shape where one line crosses another, the shared cell can be new or
+existing. Two lines that only reach each other via a longer detour through unrelated parts of the
+existing board no longer count as connected. The separate "must connect to the existing board" (or
+cover the centre, for the first move) requirement is unchanged and still applies to the cluster as
+a whole.
+
+### Alternatives considered
+
+Keeping the original literal wording (any existing tile is a valid bridge) — rejected: this is
+the exact behaviour the project owner reported as wrong after playing it, so keeping it would mean
+knowingly shipping the reported bug.
+
+### Rationale
+
+Direct, played-and-confirmed feedback from the project owner, treated as an authoritative
+specification correction per this file's process — not an inferred interpretation. `game-rules.md`
+section 8's underlying principle (newly placed tiles normally form one connected line) is better
+served by requiring genuine adjacency between the cluster's own lines, since Crisscross was always
+meant to relax "one line" to "one connected shape," not to "any tiles that both eventually touch
+the same old board."
+
+### Consequences
+
+- `docs/game-modifiers.md` section 6 is corrected to describe the new rule instead of the
+  overly-permissive original wording.
+- `src/game/rules/physicalValidation.ts`: `reachableOccupiedCoordinates` (whole-board BFS) is
+  replaced by `isCrisscrossConnected`/`occupiedRun`/`mergeSharedGroups`, which build per-line runs
+  and only merge runs that literally share a coordinate.
+- The Crisscross-specific rejection also got its own error code, `NOT_CONNECTED_CLUSTER` (distinct
+  from the generic `INVALID_PLACEMENT`), so a future rejection is unambiguous about why.
+- New regression tests reproduce the exact reported scenario (two lines bridged only through an
+  existing crossing pair of words) and confirm it's now rejected.
+
+### Revisit when
+
+Not anticipated — this is now the confirmed, intended rule.
+
+Relevant files:
+- `docs/game-modifiers.md` (section 6)
+- `src/game/rules/physicalValidation.ts`, `physicalValidation.test.ts`
+- `src/game/model/gameError.ts`
+- `src/application/game-controller/errorMessages.ts`

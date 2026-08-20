@@ -12,7 +12,7 @@ The source used as the basis for the standard Alfapet rules is:
 
 https://www.spelregler.org/alfapet-regler/
 
-The implementation must follow this document rather than relying on generic Scrabble rules or assumptions about other versions of Alfapet, **except for the interim board-and-tile-set substitution recorded in [DEC-001](decisions.md) and described in sections 3 and 4 below.**
+The implementation must follow this document rather than relying on generic Scrabble rules or assumptions about other versions of Alfapet, **except for the permanent board-and-tile-set decision recorded in [DEC-001](decisions.md) and [DEC-009](decisions.md) and described in sections 3 and 4 below.**
 
 ---
 
@@ -48,7 +48,7 @@ For the two-player implementation, turns alternate between the players.
 
 ## 3. Board
 
-**Interim decision (see [DEC-001](decisions.md)):** the exact physical Swedish Alfapet board (17×17, per publicly available secondary sources) could not be verified from any available reliable source, and no photograph of the real board was available either. Per explicit project-owner direction, Version 1 uses the **standard 15×15 Scrabble board layout** instead, as an interim substitute. This may be replaced with a verified Alfapet board layout later if that data becomes available.
+**Decision (see [DEC-001](decisions.md) and [DEC-009](decisions.md)):** the exact physical Swedish Alfapet board (17×17, per publicly available secondary sources) could not be verified from any available reliable source, and no photograph of the real board was available either. Per explicit project-owner direction, Betapet uses the **standard 15×15 Scrabble board layout** instead — this is Betapet's actual board, not a temporary placeholder. A verified Alfapet board layout may be added later as an additional, separately selectable configuration if that data becomes available, but the Scrabble-derived board described here remains Betapet's board either way.
 
 The board contains special scoring squares that affect the score when a newly placed tile covers them.
 
@@ -69,7 +69,7 @@ Letter ×4, Word ×4, and Letter ×−2 remain supported by the engine's data mo
 
 ## 4. Tile distribution
 
-**Interim decision (see [DEC-001](decisions.md)):** the complete Swedish Alfapet letter distribution and point values could not be verified from any available reliable source. Per explicit project-owner direction, Version 1 uses the **standard Swedish Scrabble tile distribution** instead, as an interim substitute. This may be replaced with a verified Alfapet distribution later if that data becomes available.
+**Decision (see [DEC-001](decisions.md) and [DEC-009](decisions.md)):** the complete Swedish Alfapet letter distribution and point values could not be verified from any available reliable source. Per explicit project-owner direction, Betapet uses the **standard Swedish Scrabble tile distribution** instead — this is Betapet's actual tile set, not a temporary placeholder. A verified Alfapet distribution may be added later as an additional, separately selectable configuration if that data becomes available, but the Scrabble-derived tile set described here remains Betapet's tile set either way.
 
 The tile set (100 tiles total) is:
 
@@ -529,6 +529,8 @@ Because this is a two-player game, the consecutive-pass condition means both pla
 
 The exact interaction between an empty tile bag and the player who has just emptied their rack must follow the chosen Alfapet rule interpretation and be represented consistently in the implementation.
 
+Betapet additionally lets either player end the game immediately at any time via an explicit "Avsluta spel" action, without waiting for any of the three conditions above (DEC-013) — a deliberate deviation from the standard Alfapet rules, since requiring two full rounds of passing to leave a game neither player wants to continue was judged worse than allowing an explicit, confirmed opt-out. Final scoring (section 30) is computed identically regardless of which of these ways the game ended.
+
 ---
 
 ## 30. Final scoring
@@ -644,12 +646,12 @@ Separately, the game also plans optional, opt-in **gameplay modifiers** that del
 
 This document deliberately distinguishes between rules that are established by the supplied Alfapet reference and data that must be verified from the physical Swedish Alfapet game before implementation.
 
-**Resolved by interim substitution (see [DEC-001](decisions.md)), not by verification against the physical Alfapet game:**
+**Resolved by explicit project-owner decision (see [DEC-001](decisions.md) and [DEC-009](decisions.md)), not by verification against the physical Alfapet game:**
 
 - Exact board dimensions and placement of every special square — using the standard Scrabble board instead (section 3).
 - Complete tile distribution, exact point value of every letter, and number of blank tiles — using the standard Swedish Scrabble tile set instead (section 4).
 
-These may be replaced with verified Alfapet data later; see DEC-001's revisit condition.
+This is Betapet's permanent board/tile configuration, not a placeholder awaiting Alfapet data. A verified Alfapet board/tile configuration may be added later as an additional selectable option; see DEC-009's consequences.
 
 **Still genuinely unresolved and must be verified before the corresponding code is finalized:**
 

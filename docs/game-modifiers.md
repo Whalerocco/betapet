@@ -4,7 +4,7 @@
 
 This document specifies **game modifiers**: optional rule changes a game's players select before starting a local game, on top of the standard Swedish Alfapet rules in `game-rules.md`.
 
-It is a forward-looking specification, in the same sense as `online-multiplayer.md`. Nothing in this document is implemented yet. It exists so that implementation can begin directly from an agreed design instead of inventing modifier behaviour ad hoc when the corresponding roadmap milestone is reached.
+It started as a forward-looking specification, in the same sense as `online-multiplayer.md`, so that implementation could begin directly from an agreed design instead of inventing modifier behaviour ad hoc when the corresponding roadmap milestone is reached. Crisscross, Replace, and Illegal mode (Milestone 4.5) are now implemented; Polyglot and Wild mode (the scoped-down Milestone 8 + Milestone 8.1, per DEC-010) are specified and decided but not yet implemented.
 
 Where this document leaves a question open, it says so explicitly (see section 11). Do not silently resolve those questions during implementation; follow `CLAUDE.md`'s instruction to stop and ask the project owner instead.
 
@@ -92,7 +92,7 @@ Notes:
 - **CRISSCROSS + REPLACE** — both change physical placement validation; a single move could place a multi-branch cluster where one branch covers an existing tile. Allowed, but the physical-validation and word-detection logic must be designed together for this case, not bolted on separately (see sections 6 and 7).
 - **ILLEGAL + POLYGLOT** — a word must fail dictionary lookup in *every* selected language to count as playable under Illegal mode, not just one (section 11).
 - **ILLEGAL + WILD** — a word must fail dictionary lookup in whichever language is currently active for that round (section 11).
-- **POLYGLOT + WILD** — these two encode opposite mental models for "which language(s) currently apply": Polyglot means several languages are simultaneously valid; Wild means exactly one language is active at a time, rotating. Combining them is conceivable (e.g. a rotating *subset* of languages) but is not designed here. They default to mutually exclusive (`UNDECIDED`) until the project owner decides whether/how they combine (see section 11).
+- **POLYGLOT + WILD** — these two encode opposite mental models for "which language(s) currently apply": Polyglot means several languages are simultaneously valid; Wild means exactly one language is active at a time, rotating. Combining them is conceivable (e.g. a rotating *subset* of languages) but is not designed here. Per DEC-010 they stay mutually exclusive (`UNDECIDED`) for now; revisit only if a future decision defines a combined behaviour (see section 11).
 
 This table must be updated whenever a new modifier is added or an `UNDECIDED` entry is resolved.
 
@@ -108,12 +108,14 @@ In one move, a player may place a connected cluster of new tiles spanning more t
 
 This overrides `game-rules.md` section 8: "All tiles placed during one normal word move must form a single connected line, unless a special Alfapet tile/rule explicitly permits otherwise." Crisscross mode is exactly such an explicitly-permitted exception.
 
-Under Crisscross mode, a move's new tiles are legal if:
+Under Crisscross mode, a move's new tiles are legal if (DEC-014):
 
-- Every newly placed tile is connected — directly or transitively through other newly placed tiles or existing board tiles — into one single cluster. No newly placed tile may be a disconnected island.
-- Within that cluster, each straight run of tiles (existing and/or newly placed) still forms a contiguous line with no gaps, exactly as section 7 already requires of any single word.
+- Every newly placed tile belongs to a 2+ letter line — a contiguous row or column run of tiles, existing and/or newly placed, with no gaps, exactly as section 7 already requires of any single word.
+- Those lines connect to each other by sharing a cell — e.g. a T or plus shape, where one line crosses another at a shared tile (new or existing). No newly placed tile may be part of a line that never shares a cell with any other line the move forms — that would be a disconnected island, even if it separately touches some unrelated part of the existing board.
 - Section 6 (first move must cover the centre square) and section 7 (subsequent moves must connect to the existing board) still apply to the cluster as a whole, not to each branch individually — i.e. at least one tile in the cluster must satisfy them, not every branch.
 - No diagonal placement, matching section 7.
+
+Two lines that only reach each other by detouring through an unrelated part of the existing board — rather than directly sharing a cell — do **not** count as connected, even though each independently touches the board somewhere (DEC-014).
 
 ### Word detection and scoring
 
@@ -174,7 +176,7 @@ The board, tile set, and rack letters are not affected — the same single physi
 
 ### Dependency
 
-Only meaningful once more than one `LanguageDefinition` and dictionary exist (`content-model.md` section 9), i.e. after roadmap Milestone 8. With only Swedish configured, Polyglot mode is a no-op equivalent to the standard rules.
+Only meaningful once more than one `LanguageDefinition` and dictionary exist (`content-model.md` section 9) — the scoped-down, dictionary-only slice of Milestone 8 that DEC-010 pulled ahead of Milestone 5 (see section 12). With only Swedish configured, Polyglot mode is a no-op equivalent to the standard rules.
 
 ---
 
@@ -192,11 +194,14 @@ As decided for this project (rather than a full tile-set swap): the board and ph
 
 ### Dependency
 
-Same as Polyglot mode (section 9) — requires Milestone 8's multi-language groundwork to be meaningful.
+Same as Polyglot mode (section 9) — requires the scoped-down Milestone 8 multi-language groundwork to be meaningful.
 
-### Open questions
+### Accepted vocabulary
 
-Whether accepted vocabulary is scoped per active language or shared across the whole game is open — see section 11.
+Resolved by DEC-012 (superseding DEC-010's original answer): a word accepted by the opponent while
+one language is active becomes valid again only when that same language is active — not
+automatically valid under every other configured Wild language. Accepted vocabulary entries carry
+an optional language tag for this purpose; see section 11 and `content-model.md` section 28.
 
 ---
 
@@ -211,11 +216,11 @@ Resolved by DEC-008 (all four questions that were blocking Milestone 4.5):
 - ~~Illegal mode — `ACCEPTED_IN_GAME` words.~~ Remain playable; only `DICTIONARY_WORD` is blocked.
 - ~~Illegal mode — partially-dictionary-valid multi-word moves.~~ Blocked if *any* formed word is a dictionary word.
 
-Still open (out of scope until Milestone 8.1, since both require Polyglot and/or Wild mode):
+Resolved by DEC-010 (all three questions that were blocking Milestone 8.1):
 
-1. **Illegal + Polyglot interaction detail.** Confirmed direction (a word must be illegal in every selected language) is recorded in section 8's compatibility notes as the working assumption, but has not been explicitly confirmed by the project owner.
-2. **Wild mode — accepted-vocabulary scope.** Is a word accepted while one language was active automatically treated as accepted when the active language later changes, or is accepted vocabulary tracked per language? `content-model.md` section 28 currently models accepted vocabulary as one flat set per game, which would need extending either way.
-3. **Polyglot + Wild combination.** Currently `UNDECIDED`/mutually exclusive per section 5. Decide whether any combined behaviour is wanted, and if so, define it, before removing the exclusion.
+- ~~Illegal + Polyglot interaction detail.~~ A word must be illegal (non-dictionary) in *every* selected language to be playable.
+- ~~Wild mode — accepted-vocabulary scope.~~ Resolved by DEC-010, then superseded by DEC-012: a word accepted while one language was active is valid again only when that same language is active later — scoped per language, not one flat set (`content-model.md` section 28).
+- ~~Polyglot + Wild combination.~~ Stay `UNDECIDED`/mutually exclusive for now; not designed in this round.
 
 ---
 
@@ -224,6 +229,6 @@ Still open (out of scope until Milestone 8.1, since both require Polyglot and/or
 Per the project owner's direction:
 
 - Crisscross, Replace, and Illegal mode belong to a milestone positioned after Version 1 and after real playtesting (roadmap Milestone 4.4), since they only require the existing Swedish configuration.
-- Polyglot and Wild mode belong to a milestone positioned after roadmap Milestone 8 (additional languages), since they are no-ops without a second configured language.
+- Polyglot and Wild mode need at least one additional configured language/dictionary to be anything but a no-op. Per DEC-010, the project owner chose to pull a **scoped-down** version of Milestone 8 — `LanguageDefinition`/dictionary support only for German, French, English, and Spanish, explicitly *not* new per-language tile sets, boards, or UI translations — forward ahead of Milestone 5 (online), specifically to unlock these two modifiers. Full Milestone 8 (per-language tile sets/boards/UI translation) remains future work in its original roadmap position.
 
 See `roadmap.md` for the corresponding milestones and `tasks.md` for their task breakdowns.

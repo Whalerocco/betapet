@@ -663,6 +663,10 @@ Game:
 
 A later move containing GRÖMP is then normally accepted.
 
+This is the base rule (plain and Polyglot games). Under Wild mode (`game-modifiers.md` section 10,
+DEC-012), each accepted word is scoped to the language active when it was accepted, so "future
+word validation treats the word as valid" only holds once that same language is active again.
+
 The accepted vocabulary is reset when a new game starts.
 
 ---

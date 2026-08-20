@@ -523,6 +523,10 @@ acceptedVocabulary = {
 
 The word is then considered valid for the rest of that game.
 
+This is the base rule. Under Wild mode (`game-modifiers.md` section 10, DEC-012), an accepted word
+is scoped to the language that was active when it was accepted rather than valid regardless of
+language — see that section for the exception; plain and Polyglot games are unaffected.
+
 ---
 
 # 24. Accepted words do not modify the dictionary
@@ -948,7 +952,11 @@ LanguageDefinition
 └── exceptions
 ```
 
-The first version only needs the Swedish implementation.
+The first version only needed the Swedish implementation. Per `decisions.md` DEC-010/DEC-011, a
+dictionary-only slice of this future-language support is now being built for German, French,
+English, and Spanish (to support the Polyglot and Wild game modifiers) — without the tile
+distribution, board, or UI-translation parts of full multi-language support, which remain future
+work.
 
 ---
 
