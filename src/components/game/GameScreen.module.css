@@ -78,7 +78,7 @@
 .rackRow {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   flex-wrap: wrap;
   justify-content: center;
 }

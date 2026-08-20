@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createFrenchWordClassificationRules } from "../dictionary/frenchWordClassificationRules";
+import { createGermanWordClassificationRules } from "../dictionary/germanWordClassificationRules";
 import { createSwedishWordClassificationRules } from "../dictionary/swedishWordClassificationRules";
 import { isOccupied, placeCommittedTile } from "../model/board";
 import type { GameState } from "../model/game";
@@ -8,6 +10,7 @@ import type { Player } from "../model/player";
 import { createBlankTile, createLetterTile, type Tile } from "../model/tile";
 import { playerTurn } from "../model/turnState";
 import { buildEngineTestGame as buildTestGame } from "../testing/fixtures";
+import { pass } from "./pass";
 import { placeTile } from "./placeTile";
 import { submitMove } from "./submitMove";
 
@@ -556,6 +559,46 @@ describe("submitMove: Crisscross mode", () => {
     expect(result.error.code).toBe("INVALID_PLACEMENT");
     expect(result.error.messageKey).toBe("notInLine");
   });
+
+  it("rejects two new-tile clusters that don't connect to each other, even with Crisscross active", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["D", "O"],
+      modifiers: new Set(["CRISSCROSS"]),
+    });
+    const [d, o] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+
+    let state = setup.state;
+    // Two single-tile "clusters" several cells apart, not orthogonally adjacent to each other.
+    for (const [tileId, rowOffset, columnOffset] of [
+      [d, 0, 0],
+      [o, 5, 5],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: {
+          row: centre.row + rowOffset,
+          column: centre.column + columnOffset,
+        },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(
+      state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.code).toBe("NOT_CONNECTED_CLUSTER");
+    expect(result.error.messageKey).toBe("notConnectedCluster");
+    // Nothing committed: the input state's board is untouched by a failed submission.
+    expect(state.board.occupiedCells).toHaveLength(0);
+  });
 });
 
 describe("submitMove: Illegal mode", () => {
@@ -676,6 +719,443 @@ describe("submitMove: Illegal mode", () => {
     if (result.success) return;
     expect(result.error.code).toBe("DICTIONARY_WORD_NOT_ALLOWED");
     expect(result.error.details).toEqual({ word: "BIL" });
+  });
+});
+
+describe("submitMove: Polyglot mode", () => {
+  const german = createGermanWordClassificationRules();
+  const french = createFrenchWordClassificationRules();
+
+  function placeHaus(polyglotLanguages: readonly ["de", "fr"]) {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["H", "A", "U", "S"],
+      modifiers: new Set(["POLYGLOT"]),
+      polyglotLanguages,
+    });
+    const [h, a, u, s] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    let state = setup.state;
+    for (const [tileId, offset] of [
+      [h, 0],
+      [a, 1],
+      [u, 2],
+      [s, 3],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) state = result.state;
+    }
+    return { setup, state };
+  }
+
+  it("commits directly when the word matches one of two selected languages (French rules alone would not know it)", () => {
+    // "HAUS" is real German, not French.
+    const { setup, state } = placeHaus(["de", "fr"]);
+
+    const result = submitMove(state, setup.configuration, french, setup.playerOneId, {
+      polyglotClassificationRules: [german, french],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.pendingMove).toBeUndefined();
+    expect(result.state.board.occupiedCells).toHaveLength(4);
+  });
+
+  it("does not matter which position in the array matches", () => {
+    const { setup, state } = placeHaus(["de", "fr"]);
+
+    const result = submitMove(state, setup.configuration, german, setup.playerOneId, {
+      polyglotClassificationRules: [french, german],
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.pendingMove).toBeUndefined();
+  });
+
+  it("requires proposer confirmation instead, without Polyglot mode, using only the non-matching language", () => {
+    const setup = buildTestGame({ playerOneRackLetters: ["H", "A", "U", "S"] });
+    const [h, a, u, s] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    let state = setup.state;
+    for (const [tileId, offset] of [
+      [h, 0],
+      [a, 1],
+      [u, 2],
+      [s, 3],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(state, setup.configuration, french, setup.playerOneId);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.turnState).toEqual({
+      type: "REQUIRES_PLAYER_CONFIRMATION",
+      playerId: setup.playerOneId,
+    });
+  });
+
+  it("blocks the move under Illegal mode if it matches any selected language, per DEC-010", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["H", "A", "U", "S"],
+      modifiers: new Set(["POLYGLOT", "ILLEGAL"]),
+      polyglotLanguages: ["de", "fr"],
+    });
+    const [h, a, u, s] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    let state = setup.state;
+    for (const [tileId, offset] of [
+      [h, 0],
+      [a, 1],
+      [u, 2],
+      [s, 3],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(state, setup.configuration, french, setup.playerOneId, {
+      polyglotClassificationRules: [german, french],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.code).toBe("DICTIONARY_WORD_NOT_ALLOWED");
+    expect(result.error.details).toEqual({ word: "HAUS" });
+  });
+
+  it("throws when Polyglot is active but fewer than two languages' rules are supplied", () => {
+    const { setup, state } = placeHaus(["de", "fr"]);
+
+    expect(() =>
+      submitMove(state, setup.configuration, french, setup.playerOneId, {
+        polyglotClassificationRules: [german],
+      }),
+    ).toThrow();
+    expect(() =>
+      submitMove(state, setup.configuration, french, setup.playerOneId),
+    ).toThrow();
+  });
+});
+
+describe("submitMove: Wild mode", () => {
+  const german = createGermanWordClassificationRules();
+  const french = createFrenchWordClassificationRules();
+  // REN (German-only) and PEU (French-only) share their middle letter "E"/"E", letting the
+  // second move cross through the first move's committed tile with no incidental extra words.
+  const wildLanguages = ["de", "fr"] as const;
+  const wildRules = [german, french];
+
+  function buildRound0Setup() {
+    return buildTestGame({
+      playerOneRackLetters: ["R", "E", "N", "P", "U"],
+      modifiers: new Set(["WILD"]),
+      wildLanguages,
+    });
+  }
+
+  function playRenInRound0(setup: ReturnType<typeof buildRound0Setup>) {
+    const [r, e, n] = setup.state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    let state = setup.state;
+    for (const [tileId, offset] of [
+      [r, 0],
+      [e, 1],
+      [n, 2],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) state = result.state;
+    }
+    return { state, centre };
+  }
+
+  it("uses the first configured language (index 0) before any round has completed", () => {
+    const setup = buildRound0Setup();
+    const { state } = playRenInRound0(setup);
+
+    const result = submitMove(state, setup.configuration, german, setup.playerOneId, {
+      wildClassificationRules: wildRules,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.pendingMove).toBeUndefined();
+    expect(result.state.board.occupiedCells).toHaveLength(3);
+  });
+
+  it("rotates to the second language only after a full round (both players) has completed, not after just one turn", () => {
+    const setup = buildRound0Setup();
+    const { state: afterPlacing, centre } = playRenInRound0(setup);
+
+    // Only player one has acted so far — still round 0, "de" active. Submitting now must
+    // classify REN as DICTIONARY_WORD (German), not require confirmation.
+    const renResult = submitMove(
+      afterPlacing,
+      setup.configuration,
+      german,
+      setup.playerOneId,
+      { wildClassificationRules: wildRules },
+    );
+    expect(renResult.success).toBe(true);
+    if (!renResult.success) return;
+    expect(renResult.state.board.occupiedCells).toHaveLength(3);
+
+    // Player two passes — this completes the full round (2 turns), rotating to "fr".
+    const passResult = pass(renResult.state, setup.playerTwoId);
+    expect(passResult.success).toBe(true);
+    if (!passResult.success) return;
+
+    // Player one's turn again: cross a vertical "PEU" through REN's committed middle "E".
+    const [, , , p, u] = setup.state.players[0].rack.tileIds;
+    let state = passResult.state;
+    for (const [tileId, rowOffset] of [
+      [p, -1],
+      [u, 1],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row + rowOffset, column: centre.column + 1 },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const peuResult = submitMove(state, setup.configuration, german, setup.playerOneId, {
+      wildClassificationRules: wildRules,
+    });
+
+    expect(peuResult.success).toBe(true);
+    if (!peuResult.success) return;
+    // Committed directly (PEU is DICTIONARY_WORD under "fr", now active) rather than requiring
+    // proposer confirmation — proving the rotation actually took effect for this move.
+    expect(peuResult.state.pendingMove).toBeUndefined();
+    expect(peuResult.state.board.occupiedCells).toHaveLength(5);
+
+    // The earlier, already-committed REN move keeps its own history entry and score untouched
+    // by the later rotation — nothing retroactively reclassifies it.
+    const renEvent = peuResult.state.history.events.find(
+      (event) =>
+        event.type === "WORD_MOVE_COMMITTED" && event.payload.words.includes("REN"),
+    );
+    expect(renEvent).toBeDefined();
+  });
+
+  it("would require proposer confirmation for the same crossing word if the round had not yet rotated", () => {
+    // Contrast case: submit PEU immediately after REN, with no intervening pass — still round 0
+    // ("de" active) — proving the rotation is what makes the earlier test commit directly,
+    // rather than Wild mode always matching every selected language like Polyglot does.
+    const setup = buildRound0Setup();
+    const { state: afterRen, centre } = playRenInRound0(setup);
+    const committed = submitMove(
+      afterRen,
+      setup.configuration,
+      german,
+      setup.playerOneId,
+      { wildClassificationRules: wildRules },
+    );
+    if (!committed.success) throw new Error("setup failed");
+
+    // It's now player two's turn, still within round 0 (only one turn has completed so far).
+    // Give player two the tiles to cross PEU through REN's committed middle "E" themselves.
+    const pTile = letterTile(setup.tiles, "P");
+    const uTile = letterTile(setup.tiles, "U");
+    const stateWithPlayerTwoTiles: GameState = {
+      ...committed.state,
+      players: [
+        committed.state.players[0],
+        {
+          ...committed.state.players[1],
+          rack: { tileIds: [pTile, uTile] },
+        },
+      ],
+    };
+
+    let state = stateWithPlayerTwoTiles;
+    for (const [tileId, rowOffset] of [
+      [pTile, -1],
+      [uTile, 1],
+    ] as const) {
+      const result = placeTile(state, setup.board, [], {
+        playerId: setup.playerTwoId,
+        tileId,
+        coordinate: { row: centre.row + rowOffset, column: centre.column + 1 },
+      });
+      if (result.success) state = result.state;
+    }
+
+    const result = submitMove(state, setup.configuration, german, setup.playerTwoId, {
+      wildClassificationRules: wildRules,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // "de" is still active (no full round has completed yet), and PEU is not German — so this
+    // must require proposer confirmation instead of committing directly.
+    expect(result.state.turnState).toEqual({
+      type: "REQUIRES_PLAYER_CONFIRMATION",
+      playerId: setup.playerTwoId,
+    });
+  });
+
+  it("cycles back to the first language after enough full rounds", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["R", "E", "N"],
+      modifiers: new Set(["WILD"]),
+      wildLanguages,
+    });
+    let history = setup.state.history;
+    for (let i = 0; i < 4; i++) {
+      history = addHistoryEvent(history, {
+        id: createHistoryEventId(),
+        sequence: nextSequence(history),
+        type: "PASS",
+        playerId: i % 2 === 0 ? setup.playerOneId : setup.playerTwoId,
+        payload: {},
+      });
+    }
+    // 4 completed turns = 2 full rounds; with 2 languages, that wraps exactly back to index 0
+    // ("de") — so REN (German-only, per the earlier tests in this block) should commit directly
+    // again here, the same as it did at the very start of the game.
+    const state: GameState = { ...setup.state, history };
+    const [r, e, n] = state.players[0].rack.tileIds;
+    const centre = setup.board.centreCoordinate;
+    let stateWithTiles = state;
+    for (const [tileId, offset] of [
+      [r, 0],
+      [e, 1],
+      [n, 2],
+    ] as const) {
+      const result = placeTile(stateWithTiles, setup.board, [], {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: { row: centre.row, column: centre.column + offset },
+      });
+      if (result.success) stateWithTiles = result.state;
+    }
+
+    const result = submitMove(
+      stateWithTiles,
+      setup.configuration,
+      german,
+      setup.playerOneId,
+      { wildClassificationRules: wildRules },
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.pendingMove).toBeUndefined();
+    expect(result.state.board.occupiedCells).toHaveLength(3);
+  });
+
+  it("throws when Wild mode is active but the rules array length does not match configuration.wildLanguages", () => {
+    const setup = buildRound0Setup();
+    const { state } = playRenInRound0(setup);
+
+    expect(() =>
+      submitMove(state, setup.configuration, german, setup.playerOneId, {
+        wildClassificationRules: [german],
+      }),
+    ).toThrow();
+    expect(() =>
+      submitMove(state, setup.configuration, german, setup.playerOneId),
+    ).toThrow();
+  });
+
+  // DEC-012: a word accepted while one Wild language was active is scoped to that language only,
+  // not shared across every configured language the way plain/Polyglot acceptances are.
+  describe("DEC-012: per-language accepted vocabulary", () => {
+    function buildGrompSetup(fullRoundsElapsed: number) {
+      const setup = buildTestGame({
+        playerOneRackLetters: ["G", "R", "Ö", "M", "P"],
+        modifiers: new Set(["WILD"]),
+        wildLanguages,
+      });
+      let history = setup.state.history;
+      for (let i = 0; i < fullRoundsElapsed * 2; i++) {
+        history = addHistoryEvent(history, {
+          id: createHistoryEventId(),
+          sequence: nextSequence(history),
+          type: "PASS",
+          playerId: i % 2 === 0 ? setup.playerOneId : setup.playerTwoId,
+          payload: {},
+        });
+      }
+      // GRÖMP was previously accepted while "de" (index 0) was active — DEC-012 tags the entry.
+      const state: GameState = {
+        ...setup.state,
+        history,
+        acceptedVocabulary: [{ word: "GRÖMP", languageCode: "de" }],
+      };
+      const [g, r, o, m, p] = state.players[0].rack.tileIds;
+      const centre = setup.board.centreCoordinate;
+      let stateWithTiles = state;
+      for (const [tileId, offset] of [
+        [g, 0],
+        [r, 1],
+        [o, 2],
+        [m, 3],
+        [p, 4],
+      ] as const) {
+        const result = placeTile(stateWithTiles, setup.board, [], {
+          playerId: setup.playerOneId,
+          tileId,
+          coordinate: { row: centre.row, column: centre.column + offset },
+        });
+        if (result.success) stateWithTiles = result.state;
+      }
+      return { setup, state: stateWithTiles };
+    }
+
+    it("stays ACCEPTED_IN_GAME once rotation returns to the language it was accepted under", () => {
+      // 2 full rounds with 2 languages cycles exactly back to index 0 ("de").
+      const { setup, state } = buildGrompSetup(2);
+
+      const result = submitMove(state, setup.configuration, german, setup.playerOneId, {
+        wildClassificationRules: wildRules,
+      });
+
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      // Committed directly rather than requiring confirmation: GRÖMP is ACCEPTED_IN_GAME under
+      // "de", the language active now.
+      expect(result.state.pendingMove).toBeUndefined();
+    });
+
+    it("is UNKNOWN_WORD again once a different Wild language becomes active", () => {
+      // 1 full round rotates from index 0 ("de") to index 1 ("fr") — GRÖMP was only ever accepted
+      // under "de", so it must not be silently accepted here.
+      const { setup, state } = buildGrompSetup(1);
+
+      const result = submitMove(state, setup.configuration, german, setup.playerOneId, {
+        wildClassificationRules: wildRules,
+      });
+
+      expect(result.success).toBe(true);
+      if (!result.success) return;
+      expect(result.state.turnState).toEqual({
+        type: "REQUIRES_PLAYER_CONFIRMATION",
+        playerId: setup.playerOneId,
+      });
+    });
   });
 });
 

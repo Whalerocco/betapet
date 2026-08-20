@@ -3,6 +3,7 @@ import type { FormedWord } from "../model/formedWord";
 import type { GameState } from "../model/game";
 import { addHistoryEvent, nextSequence } from "../model/history";
 import { createHistoryEventId, type PlayerId } from "../model/ids";
+import type { LanguageCode } from "../model/language";
 import type { PendingPlacedTile } from "../model/pendingMove";
 import type { Player } from "../model/player";
 import type { ScoreResult } from "../model/scoreResult";
@@ -17,6 +18,11 @@ export interface CommitMoveParams {
   readonly scoreResult: ScoreResult;
   /** Newly-accepted unknown words this move adds to the game's vocabulary; empty for a normal move. */
   readonly acceptedWords: readonly string[];
+  /**
+   * The Wild-mode language active when `acceptedWords` were accepted (DEC-012); omitted outside
+   * Wild mode, in which case accepted words remain language-agnostic as before.
+   */
+  readonly acceptedWordsLanguage?: LanguageCode;
   readonly usedUnknownWordApproval: boolean;
 }
 
@@ -63,8 +69,15 @@ export function commitMove(
 
   let acceptedVocabulary = state.acceptedVocabulary;
   for (const word of params.acceptedWords) {
-    if (!acceptedVocabulary.includes(word)) {
-      acceptedVocabulary = [...acceptedVocabulary, word];
+    const alreadyAccepted = acceptedVocabulary.some(
+      (entry) =>
+        entry.word === word && entry.languageCode === params.acceptedWordsLanguage,
+    );
+    if (!alreadyAccepted) {
+      acceptedVocabulary = [
+        ...acceptedVocabulary,
+        { word, languageCode: params.acceptedWordsLanguage },
+      ];
     }
   }
 

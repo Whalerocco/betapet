@@ -116,7 +116,10 @@ describe("createGameState", () => {
 
   it("rejects duplicate accepted vocabulary entries", () => {
     const { state } = createTestGame();
-    const brokenState = { ...state, acceptedVocabulary: ["GRÖMP", "GRÖMP"] };
+    const brokenState = {
+      ...state,
+      acceptedVocabulary: [{ word: "GRÖMP" }, { word: "GRÖMP" }],
+    };
     expect(() => createGameState(brokenState)).toThrow(/duplicate/);
   });
 

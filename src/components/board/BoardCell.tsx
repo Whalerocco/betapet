@@ -14,6 +14,9 @@ export interface BoardCellProps {
     readonly isDragSource?: boolean;
   };
   readonly isPlaceable: boolean;
+  /** The total score the current pending move would receive if submitted now, shown as a small
+   * badge on the move's first (reading-order) tile only (ui-design.md live score preview). */
+  readonly scoreBadge?: number;
   readonly onPlace?: () => void;
   readonly onPendingTileClick?: () => void;
   readonly onPendingTilePointerDown?: (
@@ -42,6 +45,7 @@ export function BoardCell({
   multiplier,
   tile,
   isPlaceable,
+  scoreBadge,
   onPlace,
   onPendingTileClick,
   onPendingTilePointerDown,
@@ -56,6 +60,9 @@ export function BoardCell({
         data-testid={testId}
         data-coordinate={coordinateKey}
       >
+        {tile.isPending && scoreBadge !== undefined && (
+          <span className={styles.scoreBadge}>{scoreBadge}</span>
+        )}
         <Tile
           letter={tile.letter}
           points={tile.points}

@@ -21,6 +21,7 @@ import {
   type GameConfiguration,
   type RackSize,
 } from "../model/gameConfiguration";
+import type { LanguageCode } from "../model/language";
 import type { ModifierId } from "../model/modifiers";
 
 export function createTestBoardDefinition(): BoardDefinition {
@@ -146,6 +147,8 @@ export function buildEngineTestGame(
     bagLetters?: string[];
     rackSize?: RackSize;
     modifiers?: ReadonlySet<ModifierId>;
+    polyglotLanguages?: readonly LanguageCode[];
+    wildLanguages?: readonly LanguageCode[];
   } = {},
 ): EngineTestGame {
   const board = createBoardDefinition(15, 15, { row: 7, column: 7 }, []);
@@ -156,6 +159,8 @@ export function buildEngineTestGame(
     board,
     rackSize,
     options.modifiers,
+    options.polyglotLanguages,
+    options.wildLanguages,
   );
   const tiles: Record<TileId, Tile> = {};
 

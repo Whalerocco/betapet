@@ -230,4 +230,128 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
     expect(pending?.coordinate).toEqual(newCoordinate);
     expect(pending?.replacedTileId).toBeUndefined();
   });
+
+  it("rejects moving a pending tile onto a committed tile when allowReplace is not set", () => {
+    const setup = buildEngineTestGame();
+    const existingTileId = letterTile(setup.tiles, "S");
+    const centre = setup.board.centreCoordinate;
+    const targetCoordinate = { row: centre.row, column: centre.column + 1 };
+    const board = placeCommittedTile(setup.state.board, targetCoordinate, existingTileId);
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const placed = placeTile(state, setup.board, [], {
+      playerId: setup.playerOneId,
+      tileId,
+      coordinate: centre,
+    });
+    if (!placed.success) throw new Error("setup failed");
+
+    const result = movePendingTile(placed.state, setup.board, {
+      playerId: setup.playerOneId,
+      tileId,
+      coordinate: targetCoordinate,
+    });
+
+    expect(result).toEqual({
+      success: false,
+      error: { code: "INVALID_PLACEMENT", messageKey: "invalidPlacement" },
+    });
+  });
+
+  it("moves a pending tile onto a committed tile, displacing it, when allowReplace is set", () => {
+    const setup = buildEngineTestGame();
+    const existingTileId = letterTile(setup.tiles, "S");
+    const centre = setup.board.centreCoordinate;
+    const targetCoordinate = { row: centre.row, column: centre.column + 1 };
+    const board = placeCommittedTile(setup.state.board, targetCoordinate, existingTileId);
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const placed = placeTile(state, setup.board, [], {
+      playerId: setup.playerOneId,
+      tileId,
+      coordinate: centre,
+    });
+    if (!placed.success) throw new Error("setup failed");
+
+    const result = movePendingTile(
+      placed.state,
+      setup.board,
+      { playerId: setup.playerOneId, tileId, coordinate: targetCoordinate },
+      { allowReplace: true },
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(isOccupied(result.state.board, targetCoordinate)).toBe(false);
+    const player = result.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    expect(player.rack.tileIds).toContain(existingTileId);
+    const pending = result.state.pendingMove?.placedTiles.find(
+      (p) => p.tileId === tileId,
+    );
+    expect(pending?.coordinate).toEqual(targetCoordinate);
+    expect(pending?.replacedTileId).toBe(existingTileId);
+  });
+
+  it("rejects chaining: a tile displaced earlier this move cannot later be moved onto and displace another", () => {
+    const setup = buildEngineTestGame();
+    const firstExisting = letterTile(setup.tiles, "S");
+    const secondExisting = letterTile(setup.tiles, "T");
+    const centre = setup.board.centreCoordinate;
+    const firstCoordinate = centre;
+    const secondCoordinate = { row: centre.row, column: centre.column + 1 };
+    let board = placeCommittedTile(setup.state.board, firstCoordinate, firstExisting);
+    board = placeCommittedTile(board, secondCoordinate, secondExisting);
+    const state = { ...setup.state, board };
+    const [replacingTileId] = state.players[0].rack.tileIds;
+
+    // Tile A displaces "S" (firstExisting) at the first coordinate.
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: replacingTileId,
+        coordinate: firstCoordinate,
+      },
+      { allowReplace: true },
+    );
+    if (!replaced.success) throw new Error("setup failed");
+
+    // "S" is now back in the rack; place it normally on an empty cell (allowed — a displaced
+    // tile may be placed normally later in the same move).
+    const emptyCoordinate = { row: centre.row + 3, column: centre.column };
+    const placedDisplacedTile = placeTile(replaced.state, setup.board, [], {
+      playerId: setup.playerOneId,
+      tileId: firstExisting,
+      coordinate: emptyCoordinate,
+    });
+    if (!placedDisplacedTile.success) throw new Error("setup failed");
+
+    // Now try to move "S" (the previously-displaced tile, currently pending on an empty cell)
+    // onto the second existing committed tile "T": this is the chaining case placeTile.ts
+    // already forbids for a fresh placement, and movePendingTile must forbid it too.
+    const result = movePendingTile(
+      placedDisplacedTile.state,
+      setup.board,
+      {
+        playerId: setup.playerOneId,
+        tileId: firstExisting,
+        coordinate: secondCoordinate,
+      },
+      { allowReplace: true },
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: {
+        code: "REPLACE_CHAINING_NOT_ALLOWED",
+        messageKey: "replaceChainingNotAllowed",
+      },
+    });
+  });
 });

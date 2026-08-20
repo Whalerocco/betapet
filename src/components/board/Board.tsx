@@ -24,6 +24,10 @@ export interface BoardProps {
   readonly draggingTileId?: TileId;
   /** The square a drag is currently hovering over, highlighted if it's a valid empty target. */
   readonly dragOverCoordinate?: Coordinate;
+  /** The pending move's first (reading-order) tile, where the live score-preview badge renders. */
+  readonly scoreBadgeCoordinate?: Coordinate;
+  /** The pending move's total score, shown on `scoreBadgeCoordinate`'s cell when defined. */
+  readonly scoreBadgeValue?: number;
 }
 
 /**
@@ -41,7 +45,12 @@ export function Board({
   onPendingTilePointerDown,
   draggingTileId,
   dragOverCoordinate,
+  scoreBadgeCoordinate,
+  scoreBadgeValue,
 }: BoardProps) {
+  const scoreBadgeKey = scoreBadgeCoordinate
+    ? coordinateKey(scoreBadgeCoordinate)
+    : undefined;
   const committedByKey = new Map(
     boardState.occupiedCells.map((cell) => [
       coordinateKey(cell.coordinate),
@@ -123,6 +132,7 @@ export function Board({
               multiplier={multiplier}
               tile={tile}
               isPlaceable={isPlaceable}
+              scoreBadge={key === scoreBadgeKey ? scoreBadgeValue : undefined}
               isDragOver={
                 !tile &&
                 dragOverCoordinate !== undefined &&

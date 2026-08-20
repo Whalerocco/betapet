@@ -1,6 +1,7 @@
 import { coordinateKey } from "./coordinate";
 import type { BoardState } from "./board";
 import type { GameId, PlayerId, TileId } from "./ids";
+import type { LanguageCode } from "./language";
 import type { Player } from "./player";
 import type { Tile } from "./tile";
 import type { TileBag } from "./tileBag";
@@ -10,6 +11,18 @@ import type { GameHistory } from "./history";
 import type { GameResult } from "./gameResult";
 
 export type GameStatus = "SETUP" | "ACTIVE" | "FINISHED";
+
+/**
+ * A word accepted into this game's vocabulary (dictionary.md sections 23-25). `languageCode` is
+ * set only when the word was accepted while Wild mode (game-modifiers.md section 10) had that
+ * language active — DEC-012 scopes such a word's acceptance to that language alone, rather than
+ * every Wild language. It's omitted for words accepted outside Wild mode (plain or Polyglot
+ * games), which keep the original language-agnostic behaviour.
+ */
+export interface AcceptedVocabularyEntry {
+  readonly word: string;
+  readonly languageCode?: LanguageCode;
+}
 
 interface GameStateBase {
   readonly id: GameId;
@@ -22,7 +35,7 @@ interface GameStateBase {
   readonly currentPlayerId: PlayerId;
   readonly turnState: TurnState;
   readonly pendingMove?: PendingMove;
-  readonly acceptedVocabulary: readonly string[];
+  readonly acceptedVocabulary: readonly AcceptedVocabularyEntry[];
   readonly history: GameHistory;
   readonly consecutivePasses: number;
 }
@@ -104,7 +117,9 @@ export function assertValidGameState(state: GameState): void {
     throw new Error("Pending move must belong to one of the game's players");
   }
 
-  const uniqueAcceptedWords = new Set(state.acceptedVocabulary);
+  const uniqueAcceptedWords = new Set(
+    state.acceptedVocabulary.map((entry) => `${entry.word} ${entry.languageCode ?? ""}`),
+  );
   if (uniqueAcceptedWords.size !== state.acceptedVocabulary.length) {
     throw new Error("Accepted vocabulary must not contain duplicate entries");
   }

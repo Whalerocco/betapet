@@ -11,6 +11,8 @@ const ERROR_MESSAGES: Record<GameErrorCode, string> = {
   TILE_NOT_IN_RACK: "Den brickan finns inte i din hand.",
   INVALID_TILE: "Ogiltig bricka.",
   INVALID_PLACEMENT: "Brickan kan inte placeras där.",
+  NOT_CONNECTED_CLUSTER:
+    "Alla nya brickor måste höra ihop med varandra och ansluta till en bricka som redan ligger på brädet.",
   BLANK_LETTER_REQUIRED: "Välj vilken bokstav den blanka brickan ska vara.",
   UNEXPECTED_BLANK_LETTER: "Den här brickan är inte blank.",
   INVALID_BLANK_LETTER: "Ogiltig bokstav för den blanka brickan.",
@@ -29,6 +31,24 @@ const ERROR_MESSAGES: Record<GameErrorCode, string> = {
     "Den brickan kan inte ersätta en annan bricka förrän nästa tur.",
 };
 
+/**
+ * Words the engine reports as `details.word` for a given error code, quoted into that code's
+ * base message (tasks.md T16.2: forbidden-word feedback must identify the relevant word).
+ * `submitMove.ts` currently reports at most one forbidden word per move — the first one found —
+ * since a forbidden word blocks the whole move outright rather than accumulating a list.
+ */
+function forbiddenWord(error: GameError): string | undefined {
+  const word = error.details?.word;
+  return typeof word === "string" ? word : undefined;
+}
+
 export function describeGameError(error: GameError): string {
-  return ERROR_MESSAGES[error.code];
+  const baseMessage = ERROR_MESSAGES[error.code];
+  if (error.code === "FORBIDDEN_WORD") {
+    const word = forbiddenWord(error);
+    if (word) {
+      return `Ordet "${word}" är inte tillåtet.`;
+    }
+  }
+  return baseMessage;
 }

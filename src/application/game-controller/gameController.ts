@@ -4,6 +4,7 @@ import { cancelProposal } from "../../game/engine/cancelProposal";
 import { clearPendingMove } from "../../game/engine/clearPendingMove";
 import { changeBlankRepresentedLetter } from "../../game/engine/changeBlankRepresentedLetter";
 import { confirmProposal } from "../../game/engine/confirmProposal";
+import { endGame } from "../../game/engine/endGame";
 import { exchangeTiles } from "../../game/engine/exchangeTiles";
 import type { ActionResult } from "../../game/engine/gameError";
 import { movePendingTile } from "../../game/engine/movePendingTile";
@@ -21,6 +22,10 @@ import type { PlayerId, TileId } from "../../game/model/ids";
 export interface GameControllerDependencies {
   readonly configuration: GameConfiguration;
   readonly classificationRules: WordClassificationRules;
+  /** Polyglot mode's per-language rules (game-modifiers.md section 9); see submitMove.ts. */
+  readonly polyglotClassificationRules?: readonly WordClassificationRules[];
+  /** Wild mode's per-language rules, in `configuration.wildLanguages` order; see submitMove.ts. */
+  readonly wildClassificationRules?: readonly WordClassificationRules[];
   readonly alphabet: readonly string[];
 }
 
@@ -71,7 +76,8 @@ export type GameAction =
       readonly tileId: TileId;
       readonly representedLetter: string;
     }
-  | { readonly type: "SHUFFLE_RACK"; readonly playerId: PlayerId };
+  | { readonly type: "SHUFFLE_RACK"; readonly playerId: PlayerId }
+  | { readonly type: "END_GAME"; readonly playerId: PlayerId };
 
 /**
  * The single entry point from the application layer into the game engine (architecture.md
@@ -103,11 +109,16 @@ export function dispatchGameAction(
         tileId: action.tileId,
       });
     case "MOVE_TILE":
-      return movePendingTile(state, deps.configuration.boardDefinition, {
-        playerId: action.playerId,
-        tileId: action.tileId,
-        coordinate: action.coordinate,
-      });
+      return movePendingTile(
+        state,
+        deps.configuration.boardDefinition,
+        {
+          playerId: action.playerId,
+          tileId: action.tileId,
+          coordinate: action.coordinate,
+        },
+        { allowReplace: deps.configuration.modifiers.has("REPLACE") },
+      );
     case "CLEAR_PENDING_MOVE":
       return clearPendingMove(state, { playerId: action.playerId });
     case "SUBMIT_MOVE":
@@ -116,6 +127,10 @@ export function dispatchGameAction(
         deps.configuration,
         deps.classificationRules,
         action.playerId,
+        {
+          polyglotClassificationRules: deps.polyglotClassificationRules,
+          wildClassificationRules: deps.wildClassificationRules,
+        },
       );
     case "PASS":
       return pass(state, action.playerId);
@@ -129,7 +144,7 @@ export function dispatchGameAction(
     case "CONFIRM_PROPOSAL":
       return confirmProposal(state, action.playerId);
     case "ACCEPT_PROPOSED_MOVE":
-      return acceptProposedMove(state, action.reviewingPlayerId);
+      return acceptProposedMove(state, action.reviewingPlayerId, deps.configuration);
     case "REJECT_PROPOSED_MOVE":
       return rejectProposedMove(state, action.reviewingPlayerId);
     case "CHANGE_BLANK_LETTER":
@@ -140,5 +155,7 @@ export function dispatchGameAction(
       });
     case "SHUFFLE_RACK":
       return shuffleRack(state, action.playerId);
+    case "END_GAME":
+      return endGame(state, action.playerId);
   }
 }

@@ -28,6 +28,23 @@ function boardWithKabel() {
   return board;
 }
 
+/**
+ * A committed cross: "SUR" horizontal at row 5 (columns 5-7), crossing "RIS" vertical at
+ * column 7 (rows 5-7) through the shared R — mirrors a real disputed placement a player
+ * encountered, where two unrelated new-tile groups each touched a different arm of this cross.
+ */
+function boardWithSurRisCross() {
+  let board = createBoardState();
+  const surColumns = [5, 6, 7];
+  for (const column of surColumns) {
+    board = placeCommittedTile(board, { row: 5, column }, createTileId());
+  }
+  for (const row of [6, 7]) {
+    board = placeCommittedTile(board, { row, column: 7 }, createTileId());
+  }
+  return board;
+}
+
 describe("validatePhysicalPlacement", () => {
   it("accepts a valid first move covering the centre", () => {
     const board = createBoardState();
@@ -260,7 +277,41 @@ describe("validatePhysicalPlacement", () => {
       );
       expect(result).toEqual({
         valid: false,
-        error: { code: "INVALID_PLACEMENT", messageKey: "notConnectedCluster" },
+        error: {
+          code: "NOT_CONNECTED_CLUSTER",
+          messageKey: "notConnectedCluster",
+        },
+      });
+    });
+
+    it("rejects two new-tile groups that only reach each other by detouring through an unrelated part of the existing board", () => {
+      // Existing "SUR"/"RIS" cross (see boardWithSurRisCross). One group places "P" above the
+      // existing "U" (a new branch, "PU"); a second, unrelated group extends the existing "S" of
+      // "RIS" leftwards. Both groups independently touch the existing cross, and a path between
+      // them exists if you're willing to walk back out through the cross itself — but the two
+      // groups of NEW tiles never touch each other directly, so this must still be rejected.
+      const board = boardWithSurRisCross();
+      const placement = [
+        placed(4, 6), // "P", directly above the existing "U" at (5,6) — forms "PU".
+        placed(7, 3),
+        placed(7, 4),
+        placed(7, 5),
+        placed(7, 6), // adjacent to the existing "S" at (7,7) — forms a word extending it.
+      ];
+
+      const result = validatePhysicalPlacement(
+        board,
+        SCRABBLE_BOARD_DEFINITION,
+        placement,
+        { allowMultiBranch: true },
+      );
+
+      expect(result).toEqual({
+        valid: false,
+        error: {
+          code: "NOT_CONNECTED_CLUSTER",
+          messageKey: "notConnectedCluster",
+        },
       });
     });
 

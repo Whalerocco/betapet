@@ -21,6 +21,7 @@ const END_REASON_TEXT: Record<EndReason, string> = {
     "Brickpåsen är tom och en spelare har inga brickor kvar.",
   CONSECUTIVE_PASSES: "Båda spelarna passade i följd.",
   NO_PLAYER_CAN_PLAY: "Ingen spelare kunde göra ett drag.",
+  MANUALLY_ENDED: "Spelet avslutades i förtid.",
 };
 
 /**

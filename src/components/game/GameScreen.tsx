@@ -16,12 +16,17 @@ import {
 import { useGameController } from "../../application/game-controller/useGameController";
 import { saveLocalGame } from "../../application/persistence/localGameStorage";
 import {
+  activeWildLanguageIndex,
+  hasCommittedMove,
+} from "../../game/engine/wildRotation";
+import {
   parseCoordinateKey,
   type Coordinate,
 } from "../../game/model/coordinate";
 import type { GameState } from "../../game/model/game";
 import type { PlayerId, TileId } from "../../game/model/ids";
 import { tileLetter } from "../../game/model/tile";
+import { previewMoveScore } from "../../game/scoring/previewMoveScore";
 import { Board } from "../board/Board";
 import { Dialog } from "../common/Dialog";
 import { Tile } from "../common/Tile";
@@ -33,6 +38,8 @@ import { GameHistory } from "./GameHistory";
 import { GameOverScreen } from "./GameOverScreen";
 import styles from "./GameScreen.module.css";
 import { HandoffScreen } from "./HandoffScreen";
+import { LANGUAGE_NAMES } from "./languageNames";
+import { MODIFIER_COPY } from "./modifierCopy";
 import { OpponentReview } from "./OpponentReview";
 import { ScoreBoard } from "./ScoreBoard";
 import { TurnActions } from "./TurnActions";
@@ -84,8 +91,12 @@ export function GameScreen({
       : initialLocalSession(initialState),
   );
   const [selectedTileId, setSelectedTileId] = useState<TileId | undefined>();
-  const [pendingBlankLetter, setPendingBlankLetter] = useState<
-    string | undefined
+  /**
+   * Set when a selected blank tile is tapped onto a board cell: the letter is chosen at
+   * placement time (ui-design.md), so PLACE_TILE isn't dispatched until this resolves.
+   */
+  const [pendingPlacement, setPendingPlacement] = useState<
+    { tileId: TileId; coordinate: Coordinate } | undefined
   >();
   const [editingBlankTileId, setEditingBlankTileId] = useState<
     TileId | undefined
@@ -125,7 +136,13 @@ export function GameScreen({
     if (result.success) {
       setSession(deriveLocalSessionAfterAction(action.type, result.state));
       setErrorMessage(undefined);
-      saveLocalGame(result.state, deps.configuration.rackSize);
+      saveLocalGame(
+        result.state,
+        deps.configuration.rackSize,
+        deps.configuration.modifiers,
+        deps.configuration.polyglotLanguages,
+        deps.configuration.wildLanguages,
+      );
     } else {
       setErrorMessage(describeGameError(result.error));
     }
@@ -135,6 +152,25 @@ export function GameScreen({
   const playerNames = Object.fromEntries(
     state.players.map((player) => [player.id, player.name]),
   ) as Record<PlayerId, string>;
+
+  const activeModifierLabels = Array.from(deps.configuration.modifiers).map(
+    (id) => MODIFIER_COPY[id].label,
+  );
+  /**
+   * Wild mode's active language (game-modifiers.md section 10) is derived the same way
+   * submitMove.ts derives it — from history as it stands right now — so this indicator always
+   * matches whichever language the next submitted move would actually be validated against.
+   */
+  const activeLanguageLabel = deps.configuration.modifiers.has("WILD")
+    ? LANGUAGE_NAMES[
+        deps.configuration.wildLanguages[
+          activeWildLanguageIndex(
+            state.history,
+            deps.configuration.wildLanguages.length,
+          )
+        ]
+      ]
+    : undefined;
 
   if (state.status === "FINISHED") {
     return (
@@ -194,6 +230,8 @@ export function GameScreen({
             isCurrent: false,
           }))}
           tilesRemaining={state.tileBag.tileIds.length}
+          activeModifierLabels={activeModifierLabels}
+          activeLanguageLabel={activeLanguageLabel}
         />
 
         {errorMessage && (
@@ -223,11 +261,7 @@ export function GameScreen({
             />
           </div>
 
-          <GameHistory
-            history={state.history}
-            playerNames={playerNames}
-            defaultOpen={false}
-          />
+          <GameHistory history={state.history} playerNames={playerNames} />
         </div>
       </div>
     );
@@ -246,10 +280,6 @@ export function GameScreen({
     };
   });
 
-  const selectedTile = selectedTileId ? state.tiles[selectedTileId] : undefined;
-  const selectedIsUnresolvedBlank =
-    selectedTile?.kind === "BLANK" && pendingBlankLetter === undefined;
-
   const editingPlacedTile = editingBlankTileId
     ? state.pendingMove?.placedTiles.find(
         (placed) => placed.tileId === editingBlankTileId,
@@ -258,7 +288,7 @@ export function GameScreen({
 
   function clearSelection() {
     setSelectedTileId(undefined);
-    setPendingBlankLetter(undefined);
+    setPendingPlacement(undefined);
   }
 
   function handleSelectTile(tileId: TileId) {
@@ -280,17 +310,39 @@ export function GameScreen({
       return;
     }
     setSelectedTileId(tileId);
-    setPendingBlankLetter(undefined);
+    setPendingPlacement(undefined);
   }
 
+  /**
+   * A selected blank tile doesn't place immediately: its letter is chosen after targeting a
+   * board cell, not before (ui-design.md), so this only opens the picker via `pendingPlacement`
+   * and defers the actual PLACE_TILE dispatch to `handleChoosePlacementLetter`.
+   */
   function handlePlaceAt(coordinate: Coordinate) {
-    if (!selectedTileId || selectedIsUnresolvedBlank) return;
+    if (!selectedTileId) return;
+    if (state.tiles[selectedTileId].kind === "BLANK") {
+      setPendingPlacement({ tileId: selectedTileId, coordinate });
+      return;
+    }
     const result = dispatchTracked({
       type: "PLACE_TILE",
       playerId: currentPlayerId,
       tileId: selectedTileId,
       coordinate,
-      representedLetter: pendingBlankLetter,
+    });
+    if (result.success) {
+      clearSelection();
+    }
+  }
+
+  function handleChoosePlacementLetter(letter: string) {
+    if (!pendingPlacement) return;
+    const result = dispatchTracked({
+      type: "PLACE_TILE",
+      playerId: currentPlayerId,
+      tileId: pendingPlacement.tileId,
+      coordinate: pendingPlacement.coordinate,
+      representedLetter: letter,
     });
     if (result.success) {
       clearSelection();
@@ -323,17 +375,11 @@ export function GameScreen({
     return { letter, points: tile.points, isBlank: tile.kind === "BLANK" };
   }
 
-  /**
-   * A rack tile can only start a drag once its represented letter is already decided — an
-   * unresolved blank stays tap-only (select it, choose a letter, then place it), so this simply
-   * never starts a drag for one rather than trying to fold letter-choosing into the gesture.
-   */
   function handleRackTilePointerDown(
     tileId: TileId,
     event: PointerEvent<HTMLButtonElement>,
   ) {
     if (exchangeMode || state.turnState.type !== "PLAYER_TURN") return;
-    if (state.tiles[tileId].kind === "BLANK") return;
     startDrag(tileId, event);
   }
 
@@ -378,6 +424,10 @@ export function GameScreen({
     }
 
     if (target.coordinate) {
+      if (state.tiles[tileId].kind === "BLANK") {
+        setPendingPlacement({ tileId, coordinate: target.coordinate });
+        return;
+      }
       const result = dispatchTracked({
         type: "PLACE_TILE",
         playerId: currentPlayerId,
@@ -436,6 +486,10 @@ export function GameScreen({
     dispatchTracked({ type: "PASS", playerId: currentPlayerId });
   }
 
+  function handleEndGame() {
+    dispatchTracked({ type: "END_GAME", playerId: currentPlayerId });
+  }
+
   function handleStartExchange() {
     setExchangeMode(true);
     setExchangeSelection(new Set());
@@ -489,9 +543,36 @@ export function GameScreen({
   const canPass = footerActive && !hasPendingMove;
   const canStartExchange = canPass;
   const canClear = footerActive && hasPendingMove;
+  const canEndGame = footerActive;
   const dragOverCoordinate = dragState
     ? resolveDropTarget(dragState.position).coordinate
     : undefined;
+
+  const pendingPlacedTiles = state.pendingMove?.placedTiles ?? [];
+  const scorePreview =
+    pendingPlacedTiles.length > 0
+      ? previewMoveScore(
+          state.board,
+          deps.configuration.boardDefinition,
+          state.tiles,
+          pendingPlacedTiles,
+          deps.configuration.rackSize,
+          {
+            allowMultiBranch: deps.configuration.modifiers.has("CRISSCROSS"),
+            isFirstMoveOverride: hasCommittedMove(state.history)
+              ? false
+              : undefined,
+          },
+        )
+      : undefined;
+  const scoreBadgeCoordinate =
+    pendingPlacedTiles.length > 0
+      ? [...pendingPlacedTiles].sort(
+          (a, b) =>
+            a.coordinate.row - b.coordinate.row ||
+            a.coordinate.column - b.coordinate.column,
+        )[0].coordinate
+      : undefined;
 
   return (
     <div className={styles.gameScreen}>
@@ -502,6 +583,8 @@ export function GameScreen({
           isCurrent: player.id === currentPlayerId,
         }))}
         tilesRemaining={state.tileBag.tileIds.length}
+        activeModifierLabels={activeModifierLabels}
+        activeLanguageLabel={activeLanguageLabel}
       />
 
       <p className={styles.turnIndicator} aria-live="polite">
@@ -532,17 +615,18 @@ export function GameScreen({
             boardDefinition={deps.configuration.boardDefinition}
             boardState={state.board}
             tiles={state.tiles}
-            pendingPlacedTiles={state.pendingMove?.placedTiles ?? []}
+            pendingPlacedTiles={pendingPlacedTiles}
             canPlaceSelectedTile={
               state.turnState.type === "PLAYER_TURN" &&
-              selectedTileId !== undefined &&
-              !selectedIsUnresolvedBlank
+              selectedTileId !== undefined
             }
             onPlaceAt={handlePlaceAt}
             onPendingTileClick={handlePendingTileClick}
             onPendingTilePointerDown={handleBoardTilePointerDown}
             draggingTileId={dragState?.item}
             dragOverCoordinate={dragOverCoordinate}
+            scoreBadgeCoordinate={scoreBadgeCoordinate}
+            scoreBadgeValue={scorePreview}
           />
 
           {editingPlacedTile && (
@@ -563,13 +647,22 @@ export function GameScreen({
               </div>
             </Dialog>
           )}
+
+          {pendingPlacement && (
+            <Dialog
+              titleText="Välj bokstav för den blanka brickan"
+              onClose={() => setPendingPlacement(undefined)}
+            >
+              <BlankLetterPicker
+                label="Vilken bokstav ska den blanka brickan vara?"
+                alphabet={deps.alphabet}
+                onSelect={handleChoosePlacementLetter}
+              />
+            </Dialog>
+          )}
         </div>
 
-        <GameHistory
-          history={state.history}
-          playerNames={playerNames}
-          defaultOpen={false}
-        />
+        <GameHistory history={state.history} playerNames={playerNames} />
       </div>
 
       {footerActive && (
@@ -593,24 +686,11 @@ export function GameScreen({
             </button>
           </div>
 
-          {selectedIsUnresolvedBlank && (
-            <Dialog
-              titleText="Välj bokstav för den blanka brickan"
-              onClose={clearSelection}
-            >
-              <BlankLetterPicker
-                label="Vilken bokstav ska den blanka brickan vara?"
-                alphabet={deps.alphabet}
-                value={pendingBlankLetter}
-                onSelect={setPendingBlankLetter}
-              />
-            </Dialog>
-          )}
-
           <TurnActions
             canSubmit={canSubmit}
             canPass={canPass}
             canClear={canClear}
+            canEndGame={canEndGame}
             exchangeMode={exchangeMode}
             exchangeSelectionCount={exchangeSelection.size}
             canStartExchange={canStartExchange}
@@ -620,6 +700,7 @@ export function GameScreen({
             onCancelExchange={handleCancelExchange}
             onConfirmExchange={handleConfirmExchange}
             onPass={handlePass}
+            onEndGame={handleEndGame}
           />
         </div>
       )}

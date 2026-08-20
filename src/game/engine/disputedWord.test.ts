@@ -6,6 +6,7 @@ import type { GameState } from "../model/game";
 import { createTileId, type TileId } from "../model/ids";
 import { createLetterTile, type Tile } from "../model/tile";
 import { buildEngineTestGame } from "../testing/fixtures";
+import { acceptedVocabularySet } from "./acceptedVocabulary";
 import { acceptProposedMove } from "./acceptProposedMove";
 import { cancelProposal } from "./cancelProposal";
 import { confirmProposal } from "./confirmProposal";
@@ -204,7 +205,7 @@ describe("confirmProposal (Spela ändå)", () => {
 describe("wrong-player review attempts", () => {
   it("rejects the proposer trying to approve their own move", () => {
     const { setup, state } = proposeGromp();
-    const result = acceptProposedMove(state, setup.playerOneId);
+    const result = acceptProposedMove(state, setup.playerOneId, setup.configuration);
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error.code).toBe("NOT_AUTHORIZED_TO_APPROVE");
@@ -220,11 +221,54 @@ describe("wrong-player review attempts", () => {
   });
 });
 
+describe("duplicate/stale action protection (T12.8)", () => {
+  it("a second acceptance after commit is rejected and does not double-score", () => {
+    const { setup, state } = proposeGromp();
+    const firstAccept = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
+    if (!firstAccept.success) throw new Error("setup failed");
+
+    // Simulates a duplicate/replayed "Godkänn" dispatched against the already-committed state
+    // (turnState is no longer WAITING_FOR_OPPONENT_APPROVAL once commitMove has run).
+    const secondAccept = acceptProposedMove(firstAccept.state, setup.playerTwoId, setup.configuration);
+
+    expect(secondAccept.success).toBe(false);
+    if (secondAccept.success) return;
+    expect(secondAccept.error.code).toBe("NOT_AUTHORIZED_TO_APPROVE");
+    const player = firstAccept.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    // G(1)+R(1)+Ö(1)+M(1)+P(1) = 5, applied once — not doubled by the rejected second call.
+    expect(player.score).toBe(5);
+  });
+
+  it("a stale rejection sent after acceptance cannot undo the committed move", () => {
+    const { setup, state } = proposeGromp();
+    const accepted = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
+    if (!accepted.success) throw new Error("setup failed");
+
+    // Simulates a stale "Neka" (e.g. a slow/duplicate dispatch) arriving after the move already
+    // committed via acceptProposedMove.
+    const staleReject = rejectProposedMove(accepted.state, setup.playerTwoId);
+
+    expect(staleReject.success).toBe(false);
+    if (staleReject.success) return;
+    expect(staleReject.error.code).toBe("NOT_AUTHORIZED_TO_APPROVE");
+    // The committed move is untouched: tiles stay on the board, score stays awarded, turn stays
+    // advanced to the reviewer.
+    expect(accepted.state.board.occupiedCells).toHaveLength(5);
+    const player = accepted.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    expect(player.score).toBe(5);
+    expect(accepted.state.currentPlayerId).toBe(setup.playerTwoId);
+  });
+});
+
 describe("acceptProposedMove (Godkänn)", () => {
   it("commits the move", () => {
     const { setup, state } = proposeGromp();
 
-    const result = acceptProposedMove(state, setup.playerTwoId);
+    const result = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -235,7 +279,7 @@ describe("acceptProposedMove (Godkänn)", () => {
   it("applies the score exactly once", () => {
     const { setup, state } = proposeGromp();
 
-    const result = acceptProposedMove(state, setup.playerTwoId);
+    const result = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -249,19 +293,19 @@ describe("acceptProposedMove (Godkänn)", () => {
   it("adds the unknown word to accepted vocabulary", () => {
     const { setup, state } = proposeGromp();
 
-    const result = acceptProposedMove(state, setup.playerTwoId);
+    const result = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect(result.state.acceptedVocabulary).toEqual(["GRÖMP"]);
+    expect(result.state.acceptedVocabulary).toEqual([{ word: "GRÖMP" }]);
   });
 
   it("lets the accepted word be reused later without a second approval", () => {
     const { setup, state } = proposeGromp();
-    const accepted = acceptProposedMove(state, setup.playerTwoId);
+    const accepted = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
     if (!accepted.success) throw new Error("setup failed");
 
-    const acceptedSet = new Set(accepted.state.acceptedVocabulary);
+    const acceptedSet = acceptedVocabularySet(accepted.state);
     const result = classifyWord("GRÖMP", rules, acceptedSet);
 
     expect(result.status).toBe("ACCEPTED_IN_GAME");
@@ -270,7 +314,7 @@ describe("acceptProposedMove (Godkänn)", () => {
   it("advances the turn to the reviewer", () => {
     const { setup, state } = proposeGromp();
 
-    const result = acceptProposedMove(state, setup.playerTwoId);
+    const result = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -284,7 +328,7 @@ describe("acceptProposedMove (Godkänn)", () => {
   it("records UNKNOWN_WORD_ACCEPTED before WORD_MOVE_COMMITTED", () => {
     const { setup, state } = proposeGromp();
 
-    const result = acceptProposedMove(state, setup.playerTwoId);
+    const result = acceptProposedMove(state, setup.playerTwoId, setup.configuration);
 
     expect(result.success).toBe(true);
     if (!result.success) return;
@@ -435,12 +479,11 @@ describe("multiple unknown words", () => {
     }
 
     // A single accept/reject decision resolves the entire move.
-    const result = acceptProposedMove(confirmed.state, setup.playerTwoId);
+    const result = acceptProposedMove(confirmed.state, setup.playerTwoId, setup.configuration);
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect([...result.state.acceptedVocabulary].sort()).toEqual([
-      "GRÖMP",
-      "RX",
-    ]);
+    expect(
+      result.state.acceptedVocabulary.map((entry) => entry.word).sort(),
+    ).toEqual(["GRÖMP", "RX"]);
   });
 });

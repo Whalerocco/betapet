@@ -37,8 +37,10 @@ export interface PlaceTileOptions {
  * Tiles displaced earlier in this same pending move (game-modifiers.md section 7): a displaced
  * tile may be placed normally on an empty cell later in the same move, but not used to displace
  * yet another tile until at least one full turn has passed — i.e. after this move commits.
+ * Exported for `movePendingTile.ts`, which needs the identical chaining check when a pending
+ * Replace-mode tile is dragged onto a different occupied cell.
  */
-function tilesDisplacedThisMove(
+export function tilesDisplacedThisMove(
   placedTiles: readonly PendingPlacedTile[],
 ): ReadonlySet<TileId> {
   return new Set(

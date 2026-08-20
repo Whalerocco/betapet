@@ -7,6 +7,7 @@ const baseProps = {
   canSubmit: false,
   canPass: false,
   canClear: false,
+  canEndGame: false,
   exchangeMode: true,
   canStartExchange: false,
   onSubmit: vi.fn(),
@@ -15,6 +16,7 @@ const baseProps = {
   onCancelExchange: vi.fn(),
   onConfirmExchange: vi.fn(),
   onPass: vi.fn(),
+  onEndGame: vi.fn(),
 };
 
 describe("TurnActions exchange confirmation label", () => {

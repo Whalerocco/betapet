@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { GameControllerDependencies } from "../../application/game-controller/gameController";
 import { SWEDISH_ALPHABET } from "../../game/configuration/swedishAlphabet";
+import { createFrenchWordClassificationRules } from "../../game/dictionary/frenchWordClassificationRules";
+import { createGermanWordClassificationRules } from "../../game/dictionary/germanWordClassificationRules";
 import { createSwedishWordClassificationRules } from "../../game/dictionary/swedishWordClassificationRules";
 import { buildEngineTestGame } from "../../game/testing/fixtures";
 import { GameScreen } from "./GameScreen";
@@ -155,12 +157,12 @@ describe("GameScreen", () => {
       screen.getByTestId(`cell-${centre.row},${centre.column + 1}`),
     );
     await userEvent.click(screen.getByLabelText("Blank bricka"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column + 2}`),
+    );
     await userEvent.selectOptions(
       screen.getByLabelText("Vilken bokstav ska den blanka brickan vara?"),
       "L",
-    );
-    await userEvent.click(
-      screen.getByTestId(`cell-${centre.row},${centre.column + 2}`),
     );
     await userEvent.click(screen.getByRole("button", { name: "Spela" }));
     await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
@@ -175,12 +177,12 @@ describe("GameScreen", () => {
     const centre = setup.board.centreCoordinate;
 
     await userEvent.click(screen.getByLabelText("Blank bricka"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
     await userEvent.selectOptions(
       screen.getByLabelText("Vilken bokstav ska den blanka brickan vara?"),
       "L",
-    );
-    await userEvent.click(
-      screen.getByTestId(`cell-${centre.row},${centre.column}`),
     );
     expect(
       screen.getByLabelText("Pending bricka L, tryck för att redigera"),
@@ -196,6 +198,34 @@ describe("GameScreen", () => {
 
     expect(
       screen.getByLabelText("Pending bricka M, tryck för att redigera"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the blank tile selected, and places nothing, if the letter picker is dismissed", async () => {
+    const { setup } = await renderGame(["_"]);
+    const centre = setup.board.centreCoordinate;
+
+    await userEvent.click(screen.getByLabelText("Blank bricka"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    expect(
+      screen.getByLabelText("Vilken bokstav ska den blanka brickan vara?"),
+    ).toBeInTheDocument();
+
+    fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+
+    expect(
+      screen.queryByLabelText("Vilken bokstav ska den blanka brickan vara?"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Pending bricka/)).not.toBeInTheDocument();
+
+    // The tile is still selected: targeting the cell again reopens the letter picker.
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    expect(
+      screen.getByLabelText("Vilken bokstav ska den blanka brickan vara?"),
     ).toBeInTheDocument();
   });
 
@@ -294,6 +324,82 @@ describe("GameScreen", () => {
     expect(screen.getByRole("button", { name: "Spela" })).toBeEnabled();
   });
 
+  it("shows badges for every active gameplay modifier", async () => {
+    const setup = buildEngineTestGame({
+      modifiers: new Set(["ILLEGAL", "CRISSCROSS"]),
+    });
+    const deps: GameControllerDependencies = {
+      configuration: setup.configuration,
+      classificationRules,
+      alphabet: SWEDISH_ALPHABET,
+    };
+    render(
+      <GameScreen initialState={setup.state} deps={deps} onExit={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    expect(screen.getByText("Olagligt läge")).toBeInTheDocument();
+    expect(screen.getByText("Kryssläge")).toBeInTheDocument();
+  });
+
+  it("shows no modifier badges for a standard game with no modifiers active", async () => {
+    await renderGame();
+
+    expect(screen.queryByText("Olagligt läge")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Aktivt språk/)).not.toBeInTheDocument();
+  });
+
+  it("shows Wild mode's active language and updates it after a full round", async () => {
+    const german = createGermanWordClassificationRules();
+    const french = createFrenchWordClassificationRules();
+    const setup = buildEngineTestGame({
+      playerOneRackLetters: ["R", "E", "N"],
+      modifiers: new Set(["WILD"]),
+      wildLanguages: ["de", "fr"],
+    });
+    const deps: GameControllerDependencies = {
+      configuration: setup.configuration,
+      classificationRules: german,
+      wildClassificationRules: [german, french],
+      alphabet: SWEDISH_ALPHABET,
+    };
+    render(
+      <GameScreen initialState={setup.state} deps={deps} onExit={vi.fn()} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    expect(screen.getByText("Aktivt språk: Tyska")).toBeInTheDocument();
+
+    // REN is a real German word — with "de" active (round 0) it commits directly.
+    const centre = setup.board.centreCoordinate;
+    await userEvent.click(screen.getByLabelText("Bricka R, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    await userEvent.click(screen.getByLabelText("Bricka E, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column + 1}`),
+    );
+    await userEvent.click(screen.getByLabelText("Bricka N, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column + 2}`),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    // Player two passes — this completes the full round, rotating the active language to "fr".
+    await userEvent.click(screen.getByRole("button", { name: "Passa" }));
+    const confirmPassDialog = screen.getByRole("dialog", {
+      name: "Bekräfta passning",
+    });
+    await userEvent.click(
+      within(confirmPassDialog).getByRole("button", { name: "Passa" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    expect(screen.getByText("Aktivt språk: Franska")).toBeInTheDocument();
+  });
+
   it("shuffling the rack keeps the same tiles without losing the player's turn", async () => {
     await renderGame(["B", "I", "L", "A", "R", "E", "N"]);
 
@@ -307,5 +413,22 @@ describe("GameScreen", () => {
       ).toBeInTheDocument();
     }
     expect(screen.getByRole("button", { name: "Spela" })).toBeInTheDocument();
+  });
+
+  it("ends the game immediately via 'Avsluta spel', without requiring two passes", async () => {
+    await renderGame();
+
+    await userEvent.click(screen.getByRole("button", { name: "Avsluta spel" }));
+    const confirmDialog = screen.getByRole("dialog", {
+      name: "Bekräfta att avsluta spelet",
+    });
+    await userEvent.click(
+      within(confirmDialog).getByRole("button", { name: "Avsluta spel" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Spelet är slut" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Spelet avslutades i förtid.")).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ export interface TurnActionsProps {
   readonly canSubmit: boolean;
   readonly canPass: boolean;
   readonly canClear: boolean;
+  readonly canEndGame: boolean;
   readonly exchangeMode: boolean;
   readonly exchangeSelectionCount: number;
   readonly canStartExchange: boolean;
@@ -17,6 +18,7 @@ export interface TurnActionsProps {
   readonly onCancelExchange: () => void;
   readonly onConfirmExchange: () => void;
   readonly onPass: () => void;
+  readonly onEndGame: () => void;
 }
 
 /**
@@ -28,6 +30,7 @@ export function TurnActions({
   canSubmit,
   canPass,
   canClear,
+  canEndGame,
   exchangeMode,
   exchangeSelectionCount,
   canStartExchange,
@@ -37,8 +40,10 @@ export function TurnActions({
   onCancelExchange,
   onConfirmExchange,
   onPass,
+  onEndGame,
 }: TurnActionsProps) {
   const [confirmingPass, setConfirmingPass] = useState(false);
+  const [confirmingEndGame, setConfirmingEndGame] = useState(false);
   /**
    * Restoring focus on close only works if the "Passa" button is still an attached DOM node at
    * that point — a detached element can't be focused. That's why the button row below is always
@@ -47,6 +52,7 @@ export function TurnActions({
    * element (matches Dialog.tsx's restoreFocusTo doc), not because the button ever unmounts.
    */
   const passTriggerRef = useRef<Element | null>(null);
+  const endGameTriggerRef = useRef<Element | null>(null);
 
   // Selecting tiles to exchange requires the Rack to stay visible and interactive, so this
   // stays inline rather than becoming a modal dialog (unlike the other flows ui-design.md
@@ -109,6 +115,16 @@ export function TurnActions({
         >
           Passa
         </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            endGameTriggerRef.current = event.currentTarget;
+            setConfirmingEndGame(true);
+          }}
+          disabled={!canEndGame}
+        >
+          Avsluta spel
+        </button>
       </div>
 
       {confirmingPass && (
@@ -135,6 +151,39 @@ export function TurnActions({
                 }}
               >
                 Passa
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+
+      {confirmingEndGame && (
+        <Dialog
+          titleText="Bekräfta att avsluta spelet"
+          onClose={() => setConfirmingEndGame(false)}
+          restoreFocusTo={endGameTriggerRef}
+        >
+          <div className={styles.actions}>
+            <p>
+              Vill du avsluta spelet i förtid? Slutpoängen räknas ut som
+              vanligt, men detta kan inte ångras.
+            </p>
+            <div className={styles.buttonRow}>
+              <button
+                type="button"
+                onClick={() => setConfirmingEndGame(false)}
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                className={styles.primary}
+                onClick={() => {
+                  setConfirmingEndGame(false);
+                  onEndGame();
+                }}
+              >
+                Avsluta spel
               </button>
             </div>
           </div>

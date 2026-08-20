@@ -1,7 +1,10 @@
 import type { PlayerId } from "./ids";
 
 export type EndReason =
-  "NO_TILES_AND_NO_MORE_PLAY" | "CONSECUTIVE_PASSES" | "NO_PLAYER_CAN_PLAY";
+  | "NO_TILES_AND_NO_MORE_PLAY"
+  | "CONSECUTIVE_PASSES"
+  | "NO_PLAYER_CAN_PLAY"
+  | "MANUALLY_ENDED";
 
 export interface GameResult {
   readonly finalScores: Readonly<Record<PlayerId, number>>;

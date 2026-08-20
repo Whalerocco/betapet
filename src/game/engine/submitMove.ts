@@ -1,5 +1,5 @@
 import type { WordClassificationRules } from "../dictionary/classifyWord";
-import { classifyWord } from "../dictionary/classifyWord";
+import { classifyWordAcrossLanguages } from "../dictionary/classifyWordAcrossLanguages";
 import type { GameConfiguration } from "../model/gameConfiguration";
 import { createGameState, type GameState } from "../model/game";
 import type { PlayerId } from "../model/ids";
@@ -12,6 +12,26 @@ import { acceptedVocabularySet } from "./acceptedVocabulary";
 import { checkEditPreconditions } from "./actionPreconditions";
 import { commitMove } from "./commitMove";
 import { actionFailure, type ActionResult } from "./gameError";
+import { activeWildLanguageIndex, hasCommittedMove } from "./wildRotation";
+
+export interface SubmitMoveOptions {
+  /**
+   * Every selected language's classification rules, for Polyglot mode
+   * (game-modifiers.md section 9) — a formed word is DICTIONARY_WORD if it matches *any* of
+   * these. Required (with at least two entries, one per `configuration.polyglotLanguages`) when
+   * `configuration.modifiers` has "POLYGLOT"; ignored otherwise, in which case the plain
+   * `classificationRules` parameter alone is used, unchanged from before Polyglot existed.
+   */
+  readonly polyglotClassificationRules?: readonly WordClassificationRules[];
+  /**
+   * Every selected language's classification rules, for Wild mode (game-modifiers.md
+   * section 10), in the same order as `configuration.wildLanguages` — exactly one of these is
+   * used per move, chosen by `activeWildLanguageIndex`. Required, with exactly as many entries
+   * as `configuration.wildLanguages`, when `configuration.modifiers` has "WILD"; ignored
+   * otherwise.
+   */
+  readonly wildClassificationRules?: readonly WordClassificationRules[];
+}
 
 /**
  * Submits the current pending move (normal-move-example.md section 40's pipeline): action
@@ -28,6 +48,7 @@ export function submitMove(
   configuration: GameConfiguration,
   classificationRules: WordClassificationRules,
   playerId: PlayerId,
+  options: SubmitMoveOptions = {},
 ): ActionResult {
   const precondition = checkEditPreconditions(state, playerId);
   if (precondition) return { success: false, error: precondition };
@@ -41,19 +62,13 @@ export function submitMove(
     return actionFailure("INVALID_GAME_STATE", "noPendingMove");
   }
 
-  // A move can only be non-first if some earlier move actually committed — regardless of how
-  // many tiles the board currently holds, which Replace mode (game-modifiers.md section 7) can
-  // momentarily reduce to zero mid-edit (physicalValidation.ts isFirstMoveOverride doc).
-  const anyMoveEverCommitted = state.history.events.some(
-    (event) => event.type === "WORD_MOVE_COMMITTED",
-  );
   const physical = validatePhysicalPlacement(
     state.board,
     configuration.boardDefinition,
     pendingMove.placedTiles,
     {
       allowMultiBranch: configuration.modifiers.has("CRISSCROSS"),
-      isFirstMoveOverride: anyMoveEverCommitted ? false : undefined,
+      isFirstMoveOverride: hasCommittedMove(state.history) ? false : undefined,
     },
   );
   if (!physical.valid) {
@@ -69,9 +84,44 @@ export function submitMove(
     return actionFailure("INVALID_WORD", "noWordFormed");
   }
 
-  const acceptedSet = acceptedVocabularySet(state);
+  if (
+    configuration.modifiers.has("POLYGLOT") &&
+    (options.polyglotClassificationRules?.length ?? 0) < 2
+  ) {
+    throw new Error(
+      "Polyglot mode requires at least two languages' classification rules " +
+        "(configuration.polyglotLanguages, submitMove options.polyglotClassificationRules)",
+    );
+  }
+  if (
+    configuration.modifiers.has("WILD") &&
+    options.wildClassificationRules?.length !== configuration.wildLanguages.length
+  ) {
+    throw new Error(
+      "Wild mode requires exactly one classification-rules entry per " +
+        "configuration.wildLanguages entry, in the same order " +
+        "(submitMove options.wildClassificationRules)",
+    );
+  }
+  const wildActiveIndex = configuration.modifiers.has("WILD")
+    ? activeWildLanguageIndex(
+        state.history,
+        options.wildClassificationRules!.length,
+      )
+    : undefined;
+
+  const languageRules = configuration.modifiers.has("POLYGLOT")
+    ? options.polyglotClassificationRules!
+    : wildActiveIndex !== undefined
+      ? [options.wildClassificationRules![wildActiveIndex]]
+      : [classificationRules];
+
+  const acceptedSet =
+    wildActiveIndex !== undefined
+      ? acceptedVocabularySet(state, configuration.wildLanguages[wildActiveIndex])
+      : acceptedVocabularySet(state);
   const wordResults = formedWords.map((word) =>
-    classifyWord(word.text, classificationRules, acceptedSet),
+    classifyWordAcrossLanguages(word.text, languageRules, acceptedSet),
   );
 
   const forbidden = wordResults.find(

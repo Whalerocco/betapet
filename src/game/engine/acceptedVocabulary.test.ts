@@ -13,14 +13,14 @@ describe("addAcceptedWord", () => {
   it("adds the normalized word to the game's accepted vocabulary", () => {
     const { state } = createTestGame();
     const updated = addAcceptedWord(state, "grömp");
-    expect(updated.acceptedVocabulary).toEqual(["GRÖMP"]);
+    expect(updated.acceptedVocabulary).toEqual([{ word: "GRÖMP" }]);
   });
 
   it("is a no-op if the word is already accepted", () => {
     const { state } = createTestGame();
     const once = addAcceptedWord(state, "grömp");
     const twice = addAcceptedWord(once, "GRÖMP");
-    expect(twice.acceptedVocabulary).toEqual(["GRÖMP"]);
+    expect(twice.acceptedVocabulary).toEqual([{ word: "GRÖMP" }]);
   });
 
   it("does not mutate the original state", () => {
@@ -54,7 +54,7 @@ describe("addAcceptedWord", () => {
 
     const updatedA = addAcceptedWord(gameA, "GRÖMP");
 
-    expect(updatedA.acceptedVocabulary).toEqual(["GRÖMP"]);
+    expect(updatedA.acceptedVocabulary).toEqual([{ word: "GRÖMP" }]);
     expect(gameB.acceptedVocabulary).toEqual([]);
   });
 });

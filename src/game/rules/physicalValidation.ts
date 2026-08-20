@@ -28,42 +28,97 @@ function invalid(
 }
 
 /**
- * A single connected component of occupied-after-this-move cells (existing board tiles plus the
- * pending placement) reached via 4-directional adjacency, using a coordinate-key visited set.
- * Two occupied cells separated by an empty gap are never adjacent, so this single walk both
- * rejects gaps within a line and — when called with a non-collinear cluster, as Crisscross mode
- * allows (game-modifiers.md section 6) — confirms every branch is reachable from every other
- * branch, without needing a separate check for each.
+ * The maximal contiguous run of occupied-after-this-move cells through `start` along one axis
+ * (a row or a column) — the same "word line" a normal single-line move's gap check already walks,
+ * mixing new and existing tiles freely. Undefined if `start` has no occupied neighbour on that
+ * axis (not part of any 2+ letter line there).
  */
-function reachableOccupiedCoordinates(
+function occupiedRun(
+  isOccupiedAfterMove: (coordinate: Coordinate) => boolean,
+  start: Coordinate,
+  axis: "row" | "column",
+): ReadonlySet<string> | undefined {
+  const step: Coordinate =
+    axis === "row" ? { row: 0, column: 1 } : { row: 1, column: 0 };
+  let begin = start;
+  while (
+    isOccupiedAfterMove({
+      row: begin.row - step.row,
+      column: begin.column - step.column,
+    })
+  ) {
+    begin = { row: begin.row - step.row, column: begin.column - step.column };
+  }
+  const run = new Set<string>();
+  for (
+    let current = begin;
+    isOccupiedAfterMove(current);
+    current = {
+      row: current.row + step.row,
+      column: current.column + step.column,
+    }
+  ) {
+    run.add(coordinateKey(current));
+  }
+  return run.size >= 2 ? run : undefined;
+}
+
+/** Repeatedly merges any two sets that share at least one element, until no pair does. */
+function mergeSharedGroups(sets: readonly ReadonlySet<string>[]): Set<string>[] {
+  const groups = sets.map((s) => new Set(s));
+  let i = 0;
+  while (i < groups.length) {
+    const mergeIndex = groups.findIndex(
+      (other, j) => j > i && [...groups[i]].some((key) => other.has(key)),
+    );
+    if (mergeIndex === -1) {
+      i++;
+    } else {
+      for (const key of groups[mergeIndex]) groups[i].add(key);
+      groups.splice(mergeIndex, 1);
+    }
+  }
+  return groups;
+}
+
+/**
+ * Crisscross mode (game-modifiers.md section 6) requires every newly placed tile to belong to a
+ * 2+ letter line (row or column — new tiles plus any existing tiles filling gaps, exactly what a
+ * normal move's single word already is), and requires those lines to all connect to each other by
+ * sharing a cell, e.g. a T or plus shape where one line crosses another. This deliberately does
+ * NOT treat two placed-tile groups as connected merely because each independently touches some
+ * pre-existing tile elsewhere on the board — the newly placed tiles must connect to each other
+ * directly, not only via a detour through unrelated parts of the existing board.
+ */
+function isCrisscrossConnected(
   boardState: BoardState,
   placedTiles: readonly PendingPlacedTile[],
-): ReadonlySet<string> {
+): boolean {
   const placedKeys = new Set(placedTiles.map((p) => coordinateKey(p.coordinate)));
   const isOccupiedAfterMove = (coordinate: Coordinate): boolean =>
     placedKeys.has(coordinateKey(coordinate)) || isOccupied(boardState, coordinate);
 
-  const visited = new Set<string>();
-  const queue: Coordinate[] = [placedTiles[0].coordinate];
-  visited.add(coordinateKey(placedTiles[0].coordinate));
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const neighbour of orthogonalNeighbors(current)) {
-      const key = coordinateKey(neighbour);
-      if (visited.has(key) || !isOccupiedAfterMove(neighbour)) continue;
-      visited.add(key);
-      queue.push(neighbour);
-    }
+  const runs: ReadonlySet<string>[] = [];
+  for (const placed of placedTiles) {
+    const horizontal = occupiedRun(isOccupiedAfterMove, placed.coordinate, "row");
+    if (horizontal) runs.push(horizontal);
+    const vertical = occupiedRun(isOccupiedAfterMove, placed.coordinate, "column");
+    if (vertical) runs.push(vertical);
   }
-  return visited;
+  if (runs.length === 0) return false;
+
+  const groups = mergeSharedGroups(runs);
+  if (groups.length !== 1) return false;
+  return placedTiles.every((p) => groups[0].has(coordinateKey(p.coordinate)));
 }
 
 export interface PhysicalValidationOptions {
   /**
    * Crisscross mode (game-modifiers.md section 6): allows a move's new tiles to span more than
-   * one line, as long as every newly placed tile is connected — directly or transitively through
-   * other new tiles or existing board tiles — into one cluster. Defaults to false (the standard
-   * single-connected-line rule, game-rules.md section 8).
+   * one line, as long as every newly placed tile belongs to a 2+ letter line and those lines all
+   * connect to each other by sharing a cell (see `isCrisscrossConnected`) — not merely by each
+   * independently touching some unrelated pre-existing tile elsewhere on the board. Defaults to
+   * false (the standard single-connected-line rule, game-rules.md section 8).
    */
   readonly allowMultiBranch?: boolean;
   /**
@@ -112,12 +167,8 @@ export function validatePhysicalPlacement(
   }
 
   if (options.allowMultiBranch) {
-    const reachable = reachableOccupiedCoordinates(boardState, placedTiles);
-    const allConnected = placedTiles.every((p) =>
-      reachable.has(coordinateKey(p.coordinate)),
-    );
-    if (!allConnected) {
-      return invalid("INVALID_PLACEMENT", "notConnectedCluster");
+    if (!isCrisscrossConnected(boardState, placedTiles)) {
+      return invalid("NOT_CONNECTED_CLUSTER", "notConnectedCluster");
     }
   } else {
     const orientation = determinePlacementOrientation(placedTiles);

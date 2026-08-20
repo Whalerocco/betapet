@@ -10,23 +10,15 @@ export interface ClearPendingMoveParams {
 }
 
 /**
- * "Rensa": returns every pending tile to the player's rack in one atomic step
- * (local-multiplayer.md section 42) rather than requiring one REMOVE_TILE per tile. Tiles
- * committed *before* this move started are never touched. Any Replace-mode placement in this
- * pending move (game-modifiers.md section 7) is fully reversed, though: the tile it displaced
- * comes back out of the rack and back onto the board where it was.
+ * Returns every pending tile to its owner's rack (local-multiplayer.md section 42), reversing any
+ * Replace-mode displacement (game-modifiers.md section 7) along the way: the tile it displaced
+ * comes back out of the rack and back onto the board where it was. A no-op if there's no pending
+ * move. Shared by `clearPendingMove` ("Rensa") and `endGame` (avslutaSpel.ts) — anything that
+ * needs to walk away from an in-progress placement without committing it.
  */
-export function clearPendingMove(
-  state: GameState,
-  params: ClearPendingMoveParams,
-): ActionResult {
-  const precondition = checkEditPreconditions(state, params.playerId);
-  if (precondition) return { success: false, error: precondition };
-
+export function returnPendingTilesToRack(state: GameState): GameState {
   const pendingMove = state.pendingMove;
-  if (!pendingMove || pendingMove.playerId !== params.playerId) {
-    return actionFailure("INVALID_GAME_STATE", "noPendingMoveToClear");
-  }
+  if (!pendingMove) return state;
 
   let board: BoardState = state.board;
   for (const placed of pendingMove.placedTiles) {
@@ -42,7 +34,7 @@ export function clearPendingMove(
   );
 
   const updatedPlayers = state.players.map((p) => {
-    if (p.id !== params.playerId) return p;
+    if (p.id !== pendingMove.playerId) return p;
     const rack = pendingMove.placedTiles.reduce(
       (r, placed) => addTileToRack(r, placed.tileId),
       p.rack,
@@ -56,12 +48,31 @@ export function clearPendingMove(
   }) as [Player, Player];
 
   return {
+    ...state,
+    board,
+    players: updatedPlayers,
+    pendingMove: undefined,
+  };
+}
+
+/**
+ * "Rensa": returns every pending tile to the player's rack in one atomic step
+ * (local-multiplayer.md section 42) rather than requiring one REMOVE_TILE per tile.
+ */
+export function clearPendingMove(
+  state: GameState,
+  params: ClearPendingMoveParams,
+): ActionResult {
+  const precondition = checkEditPreconditions(state, params.playerId);
+  if (precondition) return { success: false, error: precondition };
+
+  const pendingMove = state.pendingMove;
+  if (!pendingMove || pendingMove.playerId !== params.playerId) {
+    return actionFailure("INVALID_GAME_STATE", "noPendingMoveToClear");
+  }
+
+  return {
     success: true,
-    state: createGameState({
-      ...state,
-      board,
-      players: updatedPlayers,
-      pendingMove: undefined,
-    }),
+    state: createGameState(returnPendingTilesToRack(state)),
   };
 }
