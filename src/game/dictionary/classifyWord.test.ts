@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { classifyWord, type WordClassificationRules } from "./classifyWord";
 import { createDictionary } from "./dictionary";
+import { createEnglishWordClassificationRules } from "./englishWordClassificationRules";
+import { createFrenchWordClassificationRules } from "./frenchWordClassificationRules";
+import { createGermanWordClassificationRules } from "./germanWordClassificationRules";
+import { createSpanishWordClassificationRules } from "./spanishWordClassificationRules";
 import { createSwedishWordClassificationRules } from "./swedishWordClassificationRules";
 
 function syntheticRules(
@@ -154,7 +158,7 @@ describe("classifyWord (real Swedish rules)", () => {
   it("classifies TV and STOCKHOLM as unknown (an abbreviation and a place name respectively)", () => {
     // Regression coverage: an earlier version of the preprocessing script paired partOfSpeech
     // with the whole SALDO entry instead of the specific FormRepresentation spelling variant,
-    // which silently missed both of these (see src/data/dictionary/SOURCE.md). Per DEC-007
+    // which silently missed both of these (see src/data/dictionary/SOURCE-sv.md). Per DEC-007
     // these no longer block the move outright — they're proposable like any unknown word.
     const tv = classifyWord("TV", rules);
     expect(tv.status).toBe("UNKNOWN_WORD");
@@ -221,5 +225,240 @@ describe("classifyWord (real Swedish rules)", () => {
 
   it("classifies an invented nonsense word as unknown", () => {
     expect(classifyWord("GRÖMP", rules).status).toBe("UNKNOWN_WORD");
+  });
+});
+
+describe("classifyWord (real German rules)", () => {
+  const rules = createGermanWordClassificationRules();
+
+  it("accepts an ordinary word", () => {
+    expect(classifyWord("HAUS", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("accepts a word containing ß in its uppercase SS form", () => {
+    expect(classifyWord("STRASSE", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("classifies a city/place name as unknown, not forbidden (excluded by the source's own curation policy, not by a proper-noun-only tag)", () => {
+    const result = classifyWord("BERLIN", rules);
+    expect(result.status).toBe("UNKNOWN_WORD");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("allows the country Deutschland as an ordinary dictionary word", () => {
+    expect(classifyWord("DEUTSCHLAND", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("allows all twelve months and both Saturday spellings among the seven weekdays", () => {
+    const months = [
+      "JANUAR",
+      "FEBRUAR",
+      "MÄRZ",
+      "APRIL",
+      "MAI",
+      "JUNI",
+      "JULI",
+      "AUGUST",
+      "SEPTEMBER",
+      "OKTOBER",
+      "NOVEMBER",
+      "DEZEMBER",
+    ];
+    const weekdays = [
+      "MONTAG",
+      "DIENSTAG",
+      "MITTWOCH",
+      "DONNERSTAG",
+      "FREITAG",
+      "SAMSTAG",
+      "SONNABEND",
+      "SONNTAG",
+    ];
+    for (const month of months) {
+      expect(classifyWord(month, rules).status).not.toBe("FORBIDDEN_WORD");
+    }
+    for (const weekday of weekdays) {
+      expect(classifyWord(weekday, rules).status).not.toBe("FORBIDDEN_WORD");
+    }
+  });
+
+  it("forbids one-letter words", () => {
+    const result = classifyWord("A", rules);
+    expect(result).toEqual({
+      word: "A",
+      normalizedWord: "A",
+      status: "FORBIDDEN_WORD",
+      reason: "ONE_LETTER_WORD",
+    });
+  });
+
+  it("classifies an invented nonsense word as unknown", () => {
+    expect(classifyWord("GRÖMPFEL", rules).status).toBe("UNKNOWN_WORD");
+  });
+});
+
+describe("classifyWord (real English rules)", () => {
+  const rules = createEnglishWordClassificationRules();
+
+  it("accepts an ordinary word", () => {
+    expect(classifyWord("HOUSE", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("classifies a month, weekday, and country name as unknown, not forbidden (SOURCE-en.md: ENABLE excludes proper nouns entirely, including months/weekdays which are capitalized in English)", () => {
+    expect(classifyWord("JANUARY", rules).status).toBe("UNKNOWN_WORD");
+    expect(classifyWord("MONDAY", rules).status).toBe("UNKNOWN_WORD");
+    const result = classifyWord("SWEDEN", rules);
+    expect(result.status).toBe("UNKNOWN_WORD");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("forbids one-letter words", () => {
+    const result = classifyWord("A", rules);
+    expect(result).toEqual({
+      word: "A",
+      normalizedWord: "A",
+      status: "FORBIDDEN_WORD",
+      reason: "ONE_LETTER_WORD",
+    });
+  });
+
+  it("classifies an invented nonsense word as unknown", () => {
+    expect(classifyWord("GROMPFEL", rules).status).toBe("UNKNOWN_WORD");
+  });
+});
+
+describe("classifyWord (real French rules)", () => {
+  const rules = createFrenchWordClassificationRules();
+
+  it("accepts an ordinary word", () => {
+    expect(classifyWord("MAISON", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("accepts a word containing an accented letter", () => {
+    expect(classifyWord("ÉCOLE", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("classifies a country name as unknown, not forbidden (SOURCE-fr.md: Lexique383 mostly omits country names entirely)", () => {
+    const result = classifyWord("FRANCE", rules);
+    expect(result.status).toBe("UNKNOWN_WORD");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("allows all twelve months and seven weekdays", () => {
+    const months = [
+      "JANVIER",
+      "FÉVRIER",
+      "MARS",
+      "AVRIL",
+      "MAI",
+      "JUIN",
+      "JUILLET",
+      "AOÛT",
+      "SEPTEMBRE",
+      "OCTOBRE",
+      "NOVEMBRE",
+      "DÉCEMBRE",
+    ];
+    const weekdays = [
+      "LUNDI",
+      "MARDI",
+      "MERCREDI",
+      "JEUDI",
+      "VENDREDI",
+      "SAMEDI",
+      "DIMANCHE",
+    ];
+    for (const month of months) {
+      expect(classifyWord(month, rules).status).not.toBe("FORBIDDEN_WORD");
+    }
+    for (const weekday of weekdays) {
+      expect(classifyWord(weekday, rules).status).not.toBe("FORBIDDEN_WORD");
+    }
+  });
+
+  it("forbids one-letter words", () => {
+    const result = classifyWord("A", rules);
+    expect(result).toEqual({
+      word: "A",
+      normalizedWord: "A",
+      status: "FORBIDDEN_WORD",
+      reason: "ONE_LETTER_WORD",
+    });
+  });
+
+  it("classifies an invented nonsense word as unknown", () => {
+    expect(classifyWord("GRÖMPFEL", rules).status).toBe("UNKNOWN_WORD");
+  });
+});
+
+describe("classifyWord (real Spanish rules)", () => {
+  const rules = createSpanishWordClassificationRules();
+
+  it("accepts an ordinary word", () => {
+    expect(classifyWord("CASA", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("classifies a personal/place name with no other dictionary sense as unknown, not forbidden", () => {
+    const result = classifyWord("AARHUS", rules);
+    expect(result.status).toBe("UNKNOWN_WORD");
+    expect(result.reason).toBeUndefined();
+  });
+
+  it("classifies a real abbreviation as unknown, not forbidden", () => {
+    expect(classifyWord("ADN", rules).status).toBe("UNKNOWN_WORD");
+  });
+
+  it("allows a country that is proper-noun-only in the raw dictionary data", () => {
+    // Unlike French/English, Spanish country names generally are dictionary entries (tagged
+    // proper-noun-only), so this genuinely exercises the allow-list overriding the exclusion,
+    // the same as Swedish's KIRIBATI/NORGE/SVERIGE test.
+    expect(classifyWord("ESPAÑA", rules).status).toBe("DICTIONARY_WORD");
+    expect(classifyWord("FRANCIA", rules).status).toBe("DICTIONARY_WORD");
+  });
+
+  it("allows all twelve months and seven weekdays", () => {
+    const months = [
+      "ENERO",
+      "FEBRERO",
+      "MARZO",
+      "ABRIL",
+      "MAYO",
+      "JUNIO",
+      "JULIO",
+      "AGOSTO",
+      "SEPTIEMBRE",
+      "OCTUBRE",
+      "NOVIEMBRE",
+      "DICIEMBRE",
+    ];
+    const weekdays = [
+      "LUNES",
+      "MARTES",
+      "MIÉRCOLES",
+      "JUEVES",
+      "VIERNES",
+      "SÁBADO",
+      "DOMINGO",
+    ];
+    for (const month of months) {
+      expect(classifyWord(month, rules).status).not.toBe("FORBIDDEN_WORD");
+    }
+    for (const weekday of weekdays) {
+      expect(classifyWord(weekday, rules).status).not.toBe("FORBIDDEN_WORD");
+    }
+  });
+
+  it("forbids one-letter words", () => {
+    const result = classifyWord("A", rules);
+    expect(result).toEqual({
+      word: "A",
+      normalizedWord: "A",
+      status: "FORBIDDEN_WORD",
+      reason: "ONE_LETTER_WORD",
+    });
+  });
+
+  it("classifies an invented nonsense word as unknown", () => {
+    expect(classifyWord("GRÖMPFEL", rules).status).toBe("UNKNOWN_WORD");
   });
 });

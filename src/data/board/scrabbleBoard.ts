@@ -6,8 +6,9 @@ import {
 import type { Coordinate } from "../../game/model/coordinate";
 
 /**
- * Interim substitute for the (unverified) physical Swedish Alfapet board: the standard
- * 15x15 Scrabble board layout. See docs/decisions.md DEC-001 and docs/game-rules.md section 3.
+ * Betapet's board: the standard 15x15 Scrabble board layout, adopted as the permanent Version 1
+ * configuration (a real Alfapet board could not be verified). See docs/decisions.md DEC-001 and
+ * DEC-009, and docs/game-rules.md section 3.
  */
 
 const TRIPLE_WORD: readonly Coordinate[] = [

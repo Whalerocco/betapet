@@ -1,9 +1,10 @@
 import type { TileDefinition } from "../../game/model/tile";
 
 /**
- * Interim substitute for the (unverified) physical Swedish Alfapet tile set: the standard
- * Swedish Scrabble letter distribution. See docs/decisions.md DEC-001 and docs/game-rules.md
- * section 4. Q and W are not part of the Swedish Scrabble set.
+ * Betapet's tile set: the standard Swedish Scrabble letter distribution, adopted as the
+ * permanent Version 1 configuration (a real Alfapet tile set could not be verified). See
+ * docs/decisions.md DEC-001 and DEC-009, and docs/game-rules.md section 4. Q and W are not part
+ * of the Swedish Scrabble set.
  */
 export const SWEDISH_SCRABBLE_TILE_DEFINITIONS: readonly TileDefinition[] = [
   { kind: "LETTER", letter: "A", points: 1, count: 8 },
