@@ -1,15 +1,23 @@
 /**
  * Optional gameplay modifiers a game can be configured with at setup (game-modifiers.md).
- * POLYGLOT and WILD are specified there but require more than one configured language to have
- * any effect, so they are not implemented until roadmap Milestone 8.1 — only the three
- * modifiers roadmap Milestone 4.5 introduces are represented here.
+ * POLYGLOT and WILD require two or more selected languages to have any effect
+ * (`GameConfiguration.polyglotLanguages`/`wildLanguages`) — their engine-level word-validation
+ * behaviour (Milestone 8.1) and setup UI are separate follow-up work; this type only represents
+ * their existence and compatibility with the other modifiers.
  */
-export type ModifierId = "CRISSCROSS" | "REPLACE" | "ILLEGAL";
+export type ModifierId =
+  | "CRISSCROSS"
+  | "REPLACE"
+  | "ILLEGAL"
+  | "POLYGLOT"
+  | "WILD";
 
 export const ALL_MODIFIER_IDS: readonly ModifierId[] = [
   "CRISSCROSS",
   "REPLACE",
   "ILLEGAL",
+  "POLYGLOT",
+  "WILD",
 ];
 
 export type ModifierCompatibility =
@@ -23,13 +31,18 @@ function pairKey(a: ModifierId, b: ModifierId): string {
 
 /**
  * Mirrors the compatibility matrix in game-modifiers.md section 5. Only pairs that are not
- * plain COMPATIBLE are listed; an unlisted pair defaults to COMPATIBLE. When Milestone 8.1 adds
- * POLYGLOT/WILD, their UNDECIDED pair (and any others their addition introduces) must be added
- * here — this map is the single source of truth game-modifiers.md section 5 describes, not just
- * a UI-level restriction.
+ * plain COMPATIBLE are listed; an unlisted pair defaults to COMPATIBLE. This map is the single
+ * source of truth game-modifiers.md section 5 describes, not just a UI-level restriction.
  */
 const COMPATIBILITY_OVERRIDES: ReadonlyMap<string, ModifierCompatibility> =
-  new Map([[pairKey("CRISSCROSS", "REPLACE"), "COMPATIBLE_WITH_INTERACTION"]]);
+  new Map([
+    [pairKey("CRISSCROSS", "REPLACE"), "COMPATIBLE_WITH_INTERACTION"],
+    [pairKey("ILLEGAL", "POLYGLOT"), "COMPATIBLE_WITH_INTERACTION"],
+    [pairKey("ILLEGAL", "WILD"), "COMPATIBLE_WITH_INTERACTION"],
+    // Per DEC-010: stay mutually exclusive for now; not designed in this round
+    // (game-modifiers.md section 5's "opposite mental models" note).
+    [pairKey("POLYGLOT", "WILD"), "UNDECIDED"],
+  ]);
 
 export function compatibilityOf(
   a: ModifierId,

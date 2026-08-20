@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { loadLanguageClassificationRulesFor } from "../application/language/loadLanguageClassificationRules";
 import type { GameControllerDependencies } from "../application/game-controller/gameController";
 import {
   clearLocalGame,
@@ -17,11 +18,14 @@ import { createSwedishWordClassificationRules } from "../game/dictionary/swedish
 import { createGame } from "../game/engine/createGame";
 import type { GameState } from "../game/model/game";
 import type { RackSize } from "../game/model/gameConfiguration";
+import type { LanguageCode } from "../game/model/language";
+import type { ModifierId } from "../game/model/modifiers";
 
 type View =
   | { readonly type: "START" }
   | { readonly type: "CONFIRM_NEW_GAME" }
   | { readonly type: "SETUP" }
+  | { readonly type: "RESUMING" }
   | {
       readonly type: "PLAYING";
       readonly initialState: GameState;
@@ -32,6 +36,9 @@ type View =
 interface SavedGameSummary {
   readonly state: GameState;
   readonly rackSize: RackSize;
+  readonly modifiers: ReadonlySet<ModifierId>;
+  readonly polyglotLanguages: readonly LanguageCode[];
+  readonly wildLanguages: readonly LanguageCode[];
 }
 
 export default function Home() {
@@ -50,16 +57,48 @@ export default function Home() {
     const result = loadLocalGame();
     if (result.status === "LOADED") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSavedGame({ state: result.state, rackSize: result.rackSize });
+      setSavedGame({
+        state: result.state,
+        rackSize: result.rackSize,
+        modifiers: result.modifiers,
+        polyglotLanguages: result.polyglotLanguages,
+        wildLanguages: result.wildLanguages,
+      });
     } else if (result.status === "INCOMPATIBLE") {
       setLoadError(true);
     }
   }, []);
 
-  function buildDeps(rackSize: RackSize): GameControllerDependencies {
+  /**
+   * Resolves Polyglot/Wild's extra dictionaries (dynamic import, code-split per language — see
+   * loadLanguageClassificationRules.ts) only when those modifiers are actually selected, so a
+   * plain Swedish-only game never pays for languages it doesn't use.
+   */
+  async function buildDeps(
+    rackSize: RackSize,
+    modifiers: ReadonlySet<ModifierId>,
+    polyglotLanguages: readonly LanguageCode[],
+    wildLanguages: readonly LanguageCode[],
+  ): Promise<GameControllerDependencies> {
+    const [polyglotClassificationRules, wildClassificationRules] =
+      await Promise.all([
+        modifiers.has("POLYGLOT")
+          ? loadLanguageClassificationRulesFor(polyglotLanguages)
+          : undefined,
+        modifiers.has("WILD")
+          ? loadLanguageClassificationRulesFor(wildLanguages)
+          : undefined,
+      ]);
     return {
-      configuration: createSwedishGameConfiguration(rackSize),
+      configuration: createSwedishGameConfiguration(
+        rackSize,
+        modifiers,
+        polyglotLanguages,
+        wildLanguages,
+      ),
       classificationRules,
+      polyglotClassificationRules,
+      wildClassificationRules,
       alphabet: SWEDISH_ALPHABET,
     };
   }
@@ -79,27 +118,49 @@ export default function Home() {
     setView({ type: "SETUP" });
   }
 
-  function handleStartGame(values: GameSetupValues) {
+  async function handleStartGame(values: GameSetupValues) {
     const initialState = createGame({
       playerOneName: values.playerOneName,
       playerTwoName: values.playerTwoName,
       rackSize: values.rackSize,
+      modifiers: values.modifiers,
+      polyglotLanguages: values.polyglotLanguages,
+      wildLanguages: values.wildLanguages,
     });
-    saveLocalGame(initialState, values.rackSize);
+    const deps = await buildDeps(
+      values.rackSize,
+      values.modifiers,
+      values.polyglotLanguages,
+      values.wildLanguages,
+    );
+    saveLocalGame(
+      initialState,
+      values.rackSize,
+      values.modifiers,
+      values.polyglotLanguages,
+      values.wildLanguages,
+    );
     setView({
       type: "PLAYING",
       initialState,
-      deps: buildDeps(values.rackSize),
+      deps,
       isResumed: false,
     });
   }
 
-  function handleResumeGame() {
+  async function handleResumeGame() {
     if (!savedGame) return;
+    setView({ type: "RESUMING" });
+    const deps = await buildDeps(
+      savedGame.rackSize,
+      savedGame.modifiers,
+      savedGame.polyglotLanguages,
+      savedGame.wildLanguages,
+    );
     setView({
       type: "PLAYING",
       initialState: savedGame.state,
-      deps: buildDeps(savedGame.rackSize),
+      deps,
       isResumed: true,
     });
   }
@@ -137,6 +198,14 @@ export default function Home() {
     return (
       <main>
         <GameSetup onStartGame={handleStartGame} />
+      </main>
+    );
+  }
+
+  if (view.type === "RESUMING") {
+    return (
+      <main>
+        <p role="status">Förbereder spelet…</p>
       </main>
     );
   }

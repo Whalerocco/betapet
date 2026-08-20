@@ -40,4 +40,84 @@ describe("createGameConfiguration", () => {
       createGameConfiguration("test", "", testBoard(), 7),
     ).toThrow();
   });
+
+  it("defaults to empty polyglot/wild language selections", () => {
+    const configuration = createGameConfiguration("test", "sv", testBoard(), 7);
+    expect(configuration.polyglotLanguages).toEqual([]);
+    expect(configuration.wildLanguages).toEqual([]);
+  });
+
+  it("rejects Polyglot mode with fewer than two selected languages", () => {
+    expect(() =>
+      createGameConfiguration(
+        "test",
+        "sv",
+        testBoard(),
+        7,
+        new Set(["POLYGLOT"]),
+        ["sv"],
+      ),
+    ).toThrow();
+    expect(() =>
+      createGameConfiguration(
+        "test",
+        "sv",
+        testBoard(),
+        7,
+        new Set(["POLYGLOT"]),
+        [],
+      ),
+    ).toThrow();
+  });
+
+  it("accepts Polyglot mode with two or more selected languages", () => {
+    const configuration = createGameConfiguration(
+      "test",
+      "sv",
+      testBoard(),
+      7,
+      new Set(["POLYGLOT"]),
+      ["sv", "de"],
+    );
+    expect(configuration.polyglotLanguages).toEqual(["sv", "de"]);
+  });
+
+  it("rejects Wild mode with fewer than two selected languages", () => {
+    expect(() =>
+      createGameConfiguration(
+        "test",
+        "sv",
+        testBoard(),
+        7,
+        new Set(["WILD"]),
+        [],
+        ["sv"],
+      ),
+    ).toThrow();
+  });
+
+  it("accepts Wild mode with two or more selected languages, preserving order", () => {
+    const configuration = createGameConfiguration(
+      "test",
+      "sv",
+      testBoard(),
+      7,
+      new Set(["WILD"]),
+      [],
+      ["fr", "sv", "de"],
+    );
+    expect(configuration.wildLanguages).toEqual(["fr", "sv", "de"]);
+  });
+
+  it("does not require polyglotLanguages/wildLanguages when neither modifier is selected", () => {
+    expect(() =>
+      createGameConfiguration(
+        "test",
+        "sv",
+        testBoard(),
+        7,
+        new Set(["ILLEGAL"]),
+      ),
+    ).not.toThrow();
+  });
 });

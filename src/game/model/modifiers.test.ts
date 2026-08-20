@@ -26,9 +26,26 @@ describe("compatibilityOf", () => {
     );
   });
 
-  it("is plain COMPATIBLE for every other currently-implemented pair", () => {
+  it("flags Illegal + Polyglot and Illegal + Wild as needing interaction handling", () => {
+    expect(compatibilityOf("ILLEGAL", "POLYGLOT")).toBe(
+      "COMPATIBLE_WITH_INTERACTION",
+    );
+    expect(compatibilityOf("ILLEGAL", "WILD")).toBe(
+      "COMPATIBLE_WITH_INTERACTION",
+    );
+  });
+
+  it("flags Polyglot + Wild as UNDECIDED, per DEC-010", () => {
+    expect(compatibilityOf("POLYGLOT", "WILD")).toBe("UNDECIDED");
+  });
+
+  it("is plain COMPATIBLE for every other pair", () => {
     expect(compatibilityOf("CRISSCROSS", "ILLEGAL")).toBe("COMPATIBLE");
     expect(compatibilityOf("REPLACE", "ILLEGAL")).toBe("COMPATIBLE");
+    expect(compatibilityOf("CRISSCROSS", "POLYGLOT")).toBe("COMPATIBLE");
+    expect(compatibilityOf("CRISSCROSS", "WILD")).toBe("COMPATIBLE");
+    expect(compatibilityOf("REPLACE", "POLYGLOT")).toBe("COMPATIBLE");
+    expect(compatibilityOf("REPLACE", "WILD")).toBe("COMPATIBLE");
   });
 });
 
@@ -41,9 +58,16 @@ describe("validateModifierSelection", () => {
     expect(validateModifierSelection(["ILLEGAL"])).toEqual({ valid: true });
   });
 
-  it("accepts every currently-implemented modifier combined at once", () => {
+  it("accepts every modifier except the UNDECIDED Polyglot/Wild pair combined at once", () => {
+    const withoutWild = ALL_MODIFIER_IDS.filter((id) => id !== "WILD");
+    expect(validateModifierSelection(withoutWild)).toEqual({ valid: true });
+  });
+
+  it("rejects Polyglot and Wild combined, per DEC-010", () => {
     const result = validateModifierSelection(ALL_MODIFIER_IDS);
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    if (result.valid) return;
+    expect(result.conflicts).toContainEqual({ a: "POLYGLOT", b: "WILD" });
   });
 
   it("accepts a Set as well as an array", () => {

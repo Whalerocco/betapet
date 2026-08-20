@@ -25,4 +25,16 @@ describe("createSwedishGameConfiguration", () => {
     expect(createSwedishGameConfiguration(6).rackSize).toBe(6);
     expect(createSwedishGameConfiguration(8).rackSize).toBe(8);
   });
+
+  it("defaults to no modifiers", () => {
+    expect(createSwedishGameConfiguration(7).modifiers).toEqual(new Set());
+  });
+
+  it("carries through a requested modifier selection", () => {
+    const configuration = createSwedishGameConfiguration(
+      7,
+      new Set(["ILLEGAL"]),
+    );
+    expect(configuration.modifiers).toEqual(new Set(["ILLEGAL"]));
+  });
 });

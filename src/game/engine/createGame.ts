@@ -21,12 +21,20 @@ import {
   type TileBag,
 } from "../model/tileBag";
 import { playerTurn } from "../model/turnState";
+import type { LanguageCode } from "../model/language";
+import type { ModifierId } from "../model/modifiers";
 import { createTileInstances } from "./createTileInstances";
 
 export interface CreateGameOptions {
   readonly playerOneName: string;
   readonly playerTwoName: string;
   readonly rackSize: RackSize;
+  /** Opt-in gameplay modifiers selected at setup (game-modifiers.md); defaults to none. */
+  readonly modifiers?: ReadonlySet<ModifierId>;
+  /** Selected languages for Polyglot mode; required (≥2) when `modifiers` has "POLYGLOT". */
+  readonly polyglotLanguages?: readonly LanguageCode[];
+  /** Selected languages for Wild mode, in rotation order; required (≥2) when `modifiers` has "WILD". */
+  readonly wildLanguages?: readonly LanguageCode[];
   /** Injectable for deterministic tests; defaults to `Math.random` for normal play. */
   readonly randomSource?: RandomSource;
 }
@@ -65,7 +73,12 @@ export function determineStartingPlayer(
 
 export function createGame(options: CreateGameOptions): GameState {
   const randomSource = options.randomSource ?? Math.random;
-  const configuration = createSwedishGameConfiguration(options.rackSize);
+  const configuration = createSwedishGameConfiguration(
+    options.rackSize,
+    options.modifiers,
+    options.polyglotLanguages,
+    options.wildLanguages,
+  );
 
   const playerOneId = createPlayerId();
   const playerTwoId = createPlayerId();
