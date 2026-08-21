@@ -13,6 +13,13 @@ export interface BoardProps {
   readonly tiles: Readonly<Record<TileId, EngineTile>>;
   readonly pendingPlacedTiles: readonly PendingPlacedTile[];
   readonly canPlaceSelectedTile: boolean;
+  /**
+   * True when this game has Replace mode enabled (game-modifiers.md section 7), which makes
+   * committed tiles legitimate placement targets as well as empty squares. Presentation only:
+   * it decides what the board offers, never whether a particular replace is allowed — the engine
+   * still rejects a same-letter or chained replace and the error surfaces as usual.
+   */
+  readonly replaceModeActive?: boolean;
   readonly onPlaceAt: (coordinate: Coordinate) => void;
   readonly onPendingTileClick: (tileId: TileId) => void;
   /** Starts a drag gesture for a pending tile already on the board (roadmap.md Milestone 4.1). */
@@ -40,6 +47,7 @@ export function Board({
   tiles,
   pendingPlacedTiles,
   canPlaceSelectedTile,
+  replaceModeActive = false,
   onPlaceAt,
   onPendingTileClick,
   onPendingTilePointerDown,
@@ -123,6 +131,10 @@ export function Board({
 
           const isPlaceable =
             !tile && canPlaceSelectedTile && !committedTileId && !pendingTile;
+          // A committed tile can be replaced, a pending one cannot (the pending tile's own click
+          // picks it back up instead, and the engine rejects targeting your own pending move).
+          const isReplaceTarget =
+            replaceModeActive && committedTileId !== undefined && !pendingTile;
 
           return (
             <BoardCell
@@ -134,11 +146,16 @@ export function Board({
               isPlaceable={isPlaceable}
               scoreBadge={key === scoreBadgeKey ? scoreBadgeValue : undefined}
               isDragOver={
-                !tile &&
+                (!tile || isReplaceTarget) &&
                 dragOverCoordinate !== undefined &&
                 coordinateKey(dragOverCoordinate) === key
               }
               onPlace={() => onPlaceAt(coordinate)}
+              onReplace={
+                isReplaceTarget && canPlaceSelectedTile
+                  ? () => onPlaceAt(coordinate)
+                  : undefined
+              }
               onPendingTileClick={
                 pendingTile
                   ? () => onPendingTileClick(pendingTile.tileId)

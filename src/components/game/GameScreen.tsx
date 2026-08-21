@@ -620,6 +620,7 @@ export function GameScreen({
               state.turnState.type === "PLAYER_TURN" &&
               selectedTileId !== undefined
             }
+            replaceModeActive={deps.configuration.modifiers.has("REPLACE")}
             onPlaceAt={handlePlaceAt}
             onPendingTileClick={handlePendingTileClick}
             onPendingTilePointerDown={handleBoardTilePointerDown}

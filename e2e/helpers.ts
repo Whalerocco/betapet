@@ -15,16 +15,32 @@ function getRules() {
 export interface StartGameOptions {
   readonly playerOneName?: string;
   readonly playerTwoName?: string;
+  /**
+   * Gameplay modifiers to tick at setup, by their on-screen label (`modifierCopy.ts`) — e.g.
+   * "Ersättningsläge" for Replace mode. Omitted for a standard game.
+   */
+  readonly modifierLabels?: readonly string[];
 }
 
 export async function startNewGame(
   page: Page,
-  { playerOneName = "Alice", playerTwoName = "Bob" }: StartGameOptions = {},
+  {
+    playerOneName = "Alice",
+    playerTwoName = "Bob",
+    modifierLabels = [],
+  }: StartGameOptions = {},
 ): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: "Nytt spel" }).click();
   await page.getByLabel("Spelare 1").fill(playerOneName);
   await page.getByLabel("Spelare 2").fill(playerTwoName);
+  for (const label of modifierLabels) {
+    // Each checkbox's accessible name is its label followed by the modifier's description
+    // (`GameSetup.tsx`), so match on the leading label rather than the full string.
+    await page
+      .getByRole("checkbox", { name: new RegExp(`^${label}`) })
+      .check();
+  }
   await page.getByRole("button", { name: "Starta spel" }).click();
 }
 

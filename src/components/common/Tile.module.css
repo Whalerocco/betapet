@@ -47,6 +47,18 @@ button.tile:disabled {
   border: 2px dashed var(--tile-pending-border);
 }
 
+/*
+ * A committed tile is only ever a button when Replace mode has made it a placement target
+ * (BoardCell.tsx `onReplace`), so this selector needs no extra class: it marks exactly the
+ * "tap me to replace this tile" state, matching the accent outline an empty placeable square
+ * already shows on hover (Board.module.css .placeable:hover).
+ */
+button.tile.committed:hover:not(:disabled),
+button.tile.committed:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .tile.selected {
   border: 2px solid var(--tile-selected-border);
   box-shadow: var(--shadow-md);

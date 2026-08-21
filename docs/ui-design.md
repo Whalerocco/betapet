@@ -268,6 +268,14 @@ Select empty board square
 Tile appears there
 ```
 
+Under Replace mode (`game-modifiers.md` section 7), a square holding an *already committed* tile
+is a valid target for this same flow, not only an empty square: with a rack tile selected, that
+tile becomes a placement target of its own (labelled `Ersätt bricka <bokstav>`) and tapping it
+performs the replace. Without a selected tile, or in a game without the modifier, a committed tile
+stays inert. This keeps the tap flow equal to dragging, which is the point of this section — a
+replace must never be a drag-only capability. A tile the current player has placed but not yet
+committed is not a replace target: tapping it still picks it back up (section 13).
+
 A placed pending tile can then be:
 
 - Selected
@@ -290,6 +298,8 @@ When a rack tile is selected:
 
 - It should be visually highlighted.
 - Empty board squares should remain usable targets.
+- Under Replace mode, committed tiles become targets too, and should show the same kind of hover
+  and keyboard-focus highlight an empty target square shows.
 - Selecting the same tile again may cancel selection.
 - Selecting another rack tile changes selection.
 

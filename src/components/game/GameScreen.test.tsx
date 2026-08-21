@@ -6,6 +6,10 @@ import { SWEDISH_ALPHABET } from "../../game/configuration/swedishAlphabet";
 import { createFrenchWordClassificationRules } from "../../game/dictionary/frenchWordClassificationRules";
 import { createGermanWordClassificationRules } from "../../game/dictionary/germanWordClassificationRules";
 import { createSwedishWordClassificationRules } from "../../game/dictionary/swedishWordClassificationRules";
+import { placeCommittedTile } from "../../game/model/board";
+import { addHistoryEvent, nextSequence } from "../../game/model/history";
+import { createHistoryEventId, createTileId } from "../../game/model/ids";
+import { createLetterTile } from "../../game/model/tile";
 import { buildEngineTestGame } from "../../game/testing/fixtures";
 import { GameScreen } from "./GameScreen";
 
@@ -430,5 +434,150 @@ describe("GameScreen", () => {
       screen.getByRole("heading", { name: "Spelet är slut" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Spelet avslutades i förtid.")).toBeInTheDocument();
+  });
+});
+
+/**
+ * Both ways of performing a replace, since neither is covered by the ordinary placement tests:
+ * tapping a committed tile after selecting a rack tile, and dragging onto it. The drag test is
+ * the one that needs a stub — `document.elementFromPoint`, which jsdom cannot answer without
+ * layout — while everything downstream of it is real: `handleTileDrop`, `dispatchGameAction`'s
+ * `allowReplace` option, the engine, and the Swedish error text. `e2e/replace-mode.spec.ts`
+ * covers the drag with real hit-testing, including `MOVE_TILE`, which has no tap equivalent.
+ */
+describe("GameScreen: Replace mode", () => {
+  /** Committed "BIL" through the centre, with a move in history so it is not the first move. */
+  function renderReplaceGame(playerOneRackLetters: string[]) {
+    const setup = buildEngineTestGame({
+      playerOneRackLetters,
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    let board = setup.state.board;
+    for (const [letter, columnOffset] of [
+      ["B", -1],
+      ["I", 0],
+      ["L", 1],
+    ] as const) {
+      const tileId = createTileId();
+      setup.tiles[tileId] = createLetterTile(tileId, letter, 1);
+      board = placeCommittedTile(
+        board,
+        { row: centre.row, column: centre.column + columnOffset },
+        tileId,
+      );
+    }
+    const history = addHistoryEvent(setup.state.history, {
+      id: createHistoryEventId(),
+      sequence: nextSequence(setup.state.history),
+      type: "WORD_MOVE_COMMITTED",
+      playerId: setup.playerTwoId,
+      payload: {
+        placedTiles: [],
+        words: ["BIL"],
+        scoreAwarded: 3,
+        usedUnknownWordApproval: false,
+      },
+    });
+    const deps: GameControllerDependencies = {
+      configuration: setup.configuration,
+      classificationRules,
+      alphabet: SWEDISH_ALPHABET,
+    };
+    render(
+      <GameScreen
+        initialState={{ ...setup.state, board, history }}
+        deps={deps}
+        onExit={vi.fn()}
+      />,
+    );
+    return { setup, centre };
+  }
+
+  /** Presses on a tile, moves past useTileDrag's 6px threshold, and releases over `target`. */
+  function dragOnto(tile: HTMLElement, target: HTMLElement) {
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => target;
+    try {
+      fireEvent.pointerDown(tile, {
+        pointerType: "mouse",
+        button: 0,
+        clientX: 0,
+        clientY: 0,
+      });
+      fireEvent.pointerMove(window, { clientX: 40, clientY: 40 });
+      fireEvent.pointerUp(window, { clientX: 40, clientY: 40 });
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+  }
+
+  it("replaces a committed tile by tapping it after selecting a rack tile", async () => {
+    renderReplaceGame(["A", "I", "B"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    // A committed tile offers nothing until a rack tile is waiting to be placed.
+    expect(screen.queryByLabelText("Ersätt bricka I")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("Bricka A, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Ersätt bricka I"));
+
+    expect(
+      screen.getByLabelText("Pending bricka A, tryck för att redigera"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Bricka I, 1 poäng")).toHaveLength(2);
+  });
+
+  it("drags a rack tile onto a committed tile and takes the displaced tile into the rack", async () => {
+    const { centre } = renderReplaceGame(["A", "I", "B"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+    const centreCell = screen.getByTestId(`cell-${centre.row},${centre.column}`);
+
+    dragOnto(screen.getByLabelText("Bricka A, 1 poäng"), centreCell);
+
+    expect(
+      await screen.findByLabelText(
+        "Pending bricka A, tryck för att redigera",
+      ),
+    ).toBeInTheDocument();
+    // The displaced "I" joins the replacing player's rack — alongside the "I" already there.
+    expect(screen.getAllByLabelText("Bricka I, 1 poäng")).toHaveLength(2);
+  });
+
+  it("shows a Swedish error when the replacing tile carries the same letter (DEC-015)", async () => {
+    renderReplaceGame(["A", "I", "B"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    await userEvent.click(screen.getByLabelText("Bricka I, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Ersätt bricka I"));
+
+    expect(
+      await screen.findByText(
+        "En bricka kan bara ersättas av en bricka med en annan bokstav.",
+      ),
+    ).toBeInTheDocument();
+    // Nothing moved: the committed "I" is still on the board and the rack is untouched.
+    expect(
+      screen.queryByLabelText(/^Pending bricka/),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Bricka I, 1 poäng")).toHaveLength(1);
+  });
+
+  it("awards nothing for a word the replace only re-lettered (DEC-016)", async () => {
+    const { setup } = renderReplaceGame(["A", "I", "B"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    // "BIL" becomes "BAL" — a real word, same length, so it commits and scores nothing.
+    await userEvent.click(screen.getByLabelText("Bricka A, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Ersätt bricka I"));
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    expect(
+      screen.getByText(`${setup.state.players[0].name}: BAL +0`),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(`${setup.state.players[0].name}: 0`),
+    ).toBeInTheDocument();
   });
 });
