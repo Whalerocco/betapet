@@ -13,7 +13,7 @@ import { createPendingMove } from "../model/pendingMove";
 import { addTileToRack, removeTileFromRack, type Player } from "../model/player";
 import { checkEditPreconditions } from "./actionPreconditions";
 import { actionFailure, type ActionResult } from "./gameError";
-import { tilesDisplacedThisMove } from "./placeTile";
+import { replacesSameLetter, tilesDisplacedThisMove } from "./placeTile";
 
 export interface MovePendingTileParams {
   readonly playerId: PlayerId;
@@ -100,6 +100,16 @@ export function movePendingTile(
         "REPLACE_CHAINING_NOT_ALLOWED",
         "replaceChainingNotAllowed",
       );
+    }
+    if (
+      replacesSameLetter(
+        state.tiles,
+        params.tileId,
+        placedTile.representedLetter,
+        displacedTileId,
+      )
+    ) {
+      return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
     }
     board = removeCommittedTile(board, params.coordinate);
     players = players.map((p) =>

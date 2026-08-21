@@ -13,6 +13,7 @@ import {
   createPendingMove,
   type PendingPlacedTile,
 } from "../model/pendingMove";
+import { tileLetter, type Tile } from "../model/tile";
 import { checkEditPreconditions } from "./actionPreconditions";
 import { actionFailure, type ActionResult } from "./gameError";
 
@@ -47,6 +48,27 @@ export function tilesDisplacedThisMove(
     placedTiles
       .map((p) => p.replacedTileId)
       .filter((id): id is TileId => id !== undefined),
+  );
+}
+
+/**
+ * Replace mode (game-modifiers.md section 7, DEC-015): a replace placement must actually change
+ * the letter on the cell — playing an "R" on top of an "R" is not allowed. Blanks count as the
+ * letter they represent, since that is the letter the cell shows and the words through it use.
+ * Exported for `movePendingTile.ts`, which needs the identical check.
+ */
+export function replacesSameLetter(
+  tiles: Readonly<Record<TileId, Tile>>,
+  placedTileId: TileId,
+  representedLetter: string | undefined,
+  displacedTileId: TileId,
+): boolean {
+  const newLetter = representedLetter ?? tileLetter(tiles[placedTileId]);
+  const displacedLetter = tileLetter(tiles[displacedTileId]);
+  return (
+    newLetter !== undefined &&
+    displacedLetter !== undefined &&
+    newLetter.toUpperCase() === displacedLetter.toUpperCase()
   );
 }
 
@@ -96,6 +118,16 @@ export function placeTile(
         "REPLACE_CHAINING_NOT_ALLOWED",
         "replaceChainingNotAllowed",
       );
+    }
+    if (
+      replacesSameLetter(
+        state.tiles,
+        params.tileId,
+        params.representedLetter,
+        displacedTileId,
+      )
+    ) {
+      return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
     }
   }
 

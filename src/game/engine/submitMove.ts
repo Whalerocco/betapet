@@ -187,6 +187,7 @@ export function submitMove(
     scoreResult,
     acceptedWords: [],
     usedUnknownWordApproval: false,
+    rackSize: configuration.rackSize,
   });
 
   return { success: true, state: committed };

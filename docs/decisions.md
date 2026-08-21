@@ -1516,3 +1516,63 @@ Relevant files:
 - `src/game/rules/physicalValidation.ts`, `physicalValidation.test.ts`
 - `src/game/model/gameError.ts`
 - `src/application/game-controller/errorMessages.ts`
+
+## DEC-015 — Replace mode: a replace must change the cell's letter
+
+**Date:** 2026-08-21
+**Status:** ACCEPTED
+**Area:** Engine / Rules spec
+
+### Context
+
+`game-modifiers.md` section 7 described which cells a replace placement may target (any committed
+tile, with the no-chaining restriction) but said nothing about the *letter* on the replacing tile.
+The implementation followed it literally, so an "R" could be played on top of an "R": a legal move
+that changes nothing on the board, costs the player nothing — the identical tile comes straight
+back to their rack — and exists only to re-trigger word detection, take an opponent's tile of that
+letter, or pad a turn. The project owner reported this as a bug after encountering it in play and
+confirmed the intended rule: a replacement must actually change the letter of the cell.
+
+### Decision
+
+A replace placement is rejected when the replacing tile would show the same letter the cell
+already shows. Blanks are compared by the letter they represent on both sides: a blank chosen to
+represent "R" may not replace an "R", and a plain "R" may not replace a committed blank already
+representing "R". Replacing a letter with a different letter is unaffected, including swapping a
+blank for a real tile of a different letter. The same check also guards re-lettering a
+replace-placed blank, so the forbidden state cannot be reached in two steps.
+
+### Alternatives considered
+
+Allowing a same-letter replace but scoring it as zero — rejected: it still hands the replacing
+player the opponent's tile and re-opens the word for approval, so the abusable part remains while
+the rule gets harder to explain.
+
+Restricting only "letter tile onto identical letter tile" and leaving blanks out of it — rejected:
+what matters is the letter the cell shows, which is exactly what a blank's represented letter is;
+excluding blanks would leave the same no-op move available through a blank.
+
+### Rationale
+
+Direct, played-and-confirmed feedback from the project owner, treated as an authoritative
+specification correction per this file's process. The point of Replace mode is changing what a
+cell says; a placement that leaves the cell identical is not a replacement at all.
+
+### Consequences
+
+- `docs/game-modifiers.md` section 7 gains an explicit bullet stating the rule.
+- `src/game/engine/placeTile.ts` exports `replacesSameLetter`, used by `placeTile`,
+  `movePendingTile`, and `changeBlankRepresentedLetter` so all three routes into the state are
+  blocked identically.
+- New error code `REPLACE_SAME_LETTER` (distinct from the generic `INVALID_PLACEMENT`), with
+  Swedish wording in `errorMessages.ts`.
+
+### Revisit when
+
+Not anticipated — this is now the confirmed, intended rule.
+
+Relevant files:
+- `docs/game-modifiers.md` (section 7)
+- `src/game/engine/placeTile.ts`, `movePendingTile.ts`, `changeBlankRepresentedLetter.ts`
+- `src/game/model/gameError.ts`
+- `src/application/game-controller/errorMessages.ts`

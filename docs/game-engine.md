@@ -736,7 +736,7 @@ It should:
 2. Remove the corresponding physical tiles from the player's rack.
 3. Apply score.
 4. Apply accepted-vocabulary changes.
-5. Draw replacement tiles.
+5. Draw replacement tiles, refilling the rack up to the configured rack size (section 24).
 6. Add a completed move to history.
 7. Clear the pending move.
 8. Reset/update pass tracking.
@@ -758,6 +758,8 @@ A player should never be able to request an arbitrary tile.
 The engine draws from the configured tile bag.
 
 If fewer tiles remain than needed to refill a rack, the player receives only the remaining tiles.
+
+The number drawn is derived from the rack, not from the move: the engine refills up to the configured rack size rather than drawing one tile per tile placed. The two coincide under the standard rules, but not under Replace mode (`game-modifiers.md` section 7), where a displaced tile has already returned to the same rack before the commit — drawing per tile placed would hand the player a permanent extra tile every replace.
 
 The tile bag state must be updated atomically with the game state.
 

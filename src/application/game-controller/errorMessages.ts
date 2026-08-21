@@ -29,6 +29,8 @@ const ERROR_MESSAGES: Record<GameErrorCode, string> = {
     "I detta läge får bara ord som inte finns i ordlistan spelas.",
   REPLACE_CHAINING_NOT_ALLOWED:
     "Den brickan kan inte ersätta en annan bricka förrän nästa tur.",
+  REPLACE_SAME_LETTER:
+    "En bricka kan bara ersättas av en bricka med en annan bokstav.",
 };
 
 /**

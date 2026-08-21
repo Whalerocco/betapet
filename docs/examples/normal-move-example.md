@@ -528,7 +528,7 @@ A rerender or persistence reload must not cause the move to be scored again.
 
 August used three physical tiles.
 
-If enough tiles remain in the bag, the engine draws three replacements.
+If enough tiles remain in the bag, the engine draws three replacements — because that is what refills his rack back up to seven, which is the actual rule (`game-engine.md` section 24), not because he happened to play three tiles. The two only differ under Replace mode.
 
 For example:
 

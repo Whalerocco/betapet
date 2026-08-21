@@ -3,6 +3,7 @@ import type { PlayerId, TileId } from "../model/ids";
 import { createPendingMove } from "../model/pendingMove";
 import { checkEditPreconditions } from "./actionPreconditions";
 import { actionFailure, type ActionResult } from "./gameError";
+import { replacesSameLetter } from "./placeTile";
 
 export interface ChangeBlankRepresentedLetterParams {
   readonly playerId: PlayerId;
@@ -36,6 +37,19 @@ export function changeBlankRepresentedLetter(
   }
   if (!alphabet.includes(params.representedLetter)) {
     return actionFailure("INVALID_BLANK_LETTER", "invalidBlankLetter");
+  }
+  // A blank that displaced a committed tile (Replace mode) must keep changing that cell's letter:
+  // re-lettering it to the displaced tile's own letter would reach the state DEC-015 forbids.
+  if (
+    placedTile.replacedTileId !== undefined &&
+    replacesSameLetter(
+      state.tiles,
+      params.tileId,
+      params.representedLetter,
+      placedTile.replacedTileId,
+    )
+  ) {
+    return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
   }
 
   const updatedPlacedTiles = pendingMove.placedTiles.map((p) =>

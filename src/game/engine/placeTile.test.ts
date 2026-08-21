@@ -631,4 +631,107 @@ describe("placeTile: Replace mode (allowReplace)", () => {
     );
     expect(pending?.representedLetter).toBe("Q");
   });
+
+  it("rejects replacing a tile with a tile showing the same letter (DEC-015)", () => {
+    const setup = buildEngineTestGame();
+    // The default rack starts with "B", so this replace would leave the cell unchanged.
+    const existingTileId = letterTile(setup.tiles, "B");
+    const board = placeCommittedTile(
+      setup.state.board,
+      setup.board.centreCoordinate,
+      existingTileId,
+    );
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const result = placeTile(
+      state,
+      setup.board,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId,
+        coordinate: setup.board.centreCoordinate,
+      },
+      { allowReplace: true },
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: { code: "REPLACE_SAME_LETTER", messageKey: "replaceSameLetter" },
+    });
+    // The rejected placement must leave the board and both racks untouched.
+    expect(isOccupied(state.board, setup.board.centreCoordinate)).toBe(true);
+  });
+
+  it("rejects a blank representing the same letter as the tile it would replace (DEC-015)", () => {
+    const setup = buildEngineTestGame({
+      playerOneRackLetters: ["_", "I", "L"],
+    });
+    const existingTileId = letterTile(setup.tiles, "B");
+    const board = placeCommittedTile(
+      setup.state.board,
+      setup.board.centreCoordinate,
+      existingTileId,
+    );
+    const state = { ...setup.state, board };
+    const [blankId] = state.players[0].rack.tileIds;
+
+    const sameLetter = placeTile(
+      state,
+      setup.board,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId: blankId,
+        coordinate: setup.board.centreCoordinate,
+        representedLetter: "B",
+      },
+      { allowReplace: true },
+    );
+    expect(sameLetter).toEqual({
+      success: false,
+      error: { code: "REPLACE_SAME_LETTER", messageKey: "replaceSameLetter" },
+    });
+
+    const differentLetter = placeTile(
+      state,
+      setup.board,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId: blankId,
+        coordinate: setup.board.centreCoordinate,
+        representedLetter: "C",
+      },
+      { allowReplace: true },
+    );
+    expect(differentLetter.success).toBe(true);
+  });
+
+  it("rejects replacing a committed blank with a tile showing the letter it represents (DEC-015)", () => {
+    const setup = buildEngineTestGame();
+    const blankId = createTileId();
+    setup.tiles[blankId] = {
+      ...createBlankTile(blankId),
+      representedLetter: "B",
+    };
+    const centre = setup.board.centreCoordinate;
+    const board = placeCommittedTile(setup.state.board, centre, blankId);
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const result = placeTile(
+      state,
+      setup.board,
+      SWEDISH_ALPHABET,
+      { playerId: setup.playerOneId, tileId, coordinate: centre },
+      { allowReplace: true },
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: { code: "REPLACE_SAME_LETTER", messageKey: "replaceSameLetter" },
+    });
+  });
 });

@@ -1282,10 +1282,67 @@ describe("submitMove: Replace mode", () => {
     const player = result.state.players.find(
       (p) => p.id === setup.playerOneId,
     )!;
-    // 3 tiles played, 3 drawn from the bag as ordinary replacements, plus the displaced "X"
-    // granted by the replace — the rack grows by exactly one beyond the usual break-even.
+    // The displaced "X" stays in the rack as an ordinary tile: the draw refills around it
+    // (here the 3-tile bag runs out first) rather than replacing or discarding it.
     expect(player.rack.tileIds).toContain(existingTileId);
     expect(player.rack.tileIds).toHaveLength(4);
+  });
+
+  it("refills the rack to the configured size after a replace, not by tiles played", () => {
+    // Regression (known-bugs.md, Replace mode 3): drawing one tile per tile placed handed the
+    // player a permanent extra tile every replace, because the displaced tile had already
+    // returned to the same rack. game-rules.md section 12 refills *up to* the rack size.
+    const setup = buildTestGame({
+      playerOneRackLetters: ["B", "I", "L", "A", "R", "E", "N"],
+      bagLetters: ["Å", "Ä", "Ö", "V", "N", "M", "P", "S", "T"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    const existingTileId = createTileId();
+    setup.tiles[existingTileId] = createLetterTile(existingTileId, "X", 1);
+    const board = placeCommittedTile(setup.state.board, centre, existingTileId);
+    const state = { ...setup.state, board };
+    const [b, i, l] = state.players[0].rack.tileIds;
+
+    let working = state;
+    for (const [tileId, columnOffset] of [
+      [b, -1],
+      [i, 0],
+      [l, 1],
+    ] as const) {
+      const placed = placeTile(
+        working,
+        setup.board,
+        [],
+        {
+          playerId: setup.playerOneId,
+          tileId,
+          coordinate: { row: centre.row, column: centre.column + columnOffset },
+        },
+        { allowReplace: true },
+      );
+      expect(placed.success).toBe(true);
+      if (placed.success) working = placed.state;
+    }
+    // 7 tiles, minus the 3 placed, plus the displaced "X" the replace handed back.
+    expect(
+      working.players.find((p) => p.id === setup.playerOneId)!.rack.tileIds,
+    ).toHaveLength(5);
+
+    const result = submitMove(
+      working,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const player = result.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!;
+    expect(player.rack.tileIds).toHaveLength(setup.configuration.rackSize);
+    expect(player.rack.tileIds).toContain(existingTileId);
   });
 
   it("still requires the actual first move of the game to cover the centre", () => {
@@ -1323,7 +1380,9 @@ describe("submitMove: Replace mode", () => {
   it("keeps an earlier committed move's score after a later replace touches one of its tiles", () => {
     const setup = buildTestGame({
       playerOneRackLetters: ["B", "I", "L"],
-      bagLetters: ["Å", "Ä", "Ö", "X"],
+      // Seven tiles refill the emptied rack to the configured size after the first commit
+      // (game-rules.md section 12), leaving "X" as the tile player two replaces with below.
+      bagLetters: ["Å", "Ä", "Ö", "V", "N", "M", "P", "X"],
       modifiers: new Set(["REPLACE"]),
     });
     const centre = setup.board.centreCoordinate;

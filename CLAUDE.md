@@ -7,17 +7,18 @@ This repository contains a Swedish Alfapet-inspired word-board game that will in
 The distinctive game mechanic is that words not found in the configured dictionary may still be played if the player proposes them and the opponent accepts them.
 
 The initial version supports:
-- Swedish only
+- Swedish as the base language, with German, French, English, and Spanish dictionaries reachable through the Polyglot and Wild modifiers (see "Word validation" below)
 - Two players sharing one device
 - Hot-seat play with hidden racks
 - The standard Swedish Alfapet rules
 - Swedish Alfapet tile distribution and scoring
 - Blank tiles
-- Swedish dictionary validation
+- Dictionary validation in the game's configured language
 - Opponent approval of non-dictionary words
 - Accepted non-dictionary words becoming valid for the remainder of the current game
+- Optional game modifiers selected before the game starts (`docs/game-modifiers.md`)
 
-The long-term version may add online multiplayer, accounts, friends, chat, persistent games, and additional languages.
+The long-term version may add online multiplayer, accounts, friends, chat, and persistent games.
 
 ## Source of truth
 
@@ -26,10 +27,14 @@ Before implementing or changing game behaviour, read the relevant files in `docs
 The authority hierarchy is:
 
 1. `docs/game-rules.md` — authoritative game rules
-2. `docs/game-engine.md` — authoritative description of game-engine behaviour and state
-3. `docs/dictionary.md` — authoritative dictionary and word-validity rules
-4. Other `docs/` files — architecture, UI, roadmap, and implementation guidance
-5. Source code — implementation of the above specifications
+2. `docs/game-modifiers.md` — authoritative rules for the optional modifiers (Crisscross, Replace, Illegal, Polyglot, Wild). Each modifier is an explicit, opt-in override of a numbered `game-rules.md` section, so for a game that selected it, this document wins over `game-rules.md` on exactly the points it overrides — and nothing else.
+3. `docs/game-engine.md` — authoritative description of game-engine behaviour and state
+4. `docs/dictionary.md` — authoritative dictionary and word-validity rules
+5. `docs/decisions.md` — the decision log. An `ACCEPTED` DEC entry is binding: it records a resolved rule or design question, and later documents are expected to match it. When a DEC entry and a specification file disagree, the disagreement is a bug in one of them — identify it rather than picking a side silently.
+6. Other `docs/` files — architecture, UI, roadmap, and implementation guidance
+7. Source code — implementation of the above specifications
+
+`docs/known-bugs.md` tracks defects the project owner found in play, including ones whose fix requires a rule correction. Fixed entries are struck through with a dated note naming the fix. A reported bug there is authoritative about the *intended* behaviour even where a specification currently says otherwise — that is how DEC-014 and DEC-015 arose.
 
 Do not invent game rules when the specification is silent. If an implementation decision could affect gameplay, stop and identify the ambiguity rather than silently choosing a rule.
 
@@ -109,13 +114,13 @@ Important known rules include:
 - Players may exchange one or more tiles instead of playing a word.
 - Passing is allowed.
 - The game-ending rules and final scoring follow the specified Alfapet rules.
-- The player receives the same number of replacement tiles as tiles played/exchanged, up to the chosen rack size.
+- After playing tiles, the player refills the rack up to the chosen rack size, as far as the bag allows. This is not the same as "one drawn per tile played": under Replace mode a displaced tile has already returned to the same rack, so drawing per tile placed would grow the rack past its size.
 
 The exact board, tile distribution, scoring, special squares, rack size, bonuses, and end-game behaviour must be taken from the project specification rather than guessed.
 
 ## Word validation
 
-The initial language is Swedish.
+Swedish is the base language, and a game validates against Swedish unless a modifier says otherwise. Dictionaries and word-classification rules also exist for German, French, English, and Spanish; today they are reached only through Polyglot mode, which validates against several selected languages at once, and Wild mode, which rotates the active language every full round (`docs/game-modifiers.md` sections 9-10). Validation code must therefore take its language from the game configuration rather than assuming Swedish. The board and tile set stay the same Swedish-derived configuration regardless of the dictionary language.
 
 Normal dictionary validity and game validity are separate concepts.
 
@@ -220,7 +225,7 @@ If the specification itself appears inconsistent, identify the inconsistency bef
 
 Keep documentation and implementation synchronized when a deliberate specification change is made.
 
-## Git and scope
+## Scope
 
 Keep changes focused on the current task.
 
@@ -232,8 +237,21 @@ Before considering a task complete:
 1. Run the relevant tests.
 2. Check the application for obvious runtime errors.
 3. Review the changed files.
-4. Confirm that the implementation matches the relevant specification.
-5. Report any assumptions or unresolved issues.
+4. Update the documentation the change affects — the specification file for a deliberate rule change, `docs/decisions.md` for a resolved rule or design question, `docs/known-bugs.md` for a reported bug that is now fixed, `docs/tasks.md` for a completed task.
+5. Confirm that the implementation matches the relevant specification.
+6. Report any assumptions or unresolved issues.
+
+## Git
+
+Do not commit or push unless asked to. Making the change and committing it are separate steps; finish the work, report it, and wait.
+
+When asked to commit:
+- Work on `main` unless told otherwise. This project's history is intentionally linear on `main`, without feature branches.
+- Put the code, specification, decision-log, and known-bugs changes for one task in the same commit. A rule fix whose spec update lands in a later commit leaves the repository self-contradictory in between.
+- Write a one-line summary naming the area touched, in the style already in the log — for example `Add Polyglot and Wild game modifiers (engine, UI, persistence)` or `Post-playtest fixes: Crisscross connectivity, blank-tile flow, score preview`. Add a body only when the *why* is not obvious from the summary.
+- Never push without being asked separately. Being asked to commit is not being asked to push: `origin` is a GitHub remote, and pushing sends the work off this machine.
+
+The Next.js agent-rules block at the end of this file is written and re-added by `next dev`. Commit it along with the rest rather than trying to remove it.
 
 ## Future multiplayer
 

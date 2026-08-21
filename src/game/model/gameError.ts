@@ -19,7 +19,8 @@ export type GameErrorCode =
   | "NOT_AUTHORIZED_TO_APPROVE"
   | "EXCHANGE_NOT_ALLOWED"
   | "DICTIONARY_WORD_NOT_ALLOWED"
-  | "REPLACE_CHAINING_NOT_ALLOWED";
+  | "REPLACE_CHAINING_NOT_ALLOWED"
+  | "REPLACE_SAME_LETTER";
 
 export interface GameError {
   readonly code: GameErrorCode;

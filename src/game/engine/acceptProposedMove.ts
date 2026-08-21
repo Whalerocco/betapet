@@ -70,6 +70,7 @@ export function acceptProposedMove(
     acceptedWords: unknownWords,
     acceptedWordsLanguage,
     usedUnknownWordApproval: true,
+    rackSize: configuration.rackSize,
   });
 
   return { success: true, state: committed };

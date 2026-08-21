@@ -49,9 +49,9 @@ The first release should be a complete, playable local web game.
 
 ### Language
 
-- Swedish only.
-- Swedish Alfapet letter distribution and scores.
-- A Swedish dictionary/word list is used for normal dictionary validation.
+- Swedish is the base language: a game validates against Swedish unless the Polyglot or Wild modifier selects otherwise (`game-modifiers.md` sections 9-10, DEC-010).
+- Swedish Alfapet letter distribution and scores, regardless of the dictionary language in use.
+- Real dictionary data is used for normal dictionary validation — Swedish, plus German, French, English, and Spanish for the multi-language modifiers.
 - The architecture must allow additional languages to be added later without rewriting the game engine.
 
 ### Game rules

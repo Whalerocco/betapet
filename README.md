@@ -85,6 +85,7 @@ implementation should follow it rather than the other way around. Start with:
   checklist.
 - **`docs/decisions.md`** — the decision log: what was decided, why, and what alternatives were
   considered, for anything not already dictated by a spec document.
+- **`docs/known-bugs.md`** — defects found in play, with a dated note on each one's fix.
 
 ## Languages and dictionaries
 

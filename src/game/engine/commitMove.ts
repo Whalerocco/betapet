@@ -24,6 +24,13 @@ export interface CommitMoveParams {
    */
   readonly acceptedWordsLanguage?: LanguageCode;
   readonly usedUnknownWordApproval: boolean;
+  /**
+   * The game's configured rack size, so the player's rack is refilled *up to* it (game-rules.md
+   * section 12) rather than by the number of tiles placed. The two only differ under Replace mode
+   * (game-modifiers.md section 7), where a displaced tile has already returned to the same rack —
+   * drawing one per placed tile there would grow the rack past its size every replace.
+   */
+  readonly rackSize: number;
 }
 
 /**
@@ -57,7 +64,14 @@ export function commitMove(
   }
 
   const player = state.players.find((p) => p.id === params.playerId)!;
-  const draw = drawTiles(state.tileBag, params.placedTiles.length);
+  // The rack already reflects this move: placed tiles left it when they were placed, and any
+  // Replace-mode displaced tiles arrived in it at the same moment. Refilling to the configured
+  // size (game-rules.md section 12) is therefore the whole rule — never "one per tile placed".
+  const missingTiles = Math.max(
+    0,
+    params.rackSize - player.rack.tileIds.length,
+  );
+  const draw = drawTiles(state.tileBag, missingTiles);
   const updatedPlayer: Player = {
     ...player,
     score: player.score + params.scoreResult.total,

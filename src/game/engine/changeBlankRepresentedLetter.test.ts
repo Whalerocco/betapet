@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
 import { SWEDISH_ALPHABET } from "../configuration/swedishAlphabet";
+import { placeCommittedTile } from "../model/board";
 import type { GameState } from "../model/game";
+import { createTileId } from "../model/ids";
 import type { Player } from "../model/player";
-import { letterTileIdsInRack, relocateTileToRack } from "../testing/fixtures";
+import { createLetterTile } from "../model/tile";
+import {
+  buildEngineTestGame,
+  letterTileIdsInRack,
+  relocateTileToRack,
+} from "../testing/fixtures";
 import { changeBlankRepresentedLetter } from "./changeBlankRepresentedLetter";
 import { createGame } from "./createGame";
 import { placeTile } from "./placeTile";
@@ -112,6 +119,46 @@ describe("changeBlankRepresentedLetter", () => {
     expect(result).toEqual({
       success: false,
       error: { code: "INVALID_TILE", messageKey: "tileNotBlank" },
+    });
+  });
+
+  it("rejects re-lettering a replace-placed blank to the letter it displaced (DEC-015)", () => {
+    const setup = buildEngineTestGame({
+      playerOneRackLetters: ["_", "I", "L"],
+    });
+    const existingTileId = createTileId();
+    setup.tiles[existingTileId] = createLetterTile(existingTileId, "B", 1);
+    const centre = setup.board.centreCoordinate;
+    const board = placeCommittedTile(setup.state.board, centre, existingTileId);
+    const [blankId] = setup.state.players[0].rack.tileIds;
+
+    const placed = placeTile(
+      { ...setup.state, board },
+      setup.board,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId: blankId,
+        coordinate: centre,
+        representedLetter: "C",
+      },
+      { allowReplace: true },
+    );
+    if (!placed.success) throw new Error("setup failed");
+
+    const result = changeBlankRepresentedLetter(
+      placed.state,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId: blankId,
+        representedLetter: "B",
+      },
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: { code: "REPLACE_SAME_LETTER", messageKey: "replaceSameLetter" },
     });
   });
 });

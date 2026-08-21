@@ -354,4 +354,41 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
       },
     });
   });
+
+  it("rejects moving a pending tile onto a committed tile showing the same letter (DEC-015)", () => {
+    const setup = buildEngineTestGame();
+    // The default rack starts with "B", so landing on this cell would not change its letter.
+    const existingTileId = letterTile(setup.tiles, "B");
+    const centre = setup.board.centreCoordinate;
+    const targetCoordinate = { row: centre.row, column: centre.column + 1 };
+    const board = placeCommittedTile(
+      setup.state.board,
+      targetCoordinate,
+      existingTileId,
+    );
+    const state = { ...setup.state, board };
+    const [tileId] = state.players[0].rack.tileIds;
+
+    const placed = placeTile(state, setup.board, [], {
+      playerId: setup.playerOneId,
+      tileId,
+      coordinate: centre,
+    });
+    if (!placed.success) throw new Error("setup failed");
+
+    const result = movePendingTile(
+      placed.state,
+      setup.board,
+      { playerId: setup.playerOneId, tileId, coordinate: targetCoordinate },
+      { allowReplace: true },
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: { code: "REPLACE_SAME_LETTER", messageKey: "replaceSameLetter" },
+    });
+    // The rejected move must leave the tile pending where it was, and the target untouched.
+    expect(placed.state.pendingMove?.placedTiles[0].coordinate).toEqual(centre);
+    expect(isOccupied(placed.state.board, targetCoordinate)).toBe(true);
+  });
 });
