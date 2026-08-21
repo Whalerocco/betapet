@@ -614,8 +614,14 @@ WordScore
 ├── baseLetterScore
 ├── letterMultiplierEffects
 ├── wordMultiplierEffects
+├── scoresPoints           — false when this move only re-lettered the word (DEC-016)
 └── total
 ```
+
+`scoresPoints` exists because a word can be legitimately formed and validated yet award nothing:
+under Replace mode a word the move did not lengthen scores 0 (`game-modifiers.md` section 7). The
+letter-level breakdown is still carried, so a UI can show what the word would otherwise have been
+worth. Outside Replace mode this is always true.
 
 This detailed representation is useful for:
 

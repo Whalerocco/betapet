@@ -1576,3 +1576,77 @@ Relevant files:
 - `src/game/engine/placeTile.ts`, `movePendingTile.ts`, `changeBlankRepresentedLetter.ts`
 - `src/game/model/gameError.ts`
 - `src/application/game-controller/errorMessages.ts`
+
+## DEC-016 — Replace mode: a word scores only if the move lengthened or created it
+
+**Date:** 2026-08-21
+**Status:** ACCEPTED
+**Area:** Engine / Rules spec
+
+### Context
+
+`game-modifiers.md` section 7 sent the words affected by a replace through the normal scoring
+pipeline unchanged, so swapping one letter inside a committed word re-scored the entire word for
+the replacing player. A one-tile move could therefore collect the full value of a long word
+somebody else had built, repeatedly, for as long as letters remained that turned it into another
+valid word. The project owner reported this after playtesting and specified the intended rule:
+a replace should pay only for what it actually adds, not for a word that was already there.
+
+### Decision
+
+A word formed by a move scores only if the move lengthened that word or created it outright. A
+word whose span is unchanged — same cells, same length, one letter different — awards nothing.
+
+- The rule is symmetric across directions: replacing the shared "I" of a horizontal "BIL" crossed
+  by a vertical "SIL" yields "BAL" and "SAL", and neither scores.
+- If the move also lengthens the word, the whole word scores normally, the replaced tile
+  included: extending that "BAL" into "BALA" scores all four letters.
+- A zero-scoring word is still a word for every other purpose: it must be a dictionary word or be
+  accepted by the opponent through the normal proposal flow.
+- The all-tiles bonus is unaffected, since it is awarded for emptying the rack rather than for a
+  word (`game-rules.md` section 25).
+
+Implemented as: a word scores if at least one of its cells was empty before the move. A move never
+empties a cell — it either covers an empty one or swaps the tile in an already-covered one — so
+a word covering no previously-empty cell is necessarily the identical span that was already there.
+Outside Replace mode every placement covers an empty cell, so the rule is a no-op there.
+
+### Alternatives considered
+
+Scoring only the replacing tile's own letter value for an unchanged word — rejected: it still pays
+for a move that adds nothing to the board, just less, and it needs its own separate explanation.
+
+Scoring the difference between the word's new and old value — rejected: it makes the payout depend
+on which letter was displaced, is hard to show in a score preview, and can go negative.
+
+Applying the rule only to the line the replace sits in, leaving crossing words to score in full —
+rejected by the project owner: the same swap would then pay differently depending on the board's
+orientation, and the crossing word did not grow either.
+
+### Rationale
+
+Direct, played-and-confirmed feedback from the project owner, treated as an authoritative
+specification correction per this file's process. Replace mode exists to let a player change what
+the board says, not to re-collect points for words already standing on it.
+
+### Consequences
+
+- `docs/game-modifiers.md` section 7 gains the scoring rule and the all-tiles-bonus clarification,
+  and its multiplier bullet is reworded to apply within a word that does score.
+- `WordScore` gains `scoresPoints` (`src/game/model/scoreResult.ts`), so a zero total is
+  self-describing; `letterScores` are still reported, letting a UI show what the word would
+  otherwise have been worth.
+- `scoreWord` derives both this rule and the existing multiplier-activation rule from one
+  `coversPreviouslyEmptyCell` predicate, since both turn on the same fact about a placement.
+- Scores drop for replace-only moves, which is the intended gameplay change. Nothing about move
+  legality, word validation, or the approval flow changes.
+
+### Revisit when
+
+Not anticipated — this is now the confirmed, intended rule.
+
+Relevant files:
+- `docs/game-modifiers.md` (section 7)
+- `src/game/scoring/scoreMove.ts`, `scoreMove.test.ts`
+- `src/game/model/scoreResult.ts`
+- `src/game/engine/submitMove.test.ts`

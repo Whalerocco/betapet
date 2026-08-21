@@ -17,6 +17,13 @@ export interface WordScore {
   readonly letterScores: readonly LetterScore[];
   /** Product of every newly-placed Word x2/x3/x4 square covered by this word; 1 if none. */
   readonly wordMultiplier: number;
+  /**
+   * False when a Replace-mode move only swapped letters inside this word without lengthening it
+   * (DEC-016): the word still has to be valid, but awards nothing, and `total` is 0 regardless of
+   * what `letterScores` add up to. Always true outside Replace mode, where every formed word
+   * necessarily covers at least one previously empty cell.
+   */
+  readonly scoresPoints: boolean;
   readonly total: number;
 }
 

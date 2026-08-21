@@ -41,6 +41,10 @@ function wordMultiplierFactor(multiplier: Multiplier): number | undefined {
  * Scores one formed word. A tile only activates its square's multiplier if it was newly
  * placed this move (game-rules.md section 22): a pre-existing tile contributes its raw
  * points, even if it happens to sit on a multiplier square from an earlier move.
+ *
+ * A word that this move merely re-lettered, without making it longer, scores nothing
+ * (game-modifiers.md section 7, DEC-016). Its `letterScores` are still reported, so a UI can
+ * show what the word would otherwise have been worth, but its `total` is 0.
  */
 export function scoreWord(
   boardDefinition: BoardDefinition,
@@ -51,16 +55,23 @@ export function scoreWord(
   const placedByTileId = new Map(placedTiles.map((p) => [p.tileId, p]));
 
   /**
-   * A multiplier only activates the first time its cell is ever covered (game-rules.md section
-   * 22). Ordinarily that's exactly "was this tile newly placed", since a normal placement can
-   * only ever target an empty cell — but a Replace-mode placement (game-modifiers.md section 7)
-   * is newly placed on a cell that was already covered before, so its own multiplier must not
-   * reactivate. `replacedTileId` (set only for a replace) is what tells the two cases apart.
+   * Whether this tile covers a cell that was empty before the move. `replacedTileId` is set only
+   * for a Replace-mode placement (game-modifiers.md section 7), which lands on a cell that was
+   * already covered; every other placement can only ever target an empty cell.
+   *
+   * Two separate rules key off this same fact. A multiplier activates only the first time its
+   * cell is ever covered (game-rules.md section 22), so a replace must not reactivate one. And a
+   * word scores only if the move lengthened it or created it (DEC-016) — since a move never
+   * empties a cell, a word covering no previously-empty cell must be the identical span that was
+   * already there, with a letter swapped.
    */
-  function activatesMultiplier(tileId: TileId): boolean {
+  function coversPreviouslyEmptyCell(tileId: TileId): boolean {
     const placed = placedByTileId.get(tileId);
     return placed !== undefined && placed.replacedTileId === undefined;
   }
+
+  const activatesMultiplier = coversPreviouslyEmptyCell;
+  const scoresPoints = word.tileIds.some(coversPreviouslyEmptyCell);
 
   const letterScores: LetterScore[] = word.coordinates.map(
     (coordinate, index) => {
@@ -102,7 +113,8 @@ export function scoreWord(
     word: word.text,
     letterScores,
     wordMultiplier,
-    total: preMultiplierTotal * wordMultiplier,
+    scoresPoints,
+    total: scoresPoints ? preMultiplierTotal * wordMultiplier : 0,
   };
 }
 
@@ -111,7 +123,9 @@ export function scoreWord(
  * counts, multiplier and all, in both), plus the all-tiles bonus. The bonus is keyed on the
  * game's configured rack size, not how many tiles the player happened to have this turn
  * (game-rules.md section 25): placing every remaining tile from a depleted rack does not
- * qualify unless that count equals the configured rack size.
+ * qualify unless that count equals the configured rack size. The bonus is about emptying the
+ * rack, so it is unaffected by DEC-016 — a rack-emptying move still earns it even if every word
+ * it touched was only re-lettered and therefore scored nothing.
  */
 export function scoreMove(
   boardDefinition: BoardDefinition,

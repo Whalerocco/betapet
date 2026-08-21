@@ -1345,6 +1345,150 @@ describe("submitMove: Replace mode", () => {
     expect(player.rack.tileIds).toContain(existingTileId);
   });
 
+  it("awards nothing for words a replace only re-lettered, in either direction (DEC-016)", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["A", "B"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    // Committed: "BIL" horizontally through the centre, crossed vertically by "SIL" — the two
+    // share the "I" at the centre, which is the tile about to be replaced.
+    let board = setup.state.board;
+    for (const [letter, coordinate] of [
+      ["B", { row: centre.row, column: centre.column - 1 }],
+      ["I", centre],
+      ["L", { row: centre.row, column: centre.column + 1 }],
+      ["S", { row: centre.row - 1, column: centre.column }],
+      ["L", { row: centre.row + 1, column: centre.column }],
+    ] as const) {
+      board = placeCommittedTile(board, coordinate, letterTile(setup.tiles, letter));
+    }
+    const history = addHistoryEvent(setup.state.history, {
+      id: createHistoryEventId(),
+      sequence: nextSequence(setup.state.history),
+      type: "WORD_MOVE_COMMITTED",
+      playerId: setup.playerTwoId,
+      payload: {
+        placedTiles: [],
+        words: ["BIL", "SIL"],
+        scoreAwarded: 3,
+        usedUnknownWordApproval: false,
+      },
+    });
+    const state = { ...setup.state, board, history };
+    const [a] = state.players[0].rack.tileIds;
+
+    // Replace the shared "I" with "A": "BIL" becomes "BAL" and "SIL" becomes "SAL". Both are
+    // real words, and neither got any longer.
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: a, coordinate: centre },
+      { allowReplace: true },
+    );
+    expect(replaced.success).toBe(true);
+    if (!replaced.success) return;
+
+    const result = submitMove(
+      replaced.state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // Both words are in the dictionary, so this commits rather than proposing.
+    expect(result.state.pendingMove).toBeUndefined();
+    const committed = result.state.history.events.at(-1);
+    expect(committed?.type).toBe("WORD_MOVE_COMMITTED");
+    if (committed?.type !== "WORD_MOVE_COMMITTED") return;
+    // Both directions were detected as affected words, and both scored nothing.
+    expect(committed.payload.words).toEqual(
+      expect.arrayContaining(["BAL", "SAL"]),
+    );
+    expect(committed.payload.scoreAwarded).toBe(0);
+    expect(
+      result.state.players.find((p) => p.id === setup.playerOneId)!.score,
+    ).toBe(0);
+  });
+
+  it("scores the whole word, replaced tile included, when the replace also lengthens it (DEC-016)", () => {
+    const setup = buildTestGame({
+      playerOneRackLetters: ["A", "A"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    let board = setup.state.board;
+    for (const [letter, column] of [
+      ["B", centre.column - 1],
+      ["I", centre.column],
+      ["L", centre.column + 1],
+    ] as const) {
+      board = placeCommittedTile(
+        board,
+        { row: centre.row, column },
+        letterTile(setup.tiles, letter),
+      );
+    }
+    const history = addHistoryEvent(setup.state.history, {
+      id: createHistoryEventId(),
+      sequence: nextSequence(setup.state.history),
+      type: "WORD_MOVE_COMMITTED",
+      playerId: setup.playerTwoId,
+      payload: {
+        placedTiles: [],
+        words: ["BIL"],
+        scoreAwarded: 3,
+        usedUnknownWordApproval: false,
+      },
+    });
+    const state = { ...setup.state, board, history };
+    const [firstA, secondA] = state.players[0].rack.tileIds;
+
+    // Replace the "I" of "BIL" with an "A", then extend the result into "BALA".
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: firstA, coordinate: centre },
+      { allowReplace: true },
+    );
+    expect(replaced.success).toBe(true);
+    if (!replaced.success) return;
+
+    const extended = placeTile(
+      replaced.state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: secondA,
+        coordinate: { row: centre.row, column: centre.column + 2 },
+      },
+      { allowReplace: true },
+    );
+    expect(extended.success).toBe(true);
+    if (!extended.success) return;
+
+    const result = submitMove(
+      extended.state,
+      setup.configuration,
+      rules,
+      setup.playerOneId,
+    );
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const committed = result.state.history.events.at(-1);
+    expect(committed?.type).toBe("WORD_MOVE_COMMITTED");
+    if (committed?.type !== "WORD_MOVE_COMMITTED") return;
+    expect(committed.payload.words).toEqual(["BALA"]);
+    // All four letters count, the replaced "A" included — every tile in this fixture is worth 1.
+    expect(committed.payload.scoreAwarded).toBe(4);
+  });
+
   it("still requires the actual first move of the game to cover the centre", () => {
     const setup = buildTestGame({
       playerOneRackLetters: ["A", "B"],

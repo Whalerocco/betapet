@@ -1479,6 +1479,13 @@ bug: it previously only supported moving onto an empty cell).
 Settings/game-setup UI wiring for Replace mode (and every other modifier) now exists — see
 T32.1, `GameSetup.tsx`.
 
+Three further corrections came out of playtesting on 2026-08-21 (`known-bugs.md`, Replace 2-4):
+a replace must change the cell's letter (DEC-015); the rack is refilled up to the configured rack
+size rather than one tile per tile placed, which had been granting a permanent extra tile per
+replace; and a word scores only if the move lengthened or created it (DEC-016), which supersedes
+the plain "score the affected words through the normal pipeline" reading of the checklist item
+above — the pipeline is still the same, but a word the move only re-lettered now totals 0.
+
 ---
 
 ## T32.4 Illegal mode

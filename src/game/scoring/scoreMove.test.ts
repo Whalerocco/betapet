@@ -326,3 +326,102 @@ describe("scoreWord: Replace mode does not reactivate a cell's multiplier", () =
     expect(result.wordMultiplier).toBe(3);
   });
 });
+
+/** An already-committed tile: registered in `tiles`, but not part of the pending move. */
+function existingLetter(
+  tiles: Record<TileId, Tile>,
+  letter: string,
+  points: number,
+): TileId {
+  const tileId = createTileId();
+  tiles[tileId] = createLetterTile(tileId, letter, points);
+  return tileId;
+}
+
+describe("scoreWord: Replace mode only scores a word the move lengthened (DEC-016)", () => {
+  it("scores nothing for a word the move only re-lettered", () => {
+    const tiles: Record<TileId, Tile> = {};
+    const b = existingLetter(tiles, "B", 4);
+    const l = existingLetter(tiles, "L", 2);
+    // "A" replaces the middle tile of the committed word "BIL", making it "BAL" — same length.
+    const a = newLetter(tiles, 0, 1, "A", 1);
+    const replacedA: PendingPlacedTile = {
+      ...a.placed,
+      replacedTileId: createTileId(),
+    };
+    const formedWord = word(
+      "BAL",
+      [b, a.tileId, l],
+      [
+        { row: 0, column: 0 },
+        { row: 0, column: 1 },
+        { row: 0, column: 2 },
+      ],
+    );
+
+    const result = scoreWord(testBoard(), [replacedA], tiles, formedWord);
+
+    expect(result.scoresPoints).toBe(false);
+    expect(result.total).toBe(0);
+    // The breakdown is still reported, so a UI can show what it would otherwise have been worth.
+    expect(result.letterScores).toHaveLength(3);
+  });
+
+  it("scores the whole word, replaced tile included, once the move also lengthens it", () => {
+    const tiles: Record<TileId, Tile> = {};
+    const b = existingLetter(tiles, "B", 4);
+    const l = existingLetter(tiles, "L", 2);
+    const a = newLetter(tiles, 0, 1, "A", 1);
+    const replacedA: PendingPlacedTile = {
+      ...a.placed,
+      replacedTileId: createTileId(),
+    };
+    // A second "A" extends "BAL" to "BALA" on a previously empty cell.
+    const extension = newLetter(tiles, 0, 3, "A", 1);
+    const formedWord = word(
+      "BALA",
+      [b, a.tileId, l, extension.tileId],
+      [
+        { row: 0, column: 0 },
+        { row: 0, column: 1 },
+        { row: 0, column: 2 },
+        { row: 0, column: 3 },
+      ],
+    );
+
+    const result = scoreWord(
+      testBoard(),
+      [replacedA, extension.placed],
+      tiles,
+      formedWord,
+    );
+
+    expect(result.scoresPoints).toBe(true);
+    expect(result.total).toBe(4 + 1 + 2 + 1);
+  });
+
+  it("still awards the all-tiles bonus when every word it touched scored nothing", () => {
+    const tiles: Record<TileId, Tile> = {};
+    const existing = Array.from({ length: 8 }, () =>
+      existingLetter(tiles, "X", 1),
+    );
+    // Seven tiles, every one of them a replace inside an existing eight-letter word: the word
+    // scores nothing, but the rack was still emptied, which is what the bonus is for.
+    const placedTiles: PendingPlacedTile[] = [];
+    const tileIds: TileId[] = [existing[0]];
+    const coordinates = [{ row: 0, column: 0 }];
+    for (let column = 1; column <= 7; column++) {
+      const tile = newLetter(tiles, 0, column, "A", 1);
+      placedTiles.push({ ...tile.placed, replacedTileId: existing[column] });
+      tileIds.push(tile.tileId);
+      coordinates.push({ row: 0, column });
+    }
+    const formedWord = word("XAAAAAAA", tileIds, coordinates);
+
+    const result = scoreMove(testBoard(), placedTiles, tiles, [formedWord], 7);
+
+    expect(result.wordScores[0].total).toBe(0);
+    expect(result.allTilesBonus).toBeGreaterThan(0);
+    expect(result.total).toBe(result.allTilesBonus);
+  });
+});
