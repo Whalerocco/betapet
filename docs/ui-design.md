@@ -308,6 +308,14 @@ When a rack tile is selected:
 - Empty board squares should remain usable targets.
 - Under Replace mode, committed tiles become targets too, and should show the same kind of hover
   and keyboard-focus highlight an empty target square shows.
+
+That highlight is hover and keyboard-focus only, so on touch a committed tile looks the same
+whether or not it is currently a target. The project owner considered this on 2026-08-23 and
+decided to leave it: while a rack tile is selected *every* committed tile is a target, so a
+persistent marker would light up the whole played board late in a game, and Replace mode is
+opt-in — the setup screen describes the mechanic to the players who chose it. This is a
+deliberate exception to section 41's "avoid relying on hover", not an oversight; revisit it only
+if players actually fail to discover the mechanic in play.
 - Selecting the same tile again may cancel selection.
 - Selecting another rack tile changes selection.
 
