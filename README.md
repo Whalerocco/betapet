@@ -32,6 +32,7 @@ device — no account, server, or network connection required.
 | `npm test` | Run the Vitest unit/integration suite |
 | `npm run test:watch` | Run Vitest in watch mode |
 | `npm run e2e` | Run the Playwright end-to-end suite (builds and serves the app first) |
+| `npm run playtest` | Build and serve on the local network for testing on a phone or tablet (see below) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier, writes changes |
@@ -39,6 +40,32 @@ device — no account, server, or network connection required.
 
 Before considering any change done, run `typecheck`, `lint`, `test`, and `build` — CI runs the
 same checks.
+
+### Playtesting on a phone or tablet
+
+```bash
+PORT=3001 npm run playtest          # or just: npm run playtest, on port 3000
+ipconfig getifaddr en0              # macOS: the address to open on the device
+```
+
+Then open `http://<that-address>:<port>` on a device on the same Wi-Fi.
+
+Two things this handles that a plain `npm start` does not:
+
+- **Plain HTTP on a LAN address is not a secure context**, so `crypto.randomUUID` and friends are
+  unavailable there. The game works anyway (see `generateId` in `src/game/model/ids.ts`), but keep
+  it in mind when adding browser APIs — several are silently missing outside HTTPS and localhost.
+- **`npm run playtest` sends `Cache-Control: no-store` for the HTML document**, so the device
+  always gets what was last built. Next serves prerendered pages with a long `s-maxage` and
+  nothing addressed to a private cache, which lets a phone keep a stored copy of the document —
+  and since that document names the hashed JS bundles, a stale copy pins the browser to an old
+  build however often you reload. The hashed bundles themselves keep their immutable caching;
+  they cannot go stale, because their filenames change with their contents.
+
+The no-store behaviour is opt-in via `BETAPET_NO_STORE=1`, which the script sets for both the
+build and the server — custom headers are baked into the build, so setting it only at start time
+would do nothing. Without it the config emits no headers at all, leaving production behaviour
+untouched.
 
 ## Project structure
 
