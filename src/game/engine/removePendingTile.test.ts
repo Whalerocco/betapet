@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
 import { SWEDISH_ALPHABET } from "../configuration/swedishAlphabet";
-import { isOccupied, placeCommittedTile } from "../model/board";
+import { getTileIdAt, isOccupied, placeCommittedTile } from "../model/board";
 import type { GameState } from "../model/game";
 import { createTileId, type TileId } from "../model/ids";
 import type { Player } from "../model/player";
@@ -162,14 +162,138 @@ describe("removePendingTile: undoing a Replace-mode placement", () => {
 
     expect(undone.success).toBe(true);
     if (!undone.success) return;
-    expect(
-      isOccupied(undone.state.board, setup.board.centreCoordinate),
-    ).toBe(true);
+    expect(isOccupied(undone.state.board, setup.board.centreCoordinate)).toBe(
+      true,
+    );
     const player = undone.state.players.find(
       (p) => p.id === setup.playerOneId,
     )!;
     expect(player.rack.tileIds).not.toContain(existingTileId);
     expect(player.rack.tileIds).toContain(tileId);
     expect(undone.state.pendingMove).toBeUndefined();
+  });
+});
+
+describe("removePendingTile: the displaced tile was already re-played elsewhere", () => {
+  /**
+   * Replace a committed tile, play the displaced tile on another square, then take the replacing
+   * tile back. Reported during the Version 1 hot-seat test: this used to throw out of the engine,
+   * because reversing the displacement assumed the displaced tile was still sitting in the rack.
+   */
+  function gameWithDisplacedTileReplayed() {
+    const setup = buildEngineTestGame({
+      playerOneRackLetters: ["A", "B"],
+      modifiers: new Set(["REPLACE"]),
+    });
+    const centre = setup.board.centreCoordinate;
+    const elsewhere = { row: centre.row, column: centre.column + 1 };
+    const committedTileId = createTileId();
+    setup.tiles[committedTileId] = createLetterTile(committedTileId, "X", 8);
+    const board = placeCommittedTile(
+      setup.state.board,
+      centre,
+      committedTileId,
+    );
+    const [replacingTileId] = setup.state.players[0].rack.tileIds;
+
+    const replaced = placeTile(
+      { ...setup.state, board },
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: replacingTileId,
+        coordinate: centre,
+      },
+      { allowReplace: true },
+    );
+    if (!replaced.success) throw new Error("setup failed");
+
+    const replayed = placeTile(
+      replaced.state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: committedTileId,
+        coordinate: elsewhere,
+      },
+      { allowReplace: true },
+    );
+    if (!replayed.success) throw new Error("setup failed");
+
+    return {
+      setup,
+      state: replayed.state,
+      centre,
+      elsewhere,
+      committedTileId,
+      replacingTileId,
+    };
+  }
+
+  it("puts the displaced tile back on its own square and undoes its other placement", () => {
+    const {
+      setup,
+      state,
+      centre,
+      elsewhere,
+      committedTileId,
+      replacingTileId,
+    } = gameWithDisplacedTileReplayed();
+
+    const result = removePendingTile(state, {
+      playerId: setup.playerOneId,
+      tileId: replacingTileId,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    // The board is back exactly as it was before the replace.
+    expect(getTileIdAt(result.state.board, centre)).toBe(committedTileId);
+    expect(getTileIdAt(result.state.board, elsewhere)).toBeUndefined();
+    // One tile cannot be in two places, so the square it had been re-played on is empty again.
+    expect(result.state.pendingMove).toBeUndefined();
+    const rack = result.state.players.find((p) => p.id === setup.playerOneId)!
+      .rack.tileIds;
+    expect(rack).toContain(replacingTileId);
+    expect(rack).not.toContain(committedTileId);
+  });
+
+  it("leaves the player's other pending tiles alone", () => {
+    const { setup, state, centre, committedTileId, replacingTileId } =
+      gameWithDisplacedTileReplayed();
+    const otherTileId = state.players
+      .find((p) => p.id === setup.playerOneId)!
+      .rack.tileIds.find((id) => id !== committedTileId)!;
+    const untouched = { row: centre.row + 3, column: centre.column };
+
+    const withThird = placeTile(
+      state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: otherTileId,
+        coordinate: untouched,
+      },
+      { allowReplace: true },
+    );
+    if (!withThird.success) throw new Error("setup failed");
+
+    const result = removePendingTile(withThird.state, {
+      playerId: setup.playerOneId,
+      tileId: replacingTileId,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.pendingMove?.placedTiles).toEqual([
+      {
+        tileId: otherTileId,
+        coordinate: untouched,
+        representedLetter: undefined,
+      },
+    ]);
   });
 });

@@ -120,12 +120,22 @@ export function scoreWord(
 
 /**
  * Scores a complete move: every newly formed word independently (a tile shared by two words
- * counts, multiplier and all, in both), plus the all-tiles bonus. The bonus is keyed on the
- * game's configured rack size, not how many tiles the player happened to have this turn
- * (game-rules.md section 25): placing every remaining tile from a depleted rack does not
- * qualify unless that count equals the configured rack size. The bonus is about emptying the
- * rack, so it is unaffected by DEC-016 — a rack-emptying move still earns it even if every word
- * it touched was only re-lettered and therefore scored nothing.
+ * counts, multiplier and all, in both), plus the all-tiles bonus.
+ *
+ * The bonus is earned by putting your whole hand on the board in one word move (game-rules.md
+ * section 25, DEC-018), which takes two conditions rather than one:
+ *
+ * - the rack is empty afterwards, and
+ * - at least a full rack's worth of tiles was placed, so that emptying a *depleted* rack near the
+ *   end of a game does not qualify — section 25's own example.
+ *
+ * Both are needed because Replace mode lets a hand exceed the configured rack size: a displaced
+ * tile lands in the same rack, so a player can hold eight tiles with a rack size of seven. Keying
+ * the bonus on the placed count alone paid out for a move that left a tile in hand, and withheld
+ * it from one that emptied a hand of eight.
+ *
+ * The bonus is about emptying the rack, so DEC-016 does not touch it: a rack-emptying move earns
+ * it even if every word it touched was only re-lettered and therefore scored nothing.
  */
 export function scoreMove(
   boardDefinition: BoardDefinition,
@@ -133,15 +143,18 @@ export function scoreMove(
   tiles: Readonly<Record<TileId, Tile>>,
   formedWords: readonly FormedWord[],
   configuredRackSize: RackSize,
+  /** Tiles still in the player's rack once this move's tiles have left it. */
+  tilesLeftInRack: number,
 ): ScoreResult {
   const wordScores = formedWords.map((word) =>
     scoreWord(boardDefinition, placedTiles, tiles, word),
   );
   const wordsTotal = wordScores.reduce((sum, w) => sum + w.total, 0);
-  const allTilesBonus =
-    placedTiles.length === configuredRackSize
-      ? getAllTilesBonus(configuredRackSize)
-      : 0;
+  const emptiedTheRack =
+    tilesLeftInRack === 0 && placedTiles.length >= configuredRackSize;
+  const allTilesBonus = emptiedTheRack
+    ? getAllTilesBonus(configuredRackSize)
+    : 0;
 
   return { wordScores, allTilesBonus, total: wordsTotal + allTilesBonus };
 }

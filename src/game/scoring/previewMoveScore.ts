@@ -23,6 +23,8 @@ export function previewMoveScore(
   tiles: Readonly<Record<TileId, Tile>>,
   placedTiles: readonly PendingPlacedTile[],
   configuredRackSize: RackSize,
+  /** Tiles still in the player's rack; the pending tiles have already left it. */
+  tilesLeftInRack: number,
   options: PhysicalValidationOptions,
 ): number | undefined {
   if (placedTiles.length === 0) return undefined;
@@ -38,6 +40,12 @@ export function previewMoveScore(
   const formedWords = detectFormedWords(boardState, tiles, placedTiles);
   if (formedWords.length === 0) return undefined;
 
-  return scoreMove(boardDefinition, placedTiles, tiles, formedWords, configuredRackSize)
-    .total;
+  return scoreMove(
+    boardDefinition,
+    placedTiles,
+    tiles,
+    formedWords,
+    configuredRackSize,
+    tilesLeftInRack,
+  ).total;
 }

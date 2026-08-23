@@ -467,6 +467,13 @@ The bonus is only awarded when the player actually places the complete rack in o
 
 For example, if a player has only two tiles remaining near the end of a game while playing with a seven-tile rack, placing those two tiles does not qualify for the seven-tile bonus.
 
+Precisely, both of these must hold (DEC-018):
+
+- the player's rack is empty after the move, and
+- at least a full rack's worth of tiles was placed, which is what excludes the depleted-rack example above.
+
+The second condition is not implied by the first. Replace mode (`game-modifiers.md` section 7) puts a displaced tile into the replacing player's own rack, so a hand can hold *more* than the configured rack size — a player may hold eight tiles in a seven-tile game. Emptying such a hand earns the bonus for the configured rack size; leaving a tile in hand does not, however many were placed.
+
 ---
 
 ## 26. Tile exchange

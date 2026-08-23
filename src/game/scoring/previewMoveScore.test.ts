@@ -38,6 +38,7 @@ describe("previewMoveScore", () => {
       tiles,
       placedTiles,
       7,
+      4,
       {},
     );
 
@@ -60,6 +61,7 @@ describe("previewMoveScore", () => {
       tiles,
       placedTiles,
       7,
+      4,
       {},
     );
 
@@ -70,7 +72,15 @@ describe("previewMoveScore", () => {
     const boardDefinition = testBoard();
     const boardState = createBoardState();
 
-    const total = previewMoveScore(boardState, boardDefinition, {}, [], 7, {});
+    const total = previewMoveScore(
+      boardState,
+      boardDefinition,
+      {},
+      [],
+      7,
+      7,
+      {},
+    );
 
     expect(total).toBeUndefined();
   });

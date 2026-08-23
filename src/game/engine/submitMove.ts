@@ -151,12 +151,17 @@ export function submitMove(
     }
   }
 
+  // Placed tiles left the rack as they were placed, so what remains there now is what the player
+  // would still be holding after this move — the all-tiles bonus turns on that being empty.
+  const tilesLeftInRack = state.players.find((p) => p.id === playerId)!.rack
+    .tileIds.length;
   const scoreResult = scoreMove(
     configuration.boardDefinition,
     pendingMove.placedTiles,
     state.tiles,
     formedWords,
     configuration.rackSize,
+    tilesLeftInRack,
   );
 
   const hasUnknownWord = wordResults.some(

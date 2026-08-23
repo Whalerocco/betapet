@@ -568,6 +568,7 @@ export function GameScreen({
           state.tiles,
           pendingPlacedTiles,
           deps.configuration.rackSize,
+          currentPlayer.rack.tileIds.length,
           {
             allowMultiBranch: deps.configuration.modifiers.has("CRISSCROSS"),
             isFirstMoveOverride: hasCommittedMove(state.history)

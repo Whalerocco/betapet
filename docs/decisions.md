@@ -1735,3 +1735,81 @@ Relevant files:
 - `src/game/engine/placeTile.ts`, `movePendingTile.ts`
 - `src/game/engine/placeTile.test.ts`, `movePendingTile.test.ts`
 - `src/components/game/GameScreen.test.tsx`
+
+## DEC-018 — The all-tiles bonus is earned by emptying your hand, not by placing a rack's worth
+
+**Date:** 2026-08-23
+**Status:** ACCEPTED
+**Area:** Engine / Rules spec
+
+### Context
+
+`scoreMove` awarded the all-tiles bonus when `placedTiles.length === configuredRackSize`. Without
+Replace mode a hand can never exceed the rack size, so that is the same as "played everything you
+held". Replace mode breaks the equivalence: a displaced tile joins the *replacing* player's rack
+(DEC-008), so a hand can hold more tiles than the configured rack size.
+
+The project owner hit both halves of the resulting oddity during the Version 1 hot-seat test, and
+reported it as playing fewer tiles scoring more:
+
+- holding 7 tiles in a 6-tile game and placing 6 paid the 40-point bonus, although a tile was left
+  in hand;
+- placing all 7 paid nothing, although the hand was emptied.
+
+In the reported game the two moves differed by roughly ten points of word score, so the bonus
+turned a 59-point move into an 89-point one for playing one tile fewer.
+
+### Decision
+
+The bonus is earned by putting your whole hand on the board in one word move. Both conditions
+must hold:
+
+- the rack is empty after the move, and
+- at least a full rack's worth of tiles was placed.
+
+The second is what preserves `game-rules.md` section 25's own example: emptying a *depleted* rack
+near the end of a game still does not qualify. The bonus amount continues to come from the
+configured rack size, so emptying an eight-tile hand in a seven-tile game pays the seven-tile
+bonus rather than the eight-tile one — the hand grew by accident of Replace mode, and the game was
+not configured as an eight-tile game.
+
+### Alternatives considered
+
+Leaving it keyed on the placed count — rejected by the project owner: it rewards holding a tile
+back, which is exactly backwards, and it is the behaviour that was reported.
+
+Requiring the hand to have been exactly a full rack as well, so an oversized hand never earns the
+bonus — rejected: a player who puts eight tiles on the board has done more than one who puts down
+seven, and withholding the bonus there repeats the original complaint in a milder form.
+
+Paying a bonus scaled to the number of tiles actually placed — rejected: `game-rules.md` section
+25 defines three fixed amounts tied to the configured rack size, and inventing a fourth for a
+modifier-inflated hand is a bigger rule change than the problem warrants.
+
+### Rationale
+
+Direct, played-and-confirmed feedback from the project owner, treated as an authoritative
+specification correction per this file's process. "Places the complete rack" was always the
+intent; the placed-count test was a shortcut that only coincided with it before Replace mode
+existed.
+
+### Consequences
+
+- `game-rules.md` section 25 states both conditions and why the second one is needed.
+- `game-modifiers.md` section 7 notes the interaction, since Replace mode is what makes a hand
+  able to exceed the rack size.
+- `scoreMove` takes the number of tiles left in the rack; `submitMove` reads it from the acting
+  player (whose rack has already given up the placed tiles), and `previewMoveScore` threads it
+  through so the live score badge matches what the move will actually pay.
+- Playing more of your hand can never score less than holding one back, which is asserted by a
+  test rather than left implied.
+
+### Revisit when
+
+Not anticipated — this is now the confirmed, intended rule.
+
+Relevant files:
+- `docs/game-rules.md` (section 25), `docs/game-modifiers.md` (section 7)
+- `src/game/scoring/scoreMove.ts`, `scoreMove.test.ts`
+- `src/game/scoring/previewMoveScore.ts`
+- `src/game/engine/submitMove.ts`

@@ -227,6 +227,7 @@ describe("scoreMove", () => {
       tiles,
       [mainWord, crossingWord],
       7,
+      4,
     );
 
     // Main "AB": 1 + 4x2 = 9. Crossing "BC": 4x2 + 8 = 16. Total (no bonus, only 3 tiles): 25.
@@ -235,7 +236,7 @@ describe("scoreMove", () => {
     expect(result.allTilesBonus).toBe(0);
   });
 
-  it("awards the all-tiles bonus when the placement equals the configured rack size", () => {
+  it("awards the all-tiles bonus for emptying a full rack in one move", () => {
     const tiles: Record<TileId, Tile> = {};
     const letters = ["K", "A", "T", "T", "O", "R", "N"];
     const placedTiles = letters.map(
@@ -247,7 +248,14 @@ describe("scoreMove", () => {
       placedTiles.map((p) => p.coordinate),
     );
 
-    const result = scoreMove(testBoard(), placedTiles, tiles, [formedWord], 7);
+    const result = scoreMove(
+      testBoard(),
+      placedTiles,
+      tiles,
+      [formedWord],
+      7,
+      0,
+    );
 
     expect(result.allTilesBonus).toBe(50);
     expect(result.total).toBe(7 + 50);
@@ -264,11 +272,98 @@ describe("scoreMove", () => {
       [a.placed.coordinate, b.placed.coordinate],
     );
 
-    // Configured rack size is 7, but only 2 tiles were placed (e.g. the bag ran low).
-    const result = scoreMove(testBoard(), placedTiles, tiles, [formedWord], 7);
+    // The rack held only these 2 tiles and is now empty, but emptying a depleted rack does not
+    // qualify for the seven-tile bonus (game-rules.md section 25's own example).
+    const result = scoreMove(
+      testBoard(),
+      placedTiles,
+      tiles,
+      [formedWord],
+      7,
+      0,
+    );
 
     expect(result.allTilesBonus).toBe(0);
     expect(result.total).toBe(5);
+  });
+});
+
+describe("scoreMove: the all-tiles bonus with a Replace-inflated hand (DEC-018)", () => {
+  /**
+   * Replace mode puts a displaced tile into the replacing player's own rack, so a hand can hold
+   * more than the configured rack size. The project owner hit both halves of this during the
+   * Version 1 hot-seat test: playing 6 of 7 held tiles scored *more* than playing all 7, because
+   * the bonus used to key on the placed count matching the rack size.
+   */
+  function placement(count: number) {
+    const tiles: Record<TileId, Tile> = {};
+    const placedTiles = Array.from(
+      { length: count },
+      (_, index) => newLetter(tiles, 0, index, "A", 1).placed,
+    );
+    const formedWord = word(
+      "A".repeat(count),
+      placedTiles.map((p) => p.tileId),
+      placedTiles.map((p) => p.coordinate),
+    );
+    return { tiles, placedTiles, formedWord };
+  }
+
+  it("awards it for emptying a hand grown past the rack size", () => {
+    const { tiles, placedTiles, formedWord } = placement(7);
+
+    // Rack size 6, but a displaced tile made the hand 7; all 7 are placed, so nothing is left.
+    const result = scoreMove(
+      testBoard(),
+      placedTiles,
+      tiles,
+      [formedWord],
+      6,
+      0,
+    );
+
+    expect(result.allTilesBonus).toBe(40);
+  });
+
+  it("withholds it when a tile is left in hand, even at exactly a rack's worth", () => {
+    const { tiles, placedTiles, formedWord } = placement(6);
+
+    // The same hand of 7, but only 6 placed: one tile remains, so the hand was not emptied.
+    const result = scoreMove(
+      testBoard(),
+      placedTiles,
+      tiles,
+      [formedWord],
+      6,
+      1,
+    );
+
+    expect(result.allTilesBonus).toBe(0);
+  });
+
+  it("scores a rack-emptying move at least as high as holding one back", () => {
+    const all = placement(7);
+    const heldBack = placement(6);
+
+    const playedEverything = scoreMove(
+      testBoard(),
+      all.placedTiles,
+      all.tiles,
+      [all.formedWord],
+      6,
+      0,
+    );
+    const keptOne = scoreMove(
+      testBoard(),
+      heldBack.placedTiles,
+      heldBack.tiles,
+      [heldBack.formedWord],
+      6,
+      1,
+    );
+
+    // The whole point of the correction: playing more of your hand can never score less.
+    expect(playedEverything.total).toBeGreaterThan(keptOne.total);
   });
 });
 
@@ -418,7 +513,14 @@ describe("scoreWord: Replace mode only scores a word the move lengthened (DEC-01
     }
     const formedWord = word("XAAAAAAA", tileIds, coordinates);
 
-    const result = scoreMove(testBoard(), placedTiles, tiles, [formedWord], 7);
+    const result = scoreMove(
+      testBoard(),
+      placedTiles,
+      tiles,
+      [formedWord],
+      7,
+      0,
+    );
 
     expect(result.wordScores[0].total).toBe(0);
     expect(result.allTilesBonus).toBeGreaterThan(0);
