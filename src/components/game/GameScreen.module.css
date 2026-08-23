@@ -33,24 +33,44 @@
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+  grid-template-areas:
+    "board history"
+    "footer history";
   align-items: start;
   gap: var(--spacing-md);
 }
 
+/*
+ * One column on mobile, and the history goes *below* the rack and action buttons rather than
+ * between them and the board (ui-design.md section 41). History grows with every turn, so
+ * placing it above the controls would push "Spela" further down the page the longer the game
+ * runs — the one part of the screen that must stay reachable.
+ */
 @media (max-width: 56rem) {
   .layout {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "board"
+      "footer"
+      "history";
   }
 }
 
 .boardColumn {
+  grid-area: board;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
   min-width: 0;
 }
 
+.historyColumn {
+  grid-area: history;
+  min-width: 0;
+}
+
 .footer {
+  grid-area: footer;
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);

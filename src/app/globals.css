@@ -21,6 +21,10 @@
   --tile-foreground: #3a2f1c;
   --tile-pending-border: #7a9e5c;
   --tile-selected-border: #3a6ea5;
+  /* A tile taken off the board by a Replace-mode move, while it is still restricted this turn. */
+  --tile-displaced-background: #dceafa;
+  --tile-displaced-border: #3a6ea5;
+  --tile-displaced-foreground: #16304d;
   --accent: #3a6ea5;
   --accent-hover: #2f5c8a;
   --accent-foreground: #ffffff;
@@ -48,7 +52,13 @@
    * floor keeps tiles legible; below ~364px width the board falls back to the horizontal
    * scrolling ui-design.md section 41 already allows for tight mobile space management.
    */
-  --tile-size: clamp(1.15rem, calc((100vw - 4rem) / 15), 2.6rem);
+  --tile-base: clamp(1.15rem, calc((100vw - 4rem) / 15), 2.6rem);
+  /*
+   * The board multiplies this by its own zoom factor (Board.tsx), so a pinch enlarges real
+   * layout rather than applying a transform: the scroll container then has genuine dimensions to
+   * pan within, and hit-testing a cell stays exact for tile drags.
+   */
+  --tile-size: var(--tile-base);
   --touch-target: 2.75rem;
   --transition-fast: 120ms ease;
 }
@@ -77,6 +87,9 @@
     --tile-foreground: #f0e6c8;
     --tile-pending-border: #7a9e5c;
     --tile-selected-border: #5a9bd6;
+    --tile-displaced-background: #1c3a4d;
+    --tile-displaced-border: #5a9bd6;
+    --tile-displaced-foreground: #d7e8fb;
     --accent: #5a9bd6;
     --accent-hover: #78addf;
     --accent-foreground: #0a0a0a;

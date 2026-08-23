@@ -252,6 +252,14 @@ Do not rely only on color for this distinction.
 
 After a move is committed, the tiles should visually become part of the board.
 
+Under Replace mode (`game-modifiers.md` section 7) the rack needs the same kind of distinction. A
+tile the current move displaced off the board arrives in the player's rack mixed in with tiles
+that were already there, and it is not an ordinary tile yet: until the turn ends it may not
+displace another tile. It is therefore shown in blue for exactly as long as that restriction
+lasts, and its accessible name gains an `ersatt bricka` suffix so the state does not depend on
+colour alone. Once the move is committed the restriction lifts, and the tile is drawn like any
+other by the time that player next sees the rack.
+
 ---
 
 # 11. Tile interaction
@@ -981,6 +989,22 @@ History drawer
 ```
 
 The board may require careful scaling or horizontal space management.
+
+Fitting the whole 15x15 board to a phone's width puts a cell at roughly 22px, half of a
+comfortable touch target, and the two cannot both be satisfied: fifteen columns at 44px need
+about 724px of width. The board therefore zooms independently of the page:
+
+- A two-finger pinch **on the board** scales the board alone, between fit-to-width and 3x. The
+  rack, scores and action buttons keep their size and position, which is exactly what pinching
+  the page cannot do.
+- While zoomed, one finger dragging the board pans it, and a `Visa hela brädet` button returns to
+  fit-to-width.
+- A gesture that starts on a tile the player can pick up still drags that tile; panning never
+  takes a gesture away from a tile drag.
+- Zoom scales the tiles' real layout rather than painting a transform over the board, so tapping
+  a square still lands on that exact square at any zoom level.
+- Zoom is transient view state: it belongs to neither `GameState` nor the saved local session
+  (`content-model.md` section 38), and it resets on reload.
 
 Avoid relying on hover.
 

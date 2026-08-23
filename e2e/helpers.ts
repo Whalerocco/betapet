@@ -76,7 +76,8 @@ export async function getRackLetters(page: Page): Promise<string[]> {
       buttons.map((b) => b.getAttribute("aria-label") ?? ""),
     );
   return labels.map((label) => {
-    const match = /^Bricka (.+), \d+ poäng$/.exec(label);
+    // A Replace-mode displaced tile carries a ", ersatt bricka" suffix (Rack.tsx).
+    const match = /^Bricka (.+), \d+ poäng(?:, .+)?$/.exec(label);
     if (!match) throw new Error(`Unexpected rack tile aria-label: ${label}`);
     return match[1];
   });

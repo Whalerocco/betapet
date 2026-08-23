@@ -1,14 +1,64 @@
+.boardArea {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  max-width: 100%;
+}
+
+/*
+ * The window onto the board. Scrolling and zooming live here rather than on the grid itself, so
+ * a pinch enlarges the board alone and leaves the rack and action buttons at their usual size
+ * (ui-design.md sections 41-42).
+ *
+ * touch-action: none hands every touch gesture to useBoardZoom. Native scrolling would otherwise
+ * start under the first finger before the second one lands, turning a pinch into a pan; the hook
+ * pans by hand instead, and deliberately ignores gestures that start on a draggable tile.
+ */
+.viewport {
+  overflow: auto;
+  /*
+   * Hugs the board at fit-to-width and stops growing at the column width, so zooming enlarges
+   * the board *inside* a fixed window instead of stretching the page — the height has to be
+   * bounded too, or a zoomed board would simply make the document taller and carry the rack and
+   * buttons off-screen, which is the thing pinching the page already does badly.
+   */
+  width: fit-content;
+  max-width: 100%;
+  aspect-ratio: var(--board-aspect, 1);
+  touch-action: none;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-md);
+}
+
 .board {
   display: grid;
-  gap: 1px;
+  /*
+   * The gap and padding scale with the zoom alongside the tiles. If they stayed fixed, the board
+   * would not be a uniform enlargement of itself, and the pinch geometry — which assumes every
+   * coordinate scales by the same factor — would leave the content under your fingers drifting
+   * by the un-scaled remainder on each step.
+   */
+  gap: calc(1px * var(--board-zoom, 1));
   background: var(--board-background);
-  padding: var(--spacing-sm);
+  padding: calc(var(--spacing-sm) * var(--board-zoom, 1));
   border-radius: var(--radius-md);
   border: 1px solid var(--panel-border);
   box-shadow: var(--shadow-sm);
   width: fit-content;
-  max-width: 100%;
-  overflow: auto;
+}
+
+.resetZoom {
+  align-self: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--spacing-md);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-background);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
 }
 
 .cell {

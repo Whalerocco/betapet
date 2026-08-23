@@ -1,5 +1,11 @@
-import type { PointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 import { BoardCell } from "./BoardCell";
+import { useBoardZoom } from "./useBoardZoom";
 import styles from "./Board.module.css";
 import type { BoardDefinition, BoardState } from "../../game/model/board";
 import { coordinateKey, type Coordinate } from "../../game/model/coordinate";
@@ -56,6 +62,21 @@ export function Board({
   scoreBadgeCoordinate,
   scoreBadgeValue,
 }: BoardProps) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const zoomState = useBoardZoom();
+
+  // A ctrl+wheel (trackpad pinch) over the board would otherwise zoom the whole page. React's
+  // onWheel is passive and cannot preventDefault, so the blocking listener is registered here.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const blockPageZoom = (event: WheelEvent) => {
+      if (event.ctrlKey) event.preventDefault();
+    };
+    viewport.addEventListener("wheel", blockPageZoom, { passive: false });
+    return () => viewport.removeEventListener("wheel", blockPageZoom);
+  }, []);
+
   const scoreBadgeKey = scoreBadgeCoordinate
     ? coordinateKey(scoreBadgeCoordinate)
     : undefined;
@@ -78,13 +99,19 @@ export function Board({
     (_, column) => column,
   );
 
-  return (
+  const grid = (
     <div
       className={styles.board}
-      style={{
-        gridTemplateColumns: `repeat(${boardDefinition.width}, var(--tile-size))`,
-        gridTemplateRows: `repeat(${boardDefinition.height}, var(--tile-size))`,
-      }}
+      style={
+        {
+          // Zoom scales the tiles themselves, so the grid genuinely lays out larger and the
+          // viewport below gets a real scrollable area to pan around (useBoardZoom.ts).
+          "--board-zoom": zoomState.zoom,
+          "--tile-size": `calc(var(--tile-base) * ${zoomState.zoom})`,
+          gridTemplateColumns: `repeat(${boardDefinition.width}, var(--tile-size))`,
+          gridTemplateRows: `repeat(${boardDefinition.height}, var(--tile-size))`,
+        } as CSSProperties
+      }
       role="grid"
       aria-label="Spelplan"
     >
@@ -170,6 +197,39 @@ export function Board({
             />
           );
         }),
+      )}
+    </div>
+  );
+
+  return (
+    <div className={styles.boardArea}>
+      <div
+        ref={viewportRef}
+        className={styles.viewport}
+        style={
+          {
+            "--board-aspect": `${boardDefinition.width} / ${boardDefinition.height}`,
+          } as CSSProperties
+        }
+        onPointerDown={zoomState.onPointerDown}
+        onPointerMove={zoomState.onPointerMove}
+        onPointerUp={zoomState.onPointerUp}
+        onPointerCancel={zoomState.onPointerUp}
+        onWheel={zoomState.onWheel}
+      >
+        {grid}
+      </div>
+      {zoomState.isZoomed && (
+        <button
+          type="button"
+          className={styles.resetZoom}
+          onClick={() => {
+            viewportRef.current?.scrollTo({ left: 0, top: 0 });
+            zoomState.resetZoom();
+          }}
+        >
+          Visa hela brädet
+        </button>
       )}
     </div>
   );

@@ -8,6 +8,12 @@ export interface RackTileView {
   readonly letter: string;
   readonly points: number;
   readonly isBlank: boolean;
+  /**
+   * Replace mode (game-modifiers.md section 7): this tile was displaced from the board by the
+   * move in progress, so it is marked out from the tiles that were already in the hand and
+   * cannot displace another tile until the turn ends.
+   */
+  readonly isDisplaced?: boolean;
 }
 
 export interface RackProps {
@@ -58,6 +64,7 @@ export function Rack({
             tile.id === selectedTileId || exchangeSelection?.has(tile.id)
           }
           isDragSource={tile.id === draggingTileId}
+          isDisplaced={tile.isDisplaced}
           onClick={() => onSelectTile(tile.id)}
           onPointerDown={
             onTilePointerDown
@@ -65,9 +72,10 @@ export function Rack({
               : undefined
           }
           ariaLabel={
-            tile.isBlank
+            (tile.isBlank
               ? "Blank bricka"
-              : `Bricka ${tile.letter}, ${tile.points} poäng`
+              : `Bricka ${tile.letter}, ${tile.points} poäng`) +
+            (tile.isDisplaced ? ", ersatt bricka" : "")
           }
         />
       ))}

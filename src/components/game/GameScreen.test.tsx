@@ -512,6 +512,46 @@ describe("GameScreen: Replace mode", () => {
     }
   }
 
+  it("marks the displaced tile in the rack, and stops marking it once the turn ends", async () => {
+    const { setup } = renderReplaceGame(["A", "I", "B"]);
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    // Before the replace, the "I" already in the hand carries no marking.
+    expect(screen.getByLabelText("Bricka I, 1 poäng")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText("Bricka A, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Ersätt bricka I"));
+
+    // The displaced "I" is distinguishable from the "I" that was always in the hand: same
+    // letter and points, but its own accessible name and its own styling.
+    const displaced = screen.getByLabelText("Bricka I, 1 poäng, ersatt bricka");
+    expect(displaced).toBeInTheDocument();
+    expect(screen.getByLabelText("Bricka I, 1 poäng")).toBeInTheDocument();
+    expect(displaced.className).not.toBe(
+      screen.getByLabelText("Bricka I, 1 poäng").className,
+    );
+
+    // Committing ends the turn, which lifts the restriction: it is an ordinary tile again by the
+    // time this player next sees the rack.
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+    await userEvent.click(screen.getByRole("button", { name: "Passa" }));
+    const confirmPass = screen.getByRole("dialog", {
+      name: "Bekräfta passning",
+    });
+    await userEvent.click(
+      within(confirmPass).getByRole("button", { name: "Passa" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    expect(
+      screen.getByText(`Din tur: ${setup.state.players[0].name}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/ersatt bricka/),
+    ).not.toBeInTheDocument();
+  });
+
   it("replaces a committed tile by tapping it after selecting a rack tile", async () => {
     renderReplaceGame(["A", "I", "B"]);
     await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
@@ -525,7 +565,12 @@ describe("GameScreen: Replace mode", () => {
     expect(
       screen.getByLabelText("Pending bricka A, tryck för att redigera"),
     ).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Bricka I, 1 poäng")).toHaveLength(2);
+    // The displaced "I" joins the rack alongside the "I" that was already there, marked out
+    // from it as a tile this move took off the board.
+    expect(
+      screen.getByLabelText("Bricka I, 1 poäng, ersatt bricka"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Bricka I, 1 poäng")).toBeInTheDocument();
   });
 
   it("drags a rack tile onto a committed tile and takes the displaced tile into the rack", async () => {
@@ -541,7 +586,10 @@ describe("GameScreen: Replace mode", () => {
       ),
     ).toBeInTheDocument();
     // The displaced "I" joins the replacing player's rack — alongside the "I" already there.
-    expect(screen.getAllByLabelText("Bricka I, 1 poäng")).toHaveLength(2);
+    expect(
+      screen.getByLabelText("Bricka I, 1 poäng, ersatt bricka"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Bricka I, 1 poäng")).toBeInTheDocument();
   });
 
   it("shows a Swedish error when the replacing tile carries the same letter (DEC-015)", async () => {

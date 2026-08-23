@@ -32,6 +32,7 @@ import { Dialog } from "../common/Dialog";
 import { Tile } from "../common/Tile";
 import type { DragPointerPosition } from "../common/useTileDrag";
 import { useTileDrag } from "../common/useTileDrag";
+import { tilesDisplacedThisMove } from "../../game/engine/placeTile";
 import { Rack, type RackTileView } from "../rack/Rack";
 import { BlankLetterPicker } from "./BlankLetterPicker";
 import { GameHistory } from "./GameHistory";
@@ -261,7 +262,9 @@ export function GameScreen({
             />
           </div>
 
-          <GameHistory history={state.history} playerNames={playerNames} />
+          <div className={styles.historyColumn}>
+            <GameHistory history={state.history} playerNames={playerNames} />
+          </div>
         </div>
       </div>
     );
@@ -270,6 +273,13 @@ export function GameScreen({
   const currentPlayerId = state.turnState.playerId;
   const currentPlayer = state.players.find((p) => p.id === currentPlayerId)!;
 
+  // Tiles this move displaced off the board, which are in the rack but still restricted for the
+  // rest of the turn (game-modifiers.md section 7). Derived from the same engine helper the
+  // placement rules use, so the highlight can never disagree with what the engine will allow.
+  const displacedTileIds = tilesDisplacedThisMove(
+    state.pendingMove?.placedTiles ?? [],
+  );
+
   const rackTiles: RackTileView[] = currentPlayer.rack.tileIds.map((tileId) => {
     const tile = state.tiles[tileId];
     return {
@@ -277,6 +287,7 @@ export function GameScreen({
       letter: tileLetter(tile) ?? "",
       points: tile.points,
       isBlank: tile.kind === "BLANK",
+      isDisplaced: displacedTileIds.has(tileId),
     };
   });
 
@@ -663,48 +674,50 @@ export function GameScreen({
           )}
         </div>
 
-        <GameHistory history={state.history} playerNames={playerNames} />
-      </div>
+        {footerActive && (
+          <div className={styles.footer}>
+            <div className={styles.rackRow}>
+              <Rack
+                tiles={rackTiles}
+                selectedTileId={selectedTileId}
+                exchangeSelection={exchangeMode ? exchangeSelection : undefined}
+                onSelectTile={handleSelectTile}
+                onTilePointerDown={handleRackTilePointerDown}
+                draggingTileId={dragState?.item}
+              />
+              <button
+                type="button"
+                className={styles.shuffleButton}
+                onClick={handleShuffleRack}
+                aria-label="Blanda brickorna i din hand"
+              >
+                Blanda brickor
+              </button>
+            </div>
 
-      {footerActive && (
-        <div className={styles.footer}>
-          <div className={styles.rackRow}>
-            <Rack
-              tiles={rackTiles}
-              selectedTileId={selectedTileId}
-              exchangeSelection={exchangeMode ? exchangeSelection : undefined}
-              onSelectTile={handleSelectTile}
-              onTilePointerDown={handleRackTilePointerDown}
-              draggingTileId={dragState?.item}
+            <TurnActions
+              canSubmit={canSubmit}
+              canPass={canPass}
+              canClear={canClear}
+              canEndGame={canEndGame}
+              exchangeMode={exchangeMode}
+              exchangeSelectionCount={exchangeSelection.size}
+              canStartExchange={canStartExchange}
+              onSubmit={handleSubmit}
+              onClear={handleClear}
+              onStartExchange={handleStartExchange}
+              onCancelExchange={handleCancelExchange}
+              onConfirmExchange={handleConfirmExchange}
+              onPass={handlePass}
+              onEndGame={handleEndGame}
             />
-            <button
-              type="button"
-              className={styles.shuffleButton}
-              onClick={handleShuffleRack}
-              aria-label="Blanda brickorna i din hand"
-            >
-              Blanda brickor
-            </button>
           </div>
+        )}
 
-          <TurnActions
-            canSubmit={canSubmit}
-            canPass={canPass}
-            canClear={canClear}
-            canEndGame={canEndGame}
-            exchangeMode={exchangeMode}
-            exchangeSelectionCount={exchangeSelection.size}
-            canStartExchange={canStartExchange}
-            onSubmit={handleSubmit}
-            onClear={handleClear}
-            onStartExchange={handleStartExchange}
-            onCancelExchange={handleCancelExchange}
-            onConfirmExchange={handleConfirmExchange}
-            onPass={handlePass}
-            onEndGame={handleEndGame}
-          />
+        <div className={styles.historyColumn}>
+          <GameHistory history={state.history} playerNames={playerNames} />
         </div>
-      )}
+      </div>
 
       {dragState && (
         <div

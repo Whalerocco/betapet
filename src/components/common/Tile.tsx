@@ -16,6 +16,12 @@ export interface TileProps {
   readonly onPointerDown?: (event: PointerEvent<HTMLButtonElement>) => void;
   /** True while this exact tile is the one currently being dragged, so its origin spot dims. */
   readonly isDragSource?: boolean;
+  /**
+   * Replace mode (game-modifiers.md section 7): this rack tile was displaced from the board by
+   * the move in progress, and cannot displace another tile until the turn ends. Shown in blue so
+   * it is distinguishable from tiles that were already in the hand.
+   */
+  readonly isDisplaced?: boolean;
 }
 
 /**
@@ -34,6 +40,7 @@ export function Tile({
   ariaLabel,
   onPointerDown,
   isDragSource = false,
+  isDisplaced = false,
 }: TileProps) {
   const classNames = [
     styles.tile,
@@ -42,6 +49,7 @@ export function Tile({
     isBlank ? styles.blank : "",
     onPointerDown ? styles.draggable : "",
     isDragSource ? styles.dragSource : "",
+    isDisplaced ? styles.displaced : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -64,6 +72,9 @@ export function Tile({
       disabled={disabled}
       aria-pressed={selected}
       aria-label={ariaLabel}
+      // Marks the tiles that own their own drag gesture, so the board's pan gesture leaves them
+      // alone (useBoardZoom.ts) instead of panning the board out from under a tile being moved.
+      data-tile-draggable={onPointerDown ? "true" : undefined}
     >
       <span className={styles.letter}>{letter}</span>
       <span className={styles.points}>{points}</span>

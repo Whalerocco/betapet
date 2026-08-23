@@ -59,6 +59,35 @@ button.tile.committed:focus-visible {
   outline-offset: 1px;
 }
 
+/*
+ * A tile a Replace-mode move just took off the board and put in this player's rack. It reads as
+ * blue rather than bone for as long as it is restricted — it may not displace another tile until
+ * the turn ends (game-modifiers.md section 7) — so it is distinguishable from the tiles that were
+ * always in the hand. The colour is backed up by the tile's accessible name, since colour alone
+ * is not a signal every player receives.
+ */
+.tile.displaced {
+  background: linear-gradient(
+    155deg,
+    var(--tile-displaced-background),
+    color-mix(
+      in srgb,
+      var(--tile-displaced-background) 88%,
+      var(--tile-displaced-border)
+    )
+  );
+  border-color: var(--tile-displaced-border);
+  color: var(--tile-displaced-foreground);
+}
+
+button.tile.displaced:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--tile-displaced-background) 88%,
+    var(--tile-displaced-border)
+  );
+}
+
 .tile.selected {
   border: 2px solid var(--tile-selected-border);
   box-shadow: var(--shadow-md);
