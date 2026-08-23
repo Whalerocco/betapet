@@ -19,10 +19,11 @@ export interface BoardCellProps {
   readonly scoreBadge?: number;
   readonly onPlace?: () => void;
   /**
-   * Replace mode (game-modifiers.md section 7): set when this cell's *committed* tile may be
-   * targeted by the currently selected rack tile, which turns the tile itself into a placement
-   * button. Undefined otherwise, leaving the committed tile inert exactly as before. Whether the
-   * replace is actually legal is still the engine's call, not this component's.
+   * Set when the tile on this square may be targeted by the currently selected rack tile, which
+   * turns the tile itself into a placement button: a committed tile under Replace mode
+   * (game-modifiers.md section 7), or one of the player's own not-yet-played tiles, which simply
+   * swaps (DEC-017). Undefined otherwise, leaving a committed tile inert exactly as before.
+   * Whether the placement is actually legal is still the engine's call, not this component's.
    */
   readonly onReplace?: () => void;
   readonly onPendingTileClick?: () => void;
@@ -67,6 +68,20 @@ export function BoardCell({
 }: BoardCellProps) {
   if (tile) {
     const dragOverClass = isDragOver ? styles.dragOver : "";
+    /*
+     * A square holding a tile can be tapped for either of two reasons, and `onReplace` decides
+     * which: with a rack tile selected it is a placement target — a Replace-mode replacement, or
+     * a swap with one of your own not-yet-played tiles (DEC-017) — and otherwise a pending tile
+     * falls back to its own "pick it back up" behaviour. Placing wins when both are possible,
+     * because selecting a tile first is a clear statement of intent to put it somewhere.
+     */
+    const onClick =
+      onReplace ?? (tile.isPending ? onPendingTileClick : undefined);
+    const ariaLabel = onReplace
+      ? `Ersätt bricka ${tile.letter}`
+      : tile.isPending
+        ? `Pending bricka ${tile.letter}, tryck för att redigera`
+        : undefined;
     return (
       <div
         className={`${styles.cell} ${styles[multiplier]} ${dragOverClass}`}
@@ -82,17 +97,9 @@ export function BoardCell({
           variant={tile.isPending ? "pending" : "committed"}
           isBlank={tile.isBlank}
           isDragSource={tile.isDragSource}
-          onClick={tile.isPending ? onPendingTileClick : onReplace}
-          onPointerDown={
-            tile.isPending ? onPendingTilePointerDown : undefined
-          }
-          ariaLabel={
-            tile.isPending
-              ? `Pending bricka ${tile.letter}, tryck för att redigera`
-              : onReplace
-                ? `Ersätt bricka ${tile.letter}`
-                : undefined
-          }
+          onClick={onClick}
+          onPointerDown={tile.isPending ? onPendingTilePointerDown : undefined}
+          ariaLabel={ariaLabel}
         />
       </div>
     );

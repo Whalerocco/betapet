@@ -173,7 +173,7 @@ describe("placeTile", () => {
     });
   });
 
-  it("rejects placing two tiles on the same coordinate", () => {
+  it("swaps a tile placed this turn when another is placed on the same square (DEC-017)", () => {
     const state = newGame();
     const [tileA, tileB] = letterTileIdsInRack(state, state.currentPlayerId, 2);
     const coordinate = SCRABBLE_BOARD_DEFINITION.centreCoordinate;
@@ -202,10 +202,18 @@ describe("placeTile", () => {
       },
     );
 
-    expect(second).toEqual({
-      success: false,
-      error: { code: "INVALID_PLACEMENT", messageKey: "invalidPlacement" },
-    });
+    // Ordinary editing of an uncommitted move: the second tile takes the square and the first
+    // goes back to the rack, in every mode. Nothing has been played, so this is not a replace.
+    expect(second.success).toBe(true);
+    if (!second.success) return;
+    expect(second.state.pendingMove?.placedTiles).toEqual([
+      { tileId: tileB, coordinate, representedLetter: undefined },
+    ]);
+    const rack = second.state.players.find(
+      (p) => p.id === state.currentPlayerId,
+    )!.rack.tileIds;
+    expect(rack).toContain(tileA);
+    expect(rack).not.toContain(tileB);
   });
 
   it("requires a represented letter for a blank tile", () => {
@@ -540,7 +548,7 @@ describe("placeTile: Replace mode (allowReplace)", () => {
     expect(normalPlacement.success).toBe(true);
   });
 
-  it("rejects a replace targeting a cell already claimed by this pending move", () => {
+  it("swapping onto your own replace placement inherits the displacement (DEC-017)", () => {
     const setup = buildEngineTestGame();
     const existingTileId = letterTile(setup.tiles, "S");
     const board = placeCommittedTile(
@@ -577,9 +585,73 @@ describe("placeTile: Replace mode (allowReplace)", () => {
       { allowReplace: true },
     );
 
-    expect(second).toEqual({
+    expect(second.success).toBe(true);
+    if (!second.success) return;
+    const placed = second.state.pendingMove?.placedTiles ?? [];
+    expect(placed).toHaveLength(1);
+    // The square was already standing in for the committed "S", so whichever tile ends up there
+    // is the one replacing it — the link must survive the swap, or "S" would have nothing
+    // recording where it came from.
+    expect(placed[0]).toEqual({
+      tileId: secondTileId,
+      coordinate: setup.board.centreCoordinate,
+      representedLetter: undefined,
+      replacedTileId: existingTileId,
+    });
+    const rack = second.state.players.find(
+      (p) => p.id === setup.playerOneId,
+    )!.rack.tileIds;
+    expect(rack).toContain(firstTileId);
+    expect(rack).not.toContain(secondTileId);
+    // "S" left the board exactly once, however many times the square changed hands.
+    expect(rack.filter((id) => id === existingTileId)).toHaveLength(1);
+    expect(isOccupied(second.state.board, setup.board.centreCoordinate)).toBe(
+      false,
+    );
+  });
+
+  it("still refuses a swap that would put the displaced tile's own letter back (DEC-015)", () => {
+    const setup = buildEngineTestGame({ playerOneRackLetters: ["A", "S"] });
+    const existingTileId = letterTile(setup.tiles, "S");
+    const board = placeCommittedTile(
+      setup.state.board,
+      setup.board.centreCoordinate,
+      existingTileId,
+    );
+    const state = { ...setup.state, board };
+    const [a, s] = state.players[0].rack.tileIds;
+
+    const replaced = placeTile(
+      state,
+      setup.board,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId: a,
+        coordinate: setup.board.centreCoordinate,
+      },
+      { allowReplace: true },
+    );
+    expect(replaced.success).toBe(true);
+    if (!replaced.success) return;
+
+    // Swapping the "A" out for an "S" would leave the square showing the same letter as the
+    // committed "S" it displaced — the no-op replace DEC-015 forbids, reached in two steps.
+    const swapped = placeTile(
+      replaced.state,
+      setup.board,
+      SWEDISH_ALPHABET,
+      {
+        playerId: setup.playerOneId,
+        tileId: s,
+        coordinate: setup.board.centreCoordinate,
+      },
+      { allowReplace: true },
+    );
+
+    expect(swapped).toEqual({
       success: false,
-      error: { code: "INVALID_PLACEMENT", messageKey: "invalidPlacement" },
+      error: { code: "REPLACE_SAME_LETTER", messageKey: "replaceSameLetter" },
     });
   });
 

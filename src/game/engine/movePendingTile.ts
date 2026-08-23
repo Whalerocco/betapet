@@ -65,13 +65,14 @@ export function movePendingTile(
   const otherPlacedTiles = pendingMove.placedTiles.filter(
     (p) => p.tileId !== params.tileId,
   );
-  if (
-    otherPlacedTiles.some((p) =>
-      coordinatesEqual(p.coordinate, params.coordinate),
-    )
-  ) {
-    return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
-  }
+  /**
+   * Another of the player's own not-yet-played tiles on the destination square. Dropping this one
+   * onto it sends that one back to the rack and takes its place (DEC-017) — the same ordinary
+   * editing `placeTile` allows from the rack, so the tap flow and dragging agree.
+   */
+  const swappedOutTile = otherPlacedTiles.find((p) =>
+    coordinatesEqual(p.coordinate, params.coordinate),
+  );
 
   // Reverse this tile's own old displacement (if any) first, so the board correctly reflects
   // "as if this tile had never been placed" before deciding what's occupying the destination.
@@ -101,16 +102,6 @@ export function movePendingTile(
         "replaceChainingNotAllowed",
       );
     }
-    if (
-      replacesSameLetter(
-        state.tiles,
-        params.tileId,
-        placedTile.representedLetter,
-        displacedTileId,
-      )
-    ) {
-      return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
-    }
     board = removeCommittedTile(board, params.coordinate);
     players = players.map((p) =>
       p.id === params.playerId
@@ -119,13 +110,36 @@ export function movePendingTile(
     ) as [Player, Player];
   }
 
+  // The destination inherits whatever displacement it already stood for, so a swap never loses
+  // the link back to the committed tile an earlier placement this move took off the board.
+  const replacedTileId = displacedTileId ?? swappedOutTile?.replacedTileId;
+  if (
+    replacedTileId !== undefined &&
+    replacesSameLetter(
+      state.tiles,
+      params.tileId,
+      placedTile.representedLetter,
+      replacedTileId,
+    )
+  ) {
+    return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
+  }
+
+  if (swappedOutTile) {
+    players = players.map((p) =>
+      p.id === params.playerId
+        ? { ...p, rack: addTileToRack(p.rack, swappedOutTile.tileId) }
+        : p,
+    ) as [Player, Player];
+  }
+
   const movedTile = {
     ...placedTile,
     coordinate: params.coordinate,
-    replacedTileId: displacedTileId,
+    replacedTileId,
   };
   const newPendingMove = createPendingMove(params.playerId, [
-    ...otherPlacedTiles,
+    ...otherPlacedTiles.filter((p) => p !== swappedOutTile),
     movedTile,
   ]);
 

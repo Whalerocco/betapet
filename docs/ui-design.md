@@ -276,13 +276,19 @@ Select empty board square
 Tile appears there
 ```
 
-Under Replace mode (`game-modifiers.md` section 7), a square holding an *already committed* tile
-is a valid target for this same flow, not only an empty square: with a rack tile selected, that
-tile becomes a placement target of its own (labelled `Ersätt bricka <bokstav>`) and tapping it
-performs the replace. Without a selected tile, or in a game without the modifier, a committed tile
-stays inert. This keeps the tap flow equal to dragging, which is the point of this section — a
-replace must never be a drag-only capability. A tile the current player has placed but not yet
-committed is not a replace target: tapping it still picks it back up (section 13).
+A square that already holds a tile can be a target for this same flow, not only an empty square.
+With a rack tile selected, the tile on it becomes a placement target of its own (labelled
+`Ersätt bricka <bokstav>`) in two cases:
+
+- a *committed* tile, under Replace mode (`game-modifiers.md` section 7), which performs the
+  replace;
+- one of the current player's own *not-yet-played* tiles, in every mode, which swaps the two and
+  returns the tile that was there to the rack (DEC-017).
+
+With no tile selected, a committed tile stays inert and tapping a pending tile still picks it back
+up (section 13) — selecting a tile first is what separates "put this here" from "take that back".
+This keeps the tap flow equal to dragging, which is the point of this section: neither replacing
+nor swapping may be a drag-only capability.
 
 A placed pending tile can then be:
 

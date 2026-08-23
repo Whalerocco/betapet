@@ -158,10 +158,15 @@ export function Board({
 
           const isPlaceable =
             !tile && canPlaceSelectedTile && !committedTileId && !pendingTile;
-          // A committed tile can be replaced, a pending one cannot (the pending tile's own click
-          // picks it back up instead, and the engine rejects targeting your own pending move).
+          // A committed tile is a target only under Replace mode; one of the player's own
+          // not-yet-played tiles is always a target, since dropping a tile onto it just swaps the
+          // two (DEC-017). Either way it only becomes tappable once a rack tile is selected —
+          // without one, a pending tile keeps its "pick it back up" tap.
           const isReplaceTarget =
             replaceModeActive && committedTileId !== undefined && !pendingTile;
+          const isSwapTarget = pendingTile !== undefined;
+          const isTapTarget =
+            canPlaceSelectedTile && (isReplaceTarget || isSwapTarget);
 
           return (
             <BoardCell
@@ -173,16 +178,12 @@ export function Board({
               isPlaceable={isPlaceable}
               scoreBadge={key === scoreBadgeKey ? scoreBadgeValue : undefined}
               isDragOver={
-                (!tile || isReplaceTarget) &&
+                (!tile || isReplaceTarget || isSwapTarget) &&
                 dragOverCoordinate !== undefined &&
                 coordinateKey(dragOverCoordinate) === key
               }
               onPlace={() => onPlaceAt(coordinate)}
-              onReplace={
-                isReplaceTarget && canPlaceSelectedTile
-                  ? () => onPlaceAt(coordinate)
-                  : undefined
-              }
+              onReplace={isTapTarget ? () => onPlaceAt(coordinate) : undefined}
               onPendingTileClick={
                 pendingTile
                   ? () => onPendingTileClick(pendingTile.tileId)

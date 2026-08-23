@@ -1650,3 +1650,88 @@ Relevant files:
 - `src/game/scoring/scoreMove.ts`, `scoreMove.test.ts`
 - `src/game/model/scoreResult.ts`
 - `src/game/engine/submitMove.test.ts`
+
+## DEC-017 — Swapping your own not-yet-played tiles is ordinary editing, not a replace
+
+**Date:** 2026-08-23
+**Status:** ACCEPTED
+**Area:** Engine / Rules spec / UI
+
+### Context
+
+`placeTile` rejected any placement whose coordinate was already claimed by the current pending
+move, and `movePendingTile` did the same. Dragging a tile onto one of your own tiles placed this
+turn therefore failed with "Brickan kan inte placeras där." instead of exchanging the two, in
+every game mode. The project owner hit this during the Version 1 mobile test and reported it as a
+general bug: having put tiles down but not played them, you could not change your mind by simply
+dropping a different tile on one — the only way was to pick the first tile back up.
+
+`game-modifiers.md` section 7 stated the opposite as a deliberate rule ("A replace placement may
+only target a *committed* board tile. It cannot target a tile that is part of the current
+player's own not-yet-committed pending move"), so the code was following the specification and
+the specification was what needed correcting.
+
+### Decision
+
+Dropping a tile onto one of the current player's own not-yet-committed tiles swaps them: the
+incoming tile takes the square and the tile that was there returns to the rack. This is ordinary
+editing of an unplayed move and is allowed in **every** mode, with or without Replace — the tile
+has not been played, nothing leaves the board, and no opponent tile is involved, so it is not a
+replace placement and none of Replace mode's restrictions (chaining, must-change-the-letter,
+displaced-tile handling) apply to it.
+
+One thing does carry over. A square may already be standing in for a committed tile that an
+earlier placement this move displaced; whichever tile ends up on that square inherits that
+displacement, so the swap keeps the link to the tile that left the board. A consequence is that
+DEC-015 still bites through the swap: exchanging the replacing tile for one showing the displaced
+tile's own letter is refused, because that reaches in two steps the no-op replace DEC-015 forbids
+in one.
+
+Both routes behave identically — `placeTile` from the rack and `movePendingTile` from the board —
+so dragging and the tap flow agree, the lesson from the Replace-mode wiring bug in
+`known-bugs.md`.
+
+### Alternatives considered
+
+Allowing the swap only outside Replace mode — rejected: the restriction has nothing to do with
+the modifier, and the owner reported the problem in plain games too.
+
+Having two pending tiles exchange *positions* when one is dragged onto the other, rather than one
+returning to the rack — rejected: it is a different, unrequested gesture, and "the tile that was
+there goes back to your hand" is the same rule as placing from the rack, which keeps one mental
+model for both routes.
+
+Treating the swap as a replace and applying the chaining and same-letter rules to it — rejected
+by the project owner: those rules exist to stop a player re-collecting value from the committed
+board, which cannot happen with a tile that was never played.
+
+### Rationale
+
+Direct, played-and-confirmed feedback from the project owner, treated as an authoritative
+specification correction per this file's process. Section 7's bullet was written to keep *replace*
+semantics off the player's own pending tiles and banned plain editing along with them; separating
+the two restores the editing affordance without weakening any replace rule.
+
+### Consequences
+
+- `docs/game-modifiers.md` section 7's bullet is rewritten to say a swap is not a replace
+  placement, and to note the inherited-displacement carry-over.
+- `src/game/engine/placeTile.ts` and `movePendingTile.ts` swap instead of rejecting, returning the
+  swapped-out tile to the rack and inheriting `replacedTileId` from the square.
+- Three tests that asserted the old rejection now assert the swap; new tests cover a plain-mode
+  swap, the inherited displacement (including that the displaced tile reaches the rack exactly
+  once), and DEC-015 still refusing a same-letter swap.
+- Both ways of "putting a tile on that square" swap: dropping one there, and — added right after
+  the project owner tried the tap flow and found it inconsistent — tapping the square while a rack
+  tile is selected. Tapping a pending tile with *nothing* selected still picks it back up
+  (`ui-design.md` section 13); selecting a tile first is what distinguishes the two intents.
+
+### Revisit when
+
+Not anticipated — this is now the confirmed, intended rule.
+
+Relevant files:
+- `docs/game-modifiers.md` (section 7)
+- `src/game/engine/placeTile.ts`, `movePendingTile.ts`
+- `src/game/engine/placeTile.test.ts`, `movePendingTile.test.ts`
+- `src/components/game/GameScreen.test.tsx`

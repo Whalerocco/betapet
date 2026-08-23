@@ -58,9 +58,7 @@ describe("Board score badge", () => {
         boardDefinition={boardDefinition}
         boardState={boardState}
         tiles={tiles}
-        pendingPlacedTiles={[
-          { tileId, coordinate: { row: 2, column: 2 } },
-        ]}
+        pendingPlacedTiles={[{ tileId, coordinate: { row: 2, column: 2 } }]}
         canPlaceSelectedTile={false}
         onPlaceAt={() => {}}
         onPendingTileClick={() => {}}
@@ -134,7 +132,8 @@ describe("Board: Replace mode targets", () => {
     expect(screen.queryByLabelText("Ersätt bricka B")).not.toBeInTheDocument();
   });
 
-  it("never offers the player's own pending tile as a replace target", () => {
+  it("offers the player's own pending tile as a swap target once a tile is selected (DEC-017)", () => {
+    const onPlaceAt = vi.fn();
     const boardDefinition = testBoard();
     const tiles: Record<TileId, Tile> = {};
     const pendingId = createTileId();
@@ -145,18 +144,50 @@ describe("Board: Replace mode targets", () => {
         boardDefinition={boardDefinition}
         boardState={createBoardState()}
         tiles={tiles}
-        pendingPlacedTiles={[{ tileId: pendingId, coordinate: { row: 2, column: 2 } }]}
+        pendingPlacedTiles={[
+          { tileId: pendingId, coordinate: { row: 2, column: 2 } },
+        ]}
         canPlaceSelectedTile={true}
-        replaceModeActive={true}
-        onPlaceAt={() => {}}
+        onPlaceAt={onPlaceAt}
         onPendingTileClick={() => {}}
       />,
     );
 
+    // No Replace modifier here: swapping your own unplayed tile works in every mode.
+    fireEvent.click(screen.getByLabelText("Ersätt bricka B"));
+
+    expect(onPlaceAt).toHaveBeenCalledWith({ row: 2, column: 2 });
+  });
+
+  it("keeps the pick-it-back-up tap on a pending tile while nothing is selected", () => {
+    const onPlaceAt = vi.fn();
+    const onPendingTileClick = vi.fn();
+    const boardDefinition = testBoard();
+    const tiles: Record<TileId, Tile> = {};
+    const pendingId = createTileId();
+    tiles[pendingId] = createLetterTile(pendingId, "B", 1);
+
+    render(
+      <Board
+        boardDefinition={boardDefinition}
+        boardState={createBoardState()}
+        tiles={tiles}
+        pendingPlacedTiles={[
+          { tileId: pendingId, coordinate: { row: 2, column: 2 } },
+        ]}
+        canPlaceSelectedTile={false}
+        replaceModeActive={true}
+        onPlaceAt={onPlaceAt}
+        onPendingTileClick={onPendingTileClick}
+      />,
+    );
+
     expect(screen.queryByLabelText("Ersätt bricka B")).not.toBeInTheDocument();
-    // It keeps its own "pick it back up" affordance instead.
-    expect(
+    fireEvent.click(
       screen.getByLabelText("Pending bricka B, tryck för att redigera"),
-    ).toBeInTheDocument();
+    );
+
+    expect(onPendingTileClick).toHaveBeenCalledWith(pendingId);
+    expect(onPlaceAt).not.toHaveBeenCalled();
   });
 });

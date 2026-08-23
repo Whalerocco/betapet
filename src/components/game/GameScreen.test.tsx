@@ -31,6 +31,28 @@ async function renderGame(
   return { setup, onExit };
 }
 
+/**
+ * Presses on a tile, moves past useTileDrag's 6px threshold, and releases over `target`. Only
+ * `document.elementFromPoint` is stubbed — jsdom cannot answer it without layout — so everything
+ * downstream (handleTileDrop, the controller, the engine) is the real thing.
+ */
+function dragOnto(tile: HTMLElement, target: HTMLElement) {
+  const originalElementFromPoint = document.elementFromPoint;
+  document.elementFromPoint = () => target;
+  try {
+    fireEvent.pointerDown(tile, {
+      pointerType: "mouse",
+      button: 0,
+      clientX: 0,
+      clientY: 0,
+    });
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 40 });
+    fireEvent.pointerUp(window, { clientX: 40, clientY: 40 });
+  } finally {
+    document.elementFromPoint = originalElementFromPoint;
+  }
+}
+
 describe("GameScreen", () => {
   it("shows a privacy-safe handoff screen before revealing the starting player's rack", async () => {
     const setup = buildEngineTestGame({
@@ -131,6 +153,63 @@ describe("GameScreen", () => {
     expect(
       screen.getByText(`Din tur: ${setup.state.players[0].name}`),
     ).toBeInTheDocument();
+  });
+
+  it("swaps a tile placed this turn when another is dragged onto it (DEC-017)", async () => {
+    const { setup } = await renderGame();
+    const centre = setup.board.centreCoordinate;
+
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    expect(
+      screen.getByLabelText("Pending bricka B, tryck för att redigera"),
+    ).toBeInTheDocument();
+
+    // No modifiers here: swapping your own not-yet-played tile is ordinary editing, so it works
+    // in a plain game and must not report "Brickan kan inte placeras där."
+    dragOnto(
+      screen.getByLabelText("Bricka I, 1 poäng"),
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+
+    expect(
+      await screen.findByLabelText("Pending bricka I, tryck för att redigera"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Pending bricka B, tryck för att redigera"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Bricka B, 1 poäng")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Brickan kan inte placeras där."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("swaps a tile placed this turn when another rack tile is tapped onto it (DEC-017)", async () => {
+    const { setup } = await renderGame();
+    const centre = setup.board.centreCoordinate;
+
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    // With nothing selected the pending tile still offers to be picked back up.
+    expect(
+      screen.getByLabelText("Pending bricka B, tryck för att redigera"),
+    ).toBeInTheDocument();
+
+    // Selecting a rack tile turns that square into a placement target instead.
+    await userEvent.click(screen.getByLabelText("Bricka I, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Ersätt bricka B"));
+
+    expect(
+      screen.getByLabelText("Pending bricka I, tryck för att redigera"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Bricka B, 1 poäng")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Brickan kan inte placeras där."),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a Swedish error message for an invalid placement and stays in edit mode", async () => {
@@ -492,24 +571,6 @@ describe("GameScreen: Replace mode", () => {
       />,
     );
     return { setup, centre };
-  }
-
-  /** Presses on a tile, moves past useTileDrag's 6px threshold, and releases over `target`. */
-  function dragOnto(tile: HTMLElement, target: HTMLElement) {
-    const originalElementFromPoint = document.elementFromPoint;
-    document.elementFromPoint = () => target;
-    try {
-      fireEvent.pointerDown(tile, {
-        pointerType: "mouse",
-        button: 0,
-        clientX: 0,
-        clientY: 0,
-      });
-      fireEvent.pointerMove(window, { clientX: 40, clientY: 40 });
-      fireEvent.pointerUp(window, { clientX: 40, clientY: 40 });
-    } finally {
-      document.elementFromPoint = originalElementFromPoint;
-    }
   }
 
   it("marks the displaced tile in the rack, and stops marking it once the turn ends", async () => {

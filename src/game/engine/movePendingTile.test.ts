@@ -130,7 +130,7 @@ describe("movePendingTile", () => {
     });
   });
 
-  it("rejects moving onto an occupied coordinate", () => {
+  it("swaps when moved onto another tile placed this turn (DEC-017)", () => {
     const { state, tileId } = gameWithOnePendingTile();
     const [secondTileId] = letterTileIdsInRack(state, state.currentPlayerId);
     const secondCoordinate = { row: 3, column: 3 };
@@ -156,10 +156,17 @@ describe("movePendingTile", () => {
       },
     );
 
-    expect(result).toEqual({
-      success: false,
-      error: { code: "INVALID_PLACEMENT", messageKey: "invalidPlacement" },
-    });
+    // Dragging one of your own uncommitted tiles onto another swaps them: the moved tile takes
+    // the square and the tile that was there returns to the rack, matching what placeTile does
+    // from the rack so the tap flow and dragging agree.
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.state.pendingMove?.placedTiles).toEqual([
+      { tileId, coordinate: secondCoordinate, representedLetter: undefined },
+    ]);
+    expect(
+      currentPlayer(result.state).rack.tileIds,
+    ).toContain(secondTileId);
   });
 
   it("allows moving a tile to its own current coordinate", () => {

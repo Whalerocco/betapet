@@ -119,35 +119,47 @@ export function placeTile(
         "replaceChainingNotAllowed",
       );
     }
-    if (
-      replacesSameLetter(
-        state.tiles,
-        params.tileId,
-        params.representedLetter,
-        displacedTileId,
-      )
-    ) {
-      return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
-    }
   }
 
   const existingPlacedTiles = state.pendingMove?.placedTiles ?? [];
+  /**
+   * The player's own not-yet-played tile already on this square. Dropping another tile onto it
+   * swaps the two: this one goes back to the rack and the new one takes the square (DEC-017).
+   * That is ordinary editing of an uncommitted move rather than a replace — nothing has been
+   * played, nothing leaves the board, no opponent tile is involved — so it is allowed in every
+   * mode, with or without the Replace modifier.
+   */
+  const swappedOutTile = existingPlacedTiles.find((p) =>
+    coordinatesEqual(p.coordinate, params.coordinate),
+  );
+
+  /**
+   * Whichever tile ends up on this square inherits its displacement: if the square is standing in
+   * for a committed tile that an earlier placement this move took off the board, the incoming
+   * tile becomes the one replacing it. Swapping must not lose that link, or the displaced tile
+   * would have nothing recording where it came from.
+   */
+  const replacedTileId = displacedTileId ?? swappedOutTile?.replacedTileId;
   if (
-    existingPlacedTiles.some((p) =>
-      coordinatesEqual(p.coordinate, params.coordinate),
+    replacedTileId !== undefined &&
+    replacesSameLetter(
+      state.tiles,
+      params.tileId,
+      params.representedLetter,
+      replacedTileId,
     )
   ) {
-    return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
+    return actionFailure("REPLACE_SAME_LETTER", "replaceSameLetter");
   }
 
   const newPlacedTile: PendingPlacedTile = {
     tileId: params.tileId,
     coordinate: params.coordinate,
     representedLetter: params.representedLetter,
-    replacedTileId: displacedTileId,
+    replacedTileId,
   };
   const newPendingMove = createPendingMove(params.playerId, [
-    ...existingPlacedTiles,
+    ...existingPlacedTiles.filter((p) => p !== swappedOutTile),
     newPlacedTile,
   ]);
 
@@ -161,6 +173,15 @@ export function placeTile(
     players = players.map((p) =>
       p.id === params.playerId
         ? { ...p, rack: addTileToRack(p.rack, displacedTileId) }
+        : p,
+    ) as [Player, Player];
+  }
+
+  // A swapped-out pending tile was never committed, so it simply returns to the rack.
+  if (swappedOutTile) {
+    players = players.map((p) =>
+      p.id === params.playerId
+        ? { ...p, rack: addTileToRack(p.rack, swappedOutTile.tileId) }
         : p,
     ) as [Player, Player];
   }
