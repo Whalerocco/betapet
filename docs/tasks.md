@@ -1367,7 +1367,15 @@ Before declaring Version 1 complete:
 - [x] Dictionary license/source is documented.
 - [x] No online/backend code is required for local play.
 - [ ] Manual two-person hot-seat test completed.
-- [ ] Manual mobile/tablet test completed.
+- [x] Manual mobile/tablet test completed. Played on Android/Chrome over the LAN on 2026-08-23,
+      confirmed OK by the project owner. Five defects came out of it, all fixed and re-confirmed
+      on the device: the start-game handler crashing silently outside a secure context
+      (`crypto.randomUUID`); the board being unusably small with no way to zoom; the history panel
+      pushing the action buttons down the page as it grew; a Replace-displaced tile being
+      indistinguishable from the rest of the hand; and tiles placed but not yet played refusing to
+      be swapped (DEC-017). See `known-bugs.md` "in general" 2-6. `npm run playtest` exists so a
+      device always gets the build that was last made — the one thing that wasted time in this
+      round was a phone quietly running a cached bundle.
 
 ---
 
