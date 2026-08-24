@@ -1057,6 +1057,21 @@ Avoid relying on hover.
 
 All important interactions must work via touch.
 
+The playing view is pinned to the visible height (`100dvh`) and the document does not scroll.
+A mobile browser shows and hides its address bar in response to *document* scrolling, and every
+toggle resizes the viewport and shifts the layout — including out from under a finger mid-drag,
+which is what a tile drag cannot survive. No browser API turns that off, so the view is given
+nothing to scroll: the board, rack and actions are laid out to fit, and whatever does not fit —
+the history, on a short screen — scrolls inside the page instead. Scrolling a nested element
+leaves the address bar alone.
+
+`dvh` rather than `vh`: it follows the visible height as the bar comes and goes, where `vh` is
+pinned to the largest possible viewport and would leave the bottom of the screen cut off while the
+bar is showing.
+
+This applies to the playing view only. The game-over screen is long, nothing is dragged on it, and
+the address bar moving while reading the final position costs nothing, so it scrolls normally.
+
 ---
 
 # 42. Board scaling

@@ -659,7 +659,7 @@ export function GameScreen({
       : undefined;
 
   return (
-    <div className={styles.gameScreen}>
+    <div className={`${styles.gameScreen} ${styles.gameScreenFixed}`}>
       <ScoreBoard
         players={state.players.map((player) => ({
           name: player.name,

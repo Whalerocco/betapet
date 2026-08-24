@@ -1,8 +1,8 @@
 .actions {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
   background: var(--panel-background);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius-md);
@@ -15,16 +15,21 @@
 
 .buttonRow {
   display: flex;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   flex-wrap: wrap;
   justify-content: center;
 }
 
+/*
+ * Compact enough to leave the board and rack their room on a phone, while still meeting the
+ * minimum touch target — the height is what makes a button easy to hit, not the padding around
+ * its label.
+ */
 .buttonRow button {
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 0.95rem;
   min-height: var(--touch-target);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-sm);
   border: 1px solid var(--panel-border);
   background: var(--panel-background);

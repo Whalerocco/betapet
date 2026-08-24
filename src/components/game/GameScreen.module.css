@@ -8,6 +8,24 @@
   margin: 0 auto;
 }
 
+/*
+ * The playing view is pinned to the visible height so the *document* never scrolls. A mobile
+ * browser shows and hides its address bar in response to page scrolling, and each toggle resizes
+ * the viewport and shifts the layout — including out from under a finger mid-drag. There is no
+ * way to ask a browser not to do that; the only reliable answer is to give it nothing to scroll.
+ *
+ * 100dvh, not 100vh: dvh follows the visible height as the address bar comes and goes, where vh
+ * stays pinned to the largest possible viewport and would leave the bottom of the screen cut off
+ * while the bar is showing.
+ *
+ * Anything that needs more room scrolls inside itself instead (see .historyColumn). Scrolling a
+ * nested element does not move the address bar, only scrolling the document does.
+ */
+.gameScreenFixed {
+  height: 100dvh;
+  overflow: hidden;
+}
+
 .turnIndicator {
   font-size: 1.1rem;
   font-weight: 600;
@@ -30,7 +48,15 @@
  * collapses back into normal document flow below the board once there isn't room for both
  * (section 41: mobile stacks board -> ... -> history drawer at the bottom).
  */
+/*
+ * Inside the pinned playing view this is the one thing that scrolls, which is what keeps anything
+ * that does not fit reachable — on a short screen the history ends up below the fold, and it must
+ * still be possible to get to. Scrolling a nested element leaves the browser's address bar alone;
+ * only scrolling the document moves it, which is the whole point of pinning the view.
+ */
 .layout {
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
   grid-template-areas:
@@ -67,6 +93,7 @@
 .historyColumn {
   grid-area: history;
   min-width: 0;
+  min-height: 0;
 }
 
 .footer {
