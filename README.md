@@ -146,7 +146,11 @@ dynamic imports), so a normal Swedish-only game never pays for languages it does
   moves, and edge cases alongside any engine change.
 - **End-to-end** (Playwright): `npm run e2e`. Covers the core gameplay flows (normal moves,
   unknown-word proposal/accept/reject, refresh recovery, full game completion) through the real
-  UI.
+  UI, plus the things that are invisible until they break: the manifest, the pinned playing
+  view, board zoom and rack rearranging.
+- A test needing particular letters starts a **seeded** game via `startSeededGame`, which builds
+  one from a fixed seed and resumes it from local storage, rather than hoping the random draw
+  cooperates. Prefer that to skipping: a skipped test reports success while covering nothing.
 
 ## Status
 

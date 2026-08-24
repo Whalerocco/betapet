@@ -233,6 +233,15 @@ blank representing Ö
 
 A committed blank should make its represented letter visible while still indicating that it is a zero-point blank tile.
 
+The letter and the point value must keep the same proportion to each other at every size, which
+takes more than giving each a font size proportional to the tile. A browser applies a *minimum
+font size* — Chrome for Android exposes one as an accessibility setting — which floors a small
+computed font size but not a transform. Sized by font alone, the point value stopped shrinking
+with the tile: on a zoomed-out board it came out as large as the letter, then fell back to its
+true proportion once zooming lifted the letter clear of the floor. Both are therefore drawn at a
+fixed font size, comfortably above any plausible minimum, and scaled with a transform. The same
+applies to the multiplier captions on empty squares.
+
 ---
 
 # 10. Existing versus pending tiles
@@ -1083,6 +1092,15 @@ The board should preserve a square aspect ratio.
 Use CSS layout rather than hard-coded pixel coordinates wherever practical.
 
 The visual board should derive its dimensions from the configured board definition.
+
+A cell is sized from the width of the board's own container, not from the window. The board
+appears on screens that surround it with different amounts of padding — the game screen and the
+game-over screen — and a window-relative size fits only the one it was tuned for, overflowing the
+other and pushing the board off-centre.
+
+Zooming scales that cell size rather than applying a transform over the board, so a zoomed board
+is real layout: hit-testing a square stays exact at any zoom level, and the scroll container has
+genuine dimensions to pan within.
 
 ---
 

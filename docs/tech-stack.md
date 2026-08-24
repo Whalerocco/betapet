@@ -377,6 +377,16 @@ Start game
 → game restores correctly
 ```
 
+### Deterministic games
+
+Tiles are dealt at random, so a test that needs particular letters cannot rely on the draw. Such
+a test builds a game from a fixed seed — `createGame` takes a random source, which the engine's
+own tests already require — writes it into the same local storage the app reads on load, and
+resumes it through the normal UI. Nothing is added to the application to make this possible.
+
+Prefer that over skipping a test when the draw is unhelpful: a skipped test reports success while
+covering nothing.
+
 Do not create a very large end-to-end test suite initially.
 
 Use unit tests for most rule combinations.
@@ -881,11 +891,20 @@ The website should support:
 - Tablet
 - Mobile where practical
 
-The board should scale responsively.
+The board should scale responsively, sized from the space its own container gives it rather than
+from the window: the same board appears on screens with different amounts of surrounding chrome.
 
 Avoid implementation choices that require a fixed desktop viewport.
 
 The interaction model must remain usable on touch devices.
+
+A web app manifest (`src/app/manifest.ts`) makes the game installable to a phone's home screen,
+where it runs standalone with no browser address bar. That is not decoration: a mobile browser
+shows and hides its address bar in response to document scrolling, and each toggle resizes the
+viewport and moves the layout — including out from under a finger mid-drag. In a browser tab the
+playing view avoids this by being pinned to the visible height (`ui-design.md` section 41);
+installing removes the address bar from the picture entirely. Icons are generated from the game's
+own tile colours by `scripts/generate-icons.mts`.
 
 ---
 
