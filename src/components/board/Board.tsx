@@ -66,30 +66,37 @@ export function Board({
   const zoomState = useBoardZoom();
 
   /*
-   * Stops the *page* zooming when the gesture was meant for the board.
+   * Stops the *page* zooming, so a pinch means the board and nothing else.
    *
    * A ctrl+wheel (trackpad pinch) would otherwise zoom the whole page, and React's onWheel is
-   * passive so it cannot preventDefault. Safari on iOS ignores `touch-action` for pinch-zoom
-   * altogether and instead offers its own gesture events — preventing those is the only way to
-   * keep a two-finger pinch on the board from zooming the page underneath it as well, which
-   * otherwise reads as the board zooming lopsidedly. They do not exist in other browsers, where
-   * registering them is simply inert.
+   * passive so it cannot preventDefault — that one is bound to the board's own viewport.
+   *
+   * WebKit, which every browser on an iPhone uses, ignores `touch-action` for pinch-zoom
+   * entirely and offers its own gesture events instead; preventing those is the only way to
+   * decline. They are bound to the *document*, not to the board: a gesture event targets the
+   * common ancestor of both fingers, and with a board narrower than a spread hand one finger is
+   * regularly outside it, so an element-level listener simply never fires. That was why an
+   * earlier attempt at this changed nothing.
+   *
+   * Pinch is redirected rather than taken away — the board zooms on its own, which is the
+   * gesture's only real purpose here — and only while a board is on screen.
    */
   useEffect(() => {
     const viewport = viewportRef.current;
-    if (!viewport) return;
-    const blockPageZoom = (event: Event) => {
-      if (event.type !== "wheel" || (event as WheelEvent).ctrlKey) {
-        event.preventDefault();
-      }
+    const blockWheelZoom = (event: WheelEvent) => {
+      if (event.ctrlKey) event.preventDefault();
     };
-    const events = ["wheel", "gesturestart", "gesturechange", "gestureend"];
-    for (const name of events) {
-      viewport.addEventListener(name, blockPageZoom, { passive: false });
+    const blockGestureZoom = (event: Event) => event.preventDefault();
+    const gestures = ["gesturestart", "gesturechange", "gestureend"];
+
+    viewport?.addEventListener("wheel", blockWheelZoom, { passive: false });
+    for (const name of gestures) {
+      document.addEventListener(name, blockGestureZoom, { passive: false });
     }
     return () => {
-      for (const name of events) {
-        viewport.removeEventListener(name, blockPageZoom);
+      viewport?.removeEventListener("wheel", blockWheelZoom);
+      for (const name of gestures) {
+        document.removeEventListener(name, blockGestureZoom);
       }
     };
   }, []);
