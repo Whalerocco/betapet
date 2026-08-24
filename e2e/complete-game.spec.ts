@@ -54,9 +54,7 @@ test("four consecutive passes end the game with correct final scores", async ({
   await expect(
     page.getByRole("heading", { name: "Spelet är slut" }),
   ).toBeVisible();
-  await expect(
-    page.getByText("Båda spelarna passade i följd."),
-  ).toBeVisible();
+  await expect(page.getByText("Båda spelarna passade i följd.")).toBeVisible();
 
   // Neither player ever scored anything; final score is just the negated rack deduction.
   await expect(

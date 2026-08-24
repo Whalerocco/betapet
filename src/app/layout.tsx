@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Betapet",
   description: "Ett Alfapet-inspirerat brädspel",
+  // iOS reads these rather than the manifest's display mode, so an icon added to the home screen
+  // there opens without browser chrome too (manifest.ts explains why that matters).
+  appleWebApp: {
+    capable: true,
+    title: "Betapet",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

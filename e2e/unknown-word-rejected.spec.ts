@@ -1,11 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
   continueHandoff,
-  findTwoLetterWord,
-  getCurrentPlayerName,
-  getRackLetters,
   placeWordAtCentre,
-  startNewGame,
+  startSeededGame,
   submitMove,
 } from "./helpers";
 
@@ -14,20 +11,13 @@ import {
 test("a rejected unknown word returns editable pending tiles to the proposer, awarding nothing", async ({
   page,
 }) => {
-  await startNewGame(page);
-  await continueHandoff(page);
+  // Seeded, so the rack always contains a pair that forms a non-dictionary word — the same pair
+  // on every run, instead of skipping whenever the draw happens not to offer one.
+  const { currentPlayer: proposer, pick } = await startSeededGame(page, {
+    requireWord: ["UNKNOWN_WORD"],
+  });
 
-  const proposer = await getCurrentPlayerName(page);
-
-  const rackLetters = await getRackLetters(page);
-  const pick = findTwoLetterWord(rackLetters, ["UNKNOWN_WORD"]);
-  test.skip(
-    !pick,
-    `No two-letter non-dictionary combination could be formed from this rack: ${rackLetters.join(", ")}`,
-  );
-  if (!pick) return;
-
-  await placeWordAtCentre(page, pick.letters);
+  await placeWordAtCentre(page, pick!.letters);
   await submitMove(page);
   await page
     .getByRole("dialog", { name: "Okänt ord" })
@@ -35,7 +25,7 @@ test("a rejected unknown word returns editable pending tiles to the proposer, aw
     .click();
   await continueHandoff(page);
 
-  await expect(page.getByText(`vill spela "${pick.word}"`)).toBeVisible();
+  await expect(page.getByText(`vill spela "${pick!.word}"`)).toBeVisible();
   await page.getByRole("button", { name: "Neka" }).click();
 
   await expect(page.getByText("Läggningen nekades.")).toBeVisible();
@@ -46,23 +36,28 @@ test("a rejected unknown word returns editable pending tiles to the proposer, aw
   await expect(page.getByText(`Din tur: ${proposer}`)).toBeVisible();
   await expect(page.getByText(`${proposer}: 0`)).toBeVisible();
   await expect(page.locator('[data-coordinate="7,7"]')).toContainText(
-    pick.word[0],
+    pick!.word[0],
   );
   await expect(page.locator('[data-coordinate="7,8"]')).toContainText(
-    pick.word[1],
+    pick!.word[1],
   );
 
-  // The pending tiles are editable: removing one returns it to the rack.
-  await page.locator('[data-coordinate="7,7"]').getByRole("button").click();
+  // The pending tiles are editable: removing one returns it to the rack. Clicked by the label
+  // that exists only while the tile is offering to be picked back up — with a rack tile selected
+  // the same tap would swap instead (DEC-017), and this would silently test the wrong thing.
+  await page
+    .getByLabel(`Pending bricka ${pick!.word[0]}, tryck för att redigera`)
+    .first()
+    .click();
   await expect(page.locator('[data-coordinate="7,7"]')).not.toContainText(
-    pick.word[0],
+    pick!.word[0],
   );
   // The rack may already have held another tile with the same letter, so this only checks that
   // at least one such tile is present, not that it's uniquely identifiable by letter alone.
   await expect(
     page
       .locator('[aria-label="Din hand"]')
-      .getByText(pick.letters[0], { exact: true })
+      .getByText(pick!.letters[0], { exact: true })
       .first(),
   ).toBeVisible();
 });

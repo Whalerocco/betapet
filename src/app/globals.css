@@ -125,6 +125,12 @@ html,
 body {
   max-width: 100vw;
   overflow-x: hidden;
+  /*
+   * Stops a downward drag from being taken as pull-to-refresh, and stops an overscroll from
+   * chaining out to the browser. Both of those bring the address bar back into view mid-gesture,
+   * which is the thing the pinned playing view exists to avoid.
+   */
+  overscroll-behavior-y: contain;
 }
 
 body {

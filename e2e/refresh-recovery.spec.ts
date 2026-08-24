@@ -67,9 +67,7 @@ test("refresh while awaiting opponent review resumes behind a handoff addressed 
   await page.getByRole("button", { name: "Fortsätt spel" }).click();
 
   await expect(page.getByText("Spelet är redo att fortsätta.")).toBeVisible();
-  await expect(
-    page.getByText(`Lämna enheten till ${reviewer}.`),
-  ).toBeVisible();
+  await expect(page.getByText(`Lämna enheten till ${reviewer}.`)).toBeVisible();
   await continueHandoff(page);
 
   await expect(page.getByText(`vill spela "${pick.word}"`)).toBeVisible();
@@ -101,9 +99,7 @@ test("refresh after a rejection resumes behind a handoff addressed to the origin
   await page.getByRole("button", { name: "Fortsätt spel" }).click();
 
   await expect(page.getByText("Spelet är redo att fortsätta.")).toBeVisible();
-  await expect(
-    page.getByText(`Lämna enheten till ${proposer}.`),
-  ).toBeVisible();
+  await expect(page.getByText(`Lämna enheten till ${proposer}.`)).toBeVisible();
   await continueHandoff(page);
 
   await expect(page.getByText(`Din tur: ${proposer}`)).toBeVisible();

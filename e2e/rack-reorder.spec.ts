@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { continueHandoff, getRackLetters, startNewGame } from "./helpers";
+import { getRackLetters, startSeededGame } from "./helpers";
 
 test.use({
   viewport: { width: 390, height: 844 },
@@ -26,6 +26,14 @@ async function dragTo(
   await page.waitForTimeout(150);
 }
 
+/**
+ * By position rather than by letter: a rack can hold the same letter twice, and "the first tile
+ * showing an A" is not necessarily the one a test means to move.
+ */
+function rackTileAt(page: Page, index: number): Locator {
+  return page.locator('[aria-label="Din hand"] button').nth(index);
+}
+
 function rackTile(page: Page, letter: string): Locator {
   return page
     .locator('[aria-label="Din hand"] button', {
@@ -39,38 +47,40 @@ function rackTile(page: Page, letter: string): Locator {
 test("dragging a rack tile drops it between the two tiles it landed between", async ({
   page,
 }) => {
-  await startNewGame(page);
-  await continueHandoff(page);
+  const { rackLetters: before } = await startSeededGame(page);
 
-  const before = await getRackLetters(page);
-  const moved = before[0];
-  // Aim at the gap between the third and fourth tiles.
-  const third = (await rackTile(page, before[2]).boundingBox())!;
-  const fourth = (await rackTile(page, before[3]).boundingBox())!;
-
-  await dragTo(page, rackTile(page, moved), {
-    x: (third.x + third.width + fourth.x) / 2,
-    y: third.y + third.height / 2,
+  // Dropped well inside the left half of the fourth tile, not on the seam between two tiles: a
+  // seam is exactly where a pixel either way changes the answer, which is what made this flaky.
+  const target = (await rackTileAt(page, 3).boundingBox())!;
+  await dragTo(page, rackTileAt(page, 0), {
+    x: target.x + target.width * 0.25,
+    y: target.y + target.height / 2,
   });
 
+  // The first tile lifts out and goes back in ahead of the tile it was dropped on, so the two it
+  // passed shift down one place and everything after it is untouched.
   const after = await getRackLetters(page);
-  // The dragged tile left the front and landed in the gap it was dropped into; the tiles it
-  // passed slid up, and the hand still holds exactly the same letters.
-  expect(after).not.toEqual(before);
-  expect([...after].sort()).toEqual([...before].sort());
-  expect(after.indexOf(moved)).toBeGreaterThan(0);
-  expect(after.slice(0, 2)).toEqual(before.slice(1, 3));
+  expect(after).toEqual([before[1], before[2], before[0], ...before.slice(3)]);
+});
+
+test("dropping past the last tile puts it at the end", async ({ page }) => {
+  const { rackLetters: before } = await startSeededGame(page);
+
+  const last = (await rackTileAt(page, before.length - 1).boundingBox())!;
+  await dragTo(page, rackTileAt(page, 0), {
+    x: last.x + last.width - 2,
+    y: last.y + last.height / 2,
+  });
+
+  expect(await getRackLetters(page)).toEqual([...before.slice(1), before[0]]);
 });
 
 test("dragging a rack tile onto the board still places it", async ({
   page,
 }) => {
-  await startNewGame(page);
-  await continueHandoff(page);
+  const { rackLetters } = await startSeededGame(page);
 
-  const letter = (await getRackLetters(page)).find((l) =>
-    /^[A-ZÅÄÖ]$/.test(l),
-  )!;
+  const letter = rackLetters.find((l) => /^[A-ZÅÄÖ]$/.test(l))!;
   const centre = (await page.locator('[data-coordinate="7,7"]').boundingBox())!;
 
   await dragTo(page, rackTile(page, letter), {

@@ -33,6 +33,7 @@ device — no account, server, or network connection required.
 | `npm run test:watch` | Run Vitest in watch mode |
 | `npm run e2e` | Run the Playwright end-to-end suite (builds and serves the app first) |
 | `npm run playtest` | Build and serve on the local network for testing on a phone or tablet (see below) |
+| `npx tsx scripts/generate-icons.mts` | Regenerate the home-screen icons in `public/` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
 | `npm run format` | Prettier, writes changes |
@@ -61,6 +62,12 @@ Two things this handles that a plain `npm start` does not:
   and since that document names the hashed JS bundles, a stale copy pins the browser to an old
   build however often you reload. The hashed bundles themselves keep their immutable caching;
   they cannot go stale, because their filenames change with their contents.
+
+**Install it to the home screen** for the best result on a phone: in Chrome's menu, "Add to Home
+screen". An installed game opens in standalone mode with no address bar at all, which is the only
+way to be certain the bar never appears mid-gesture and shifts the board under a finger. In a
+normal tab the playing view is pinned to the visible height so the document never scrolls, which
+avoids the same problem by giving the browser nothing to scroll (`ui-design.md` section 41).
 
 The no-store behaviour is opt-in via `BETAPET_NO_STORE=1`, which the script sets for both the
 build and the server — custom headers are baked into the build, so setting it only at start time

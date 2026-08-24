@@ -1,12 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
   continueHandoff,
-  findTwoLetterWord,
-  getCurrentPlayerName,
-  getRackLetters,
-  otherPlayerName,
   placeWordAtCentre,
-  startNewGame,
+  startSeededGame,
   submitMove,
 } from "./helpers";
 
@@ -15,26 +11,19 @@ import {
 test("an unknown word can be proposed, accepted, and commits the move", async ({
   page,
 }) => {
-  await startNewGame(page);
-  await continueHandoff(page);
+  // Seeded so the rack always offers a non-dictionary pair, the same one every run.
+  const {
+    currentPlayer: proposer,
+    otherPlayer: reviewer,
+    pick,
+  } = await startSeededGame(page, { requireWord: ["UNKNOWN_WORD"] });
 
-  const proposer = await getCurrentPlayerName(page);
-  const reviewer = otherPlayerName(proposer);
-
-  const rackLetters = await getRackLetters(page);
-  const pick = findTwoLetterWord(rackLetters, ["UNKNOWN_WORD"]);
-  test.skip(
-    !pick,
-    `No two-letter non-dictionary combination could be formed from this rack: ${rackLetters.join(", ")}`,
-  );
-  if (!pick) return;
-
-  await placeWordAtCentre(page, pick.letters);
+  await placeWordAtCentre(page, pick!.letters);
   await submitMove(page);
 
   const noticeDialog = page.getByRole("dialog", { name: "Okänt ord" });
   await expect(noticeDialog).toBeVisible();
-  await expect(noticeDialog).toContainText(pick.word);
+  await expect(noticeDialog).toContainText(pick!.word);
   await noticeDialog.getByRole("button", { name: "Spela ändå" }).click();
 
   await expect(
@@ -42,7 +31,7 @@ test("an unknown word can be proposed, accepted, and commits the move", async ({
   ).toBeVisible();
   await continueHandoff(page);
 
-  await expect(page.getByText(`vill spela "${pick.word}"`)).toBeVisible();
+  await expect(page.getByText(`vill spela "${pick!.word}"`)).toBeVisible();
   await page.getByRole("button", { name: "Godkänn" }).click();
 
   // Accepting drops straight into the reviewer's own turn (DEC-019) — they are already holding
@@ -50,7 +39,7 @@ test("an unknown word can be proposed, accepted, and commits the move", async ({
   await expect(page.getByText(`Din tur: ${reviewer}`)).toBeVisible();
   await expect(page.getByRole("button", { name: "Fortsätt" })).toHaveCount(0);
   await expect(page.locator('[data-coordinate="7,7"]')).toContainText(
-    pick.word[0],
+    pick!.word[0],
   );
 });
 

@@ -1,12 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
   continueHandoff,
-  findTwoLetterWord,
-  getCurrentPlayerName,
-  getRackLetters,
-  otherPlayerName,
   placeWordAtCentre,
-  startNewGame,
+  startSeededGame,
   submitMove,
 } from "./helpers";
 
@@ -15,27 +11,16 @@ import {
 test("a dictionary-valid move commits directly and hands off to the next player", async ({
   page,
 }) => {
-  await startNewGame(page);
-  await continueHandoff(page);
+  // Seeded so the rack always offers a real Swedish word, the same one every run.
+  const { otherPlayer: secondPlayer, pick } = await startSeededGame(page, {
+    requireWord: ["DICTIONARY_WORD"],
+  });
 
-  const firstPlayer = await getCurrentPlayerName(page);
-  const secondPlayer = otherPlayerName(firstPlayer);
-
-  const rackLetters = await getRackLetters(page);
-  const pick = findTwoLetterWord(rackLetters, ["DICTIONARY_WORD"]);
-  test.skip(
-    !pick,
-    `No two-letter Swedish dictionary word could be formed from this rack: ${rackLetters.join(", ")}`,
-  );
-  if (!pick) return;
-
-  await placeWordAtCentre(page, pick.letters);
+  await placeWordAtCentre(page, pick!.letters);
   await submitMove(page);
 
   // A dictionary word never opens the unknown-word dialog; it goes straight to handoff.
-  await expect(page.getByRole("dialog", { name: "Okänt ord" })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole("dialog", { name: "Okänt ord" })).toHaveCount(0);
   await expect(
     page.getByText(`Lämna över enheten till ${secondPlayer}.`),
   ).toBeVisible();
@@ -45,5 +30,5 @@ test("a dictionary-valid move commits directly and hands off to the next player"
 
   // The word the previous player played is now part of the committed board.
   const boardCell = page.locator('[data-coordinate="7,7"]');
-  await expect(boardCell).toContainText(pick.word[0]);
+  await expect(boardCell).toContainText(pick!.word[0]);
 });

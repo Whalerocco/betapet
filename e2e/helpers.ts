@@ -1,4 +1,7 @@
 import type { Page } from "@playwright/test";
+import { createGame } from "../src/game/engine/createGame";
+import type { RackSize } from "../src/game/model/gameConfiguration";
+import type { ModifierId } from "../src/game/model/modifiers";
 import { classifyWord } from "../src/game/dictionary/classifyWord";
 import type { WordValidationResult } from "../src/game/model/wordValidationResult";
 import { createSwedishWordClassificationRules } from "../src/game/dictionary/swedishWordClassificationRules";
@@ -37,9 +40,7 @@ export async function startNewGame(
   for (const label of modifierLabels) {
     // Each checkbox's accessible name is its label followed by the modifier's description
     // (`GameSetup.tsx`), so match on the leading label rather than the full string.
-    await page
-      .getByRole("checkbox", { name: new RegExp(`^${label}`) })
-      .check();
+    await page.getByRole("checkbox", { name: new RegExp(`^${label}`) }).check();
   }
   await page.getByRole("button", { name: "Starta spel" }).click();
 }
@@ -143,5 +144,105 @@ export async function submitMove(page: Page): Promise<void> {
 
 export async function passTurn(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Passa", exact: true }).click();
-  await page.getByRole("dialog", { name: "Bekräfta passning" }).getByRole("button", { name: "Passa" }).click();
+  await page
+    .getByRole("dialog", { name: "Bekräfta passning" })
+    .getByRole("button", { name: "Passa" })
+    .click();
+}
+
+/**
+ * A deterministic replacement for Math.random (mulberry32), so a seeded game deals the same tiles
+ * on every run.
+ */
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export interface SeededGame {
+  readonly currentPlayer: string;
+  readonly otherPlayer: string;
+  readonly rackLetters: readonly string[];
+  /** Present only when a word was asked for; the seed is chosen so that it always is. */
+  readonly pick?: WordPick;
+}
+
+const PLAYER_ONE = "Alice";
+const PLAYER_TWO = "Bob";
+
+/**
+ * Starts a game whose tiles are dealt from a fixed seed, so a test that needs particular letters
+ * gets the same ones every run.
+ *
+ * The game is built here in the test process and written straight into the storage the app reads
+ * on load, then resumed through the normal UI. Nothing is added to the application for the sake
+ * of testing: `createGame` already accepts a random source, because the engine's own tests need
+ * one, and the save format is the app's own.
+ *
+ * With `requireWord`, seeds are tried until one deals a rack that can form a two-letter word of
+ * the wanted kind. That keeps the choice deterministic while letting it re-derive itself if the
+ * dictionary or the tile set ever changes — where a hard-coded seed would quietly start skipping.
+ */
+export async function startSeededGame(
+  page: Page,
+  options: {
+    readonly requireWord?: readonly WordValidationResult["status"][];
+    readonly modifiers?: readonly ModifierId[];
+    readonly rackSize?: RackSize;
+  } = {},
+): Promise<SeededGame> {
+  const { requireWord, modifiers = [], rackSize = 7 } = options;
+
+  for (let seed = 1; seed <= 500; seed++) {
+    const state = createGame({
+      playerOneName: PLAYER_ONE,
+      playerTwoName: PLAYER_TWO,
+      rackSize,
+      modifiers: new Set(modifiers),
+      randomSource: seededRandom(seed),
+    });
+    const current = state.players.find((p) => p.id === state.currentPlayerId)!;
+    const letters = current.rack.tileIds.map((id) => {
+      const tile = state.tiles[id];
+      return tile.kind === "LETTER" ? tile.letter : "_";
+    });
+    const pick = requireWord
+      ? findTwoLetterWord(letters, requireWord)
+      : undefined;
+    if (requireWord && !pick) continue;
+
+    const saved = {
+      schemaVersion: 3,
+      configurationId: state.configurationId,
+      rackSize,
+      modifiers,
+      polyglotLanguages: [],
+      wildLanguages: [],
+      savedAt: new Date().toISOString(),
+      gameState: state,
+    };
+    await page.addInitScript(
+      ([key, value]) => window.localStorage.setItem(key, value),
+      ["betapet:local-game", JSON.stringify(saved)] as const,
+    );
+    await page.goto("/");
+    await page.getByRole("button", { name: "Fortsätt spel" }).click();
+    await continueHandoff(page);
+
+    return {
+      currentPlayer: current.name,
+      otherPlayer: current.name === PLAYER_ONE ? PLAYER_TWO : PLAYER_ONE,
+      rackLetters: letters,
+      pick,
+    };
+  }
+
+  throw new Error(
+    `No seed under 500 dealt a rack able to form a ${requireWord?.join("/")} word.`,
+  );
 }
