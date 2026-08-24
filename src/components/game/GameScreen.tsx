@@ -227,6 +227,9 @@ export function GameScreen({
           players={state.players}
           result={state.result}
           history={state.history}
+          boardDefinition={deps.configuration.boardDefinition}
+          boardState={state.board}
+          tiles={state.tiles}
           onNewGame={onExit}
         />
       </div>

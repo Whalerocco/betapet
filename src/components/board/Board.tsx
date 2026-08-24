@@ -206,7 +206,9 @@ export function Board({
     <div className={styles.boardArea}>
       <div
         ref={viewportRef}
-        className={styles.viewport}
+        className={`${styles.viewport} ${
+          zoomState.isZoomed ? styles.viewportZoomed : ""
+        }`}
         style={
           {
             "--board-aspect": `${boardDefinition.width} / ${boardDefinition.height}`,

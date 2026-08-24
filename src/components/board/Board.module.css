@@ -26,9 +26,28 @@
   width: fit-content;
   max-width: 100%;
   aspect-ratio: var(--board-aspect, 1);
+  /*
+   * At fit-to-width there is nothing to pan to, so one finger is left to the browser and scrolls
+   * the page as usual — the board can be a tall part of a long page (the game-over screen), and
+   * swiping over it has to work. A pinch still reaches useBoardZoom, since two fingers are not a
+   * pan gesture and the browser does not claim them.
+   */
+  touch-action: pan-x pan-y;
+  border-radius: var(--radius-md);
+}
+
+/*
+ * Once zoomed there *is* somewhere to pan, and dragging the board has to move the board rather
+ * than the page: every touch gesture goes to useBoardZoom, and a pan that reaches an edge stops
+ * there instead of carrying on into the page behind it.
+ *
+ * Both belong here rather than above. At fit-to-width the viewport is a scroll container whose
+ * content happens to fit exactly, so `contain` would swallow a swipe that ought to scroll the
+ * page — which is what the game-over screen needs, the board being a tall part of a long page.
+ */
+.viewportZoomed {
   touch-action: none;
   overscroll-behavior: contain;
-  border-radius: var(--radius-md);
 }
 
 .board {

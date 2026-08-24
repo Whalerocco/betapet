@@ -970,6 +970,8 @@ At game end, show:
 - Final scores
 - Winner or tie
 - Remaining-rack deductions
+- The finished board
+- Move history
 - Clear new-game action
 
 Example:
@@ -986,10 +988,19 @@ Kvarvarande brickor:
 August   −4
 Anna     −12
 
+Slutställning
+[ the board, as it finished ]
+
+Historik
+…
+
 [ Nytt spel ]
 ```
 
-A link/action to review final history may also be shown.
+The board comes after the result rather than before it: the outcome is what players look for
+first, and the board is what they then talk over. It is the same board component the game uses, so
+it pans and pinch-zooms here too — useful for reading a crowded final position on a phone — but
+nothing on it can be tapped, since there is no move left to make.
 
 ---
 
