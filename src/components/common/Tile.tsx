@@ -22,6 +22,8 @@ export interface TileProps {
    * it is distinguishable from tiles that were already in the hand.
    */
   readonly isDisplaced?: boolean;
+  /** Identifies this tile's place in the rack for drop-position hit-testing (GameScreen.tsx). */
+  readonly dataRackTileId?: string;
 }
 
 /**
@@ -41,6 +43,7 @@ export function Tile({
   onPointerDown,
   isDragSource = false,
   isDisplaced = false,
+  dataRackTileId,
 }: TileProps) {
   const classNames = [
     styles.tile,
@@ -75,6 +78,7 @@ export function Tile({
       // Marks the tiles that own their own drag gesture, so the board's pan gesture leaves them
       // alone (useBoardZoom.ts) instead of panning the board out from under a tile being moved.
       data-tile-draggable={onPointerDown ? "true" : undefined}
+      data-rack-tile-id={dataRackTileId}
     >
       <span className={styles.letter}>{letter}</span>
       <span className={styles.points}>{points}</span>

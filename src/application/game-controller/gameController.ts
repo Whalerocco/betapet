@@ -12,6 +12,7 @@ import { pass } from "../../game/engine/pass";
 import { placeTile } from "../../game/engine/placeTile";
 import { rejectProposedMove } from "../../game/engine/rejectProposedMove";
 import { removePendingTile } from "../../game/engine/removePendingTile";
+import { moveRackTile, swapRackTiles } from "../../game/engine/reorderRack";
 import { shuffleRack } from "../../game/engine/shuffleRack";
 import { submitMove } from "../../game/engine/submitMove";
 import type { Coordinate } from "../../game/model/coordinate";
@@ -77,6 +78,18 @@ export type GameAction =
       readonly representedLetter: string;
     }
   | { readonly type: "SHUFFLE_RACK"; readonly playerId: PlayerId }
+  | {
+      readonly type: "MOVE_RACK_TILE";
+      readonly playerId: PlayerId;
+      readonly tileId: TileId;
+      readonly toIndex: number;
+    }
+  | {
+      readonly type: "SWAP_RACK_TILES";
+      readonly playerId: PlayerId;
+      readonly firstTileId: TileId;
+      readonly secondTileId: TileId;
+    }
   | { readonly type: "END_GAME"; readonly playerId: PlayerId };
 
 /**
@@ -155,6 +168,18 @@ export function dispatchGameAction(
       });
     case "SHUFFLE_RACK":
       return shuffleRack(state, action.playerId);
+    case "MOVE_RACK_TILE":
+      return moveRackTile(state, {
+        playerId: action.playerId,
+        tileId: action.tileId,
+        toIndex: action.toIndex,
+      });
+    case "SWAP_RACK_TILES":
+      return swapRackTiles(state, {
+        playerId: action.playerId,
+        firstTileId: action.firstTileId,
+        secondTileId: action.secondTileId,
+      });
     case "END_GAME":
       return endGame(state, action.playerId);
   }

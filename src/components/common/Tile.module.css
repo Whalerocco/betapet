@@ -1,4 +1,11 @@
 .tile {
+  /*
+   * How many pixels `--tile-size` is, as a plain number. `transform: scale()` needs a unitless
+   * factor, and CSS cannot divide a length by a length directly; `tan(atan2(a, b))` is the
+   * standard way to get the ratio of two lengths, since the angle between them carries it.
+   * Used by `.letter` and `.points` — see the note there for why they scale at all.
+   */
+  --tile-size-number: tan(atan2(var(--tile-size), 1px));
   width: var(--tile-size);
   height: var(--tile-size);
   display: flex;
@@ -41,6 +48,14 @@ button.tile:active:not(:disabled) {
 button.tile:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+/*
+ * A rack tile is built from the same rules as a board tile, just at its own size: redefining the
+ * variable here re-scales the box, the letter and the point value together.
+ */
+.tile.rack {
+  --tile-size: var(--rack-tile-size);
 }
 
 .tile.pending {
@@ -106,26 +121,47 @@ button.tile.displaced:hover:not(:disabled) {
   opacity: 0.35;
 }
 
+/* Proportional like everything else on the tile, so the marker holds its place while zooming. */
 .blank::before {
   content: "";
   position: absolute;
-  top: 3px;
-  left: 4px;
-  width: 5px;
-  height: 5px;
+  top: calc(var(--tile-size) * 0.09);
+  left: calc(var(--tile-size) * 0.12);
+  width: calc(var(--tile-size) * 0.15);
+  height: calc(var(--tile-size) * 0.15);
   border-radius: 50%;
   background: var(--accent);
 }
 
+/*
+ * Both of these are drawn at a fixed font size and scaled geometrically, rather than being given
+ * a font size proportional to the tile.
+ *
+ * A browser applies a *minimum font size* — Chrome for Android exposes one as an accessibility
+ * setting — which floors a computed font size but not a transform. Sized by font alone, a 22px
+ * board tile asked for a 9px letter and a 4px point value, and a 12px floor pushed both to 12px:
+ * the point value came out as large as the letter when zoomed out, then fell away to its true
+ * proportion once zooming lifted the letter clear of the floor. Scaling sidesteps the floor, so
+ * the two keep the same relative size at every zoom level, which is the point.
+ *
+ * The base is large enough to sit above any plausible minimum; only the scale factors differ,
+ * and they carry the intended proportions (0.42 and 0.2 of the tile).
+ */
 .letter {
-  font-size: calc(var(--tile-size) * 0.42);
+  font-size: 32px;
   line-height: 1;
+  transform: scale(calc(var(--tile-size-number) * 0.42 / 32));
 }
 
 .points {
   position: absolute;
-  bottom: 2px;
-  right: 3px;
-  font-size: calc(var(--tile-size) * 0.2);
+  /* Proportional insets, so the value sits the same way on a 22px board tile and a 66px one. */
+  bottom: calc(var(--tile-size) * 0.06);
+  right: calc(var(--tile-size) * 0.1);
+  font-size: 32px;
+  line-height: 1;
   font-weight: 400;
+  transform: scale(calc(var(--tile-size-number) * 0.2 / 32));
+  /* Anchored to the corner it sits in, so scaling never walks it off the tile. */
+  transform-origin: 100% 100%;
 }

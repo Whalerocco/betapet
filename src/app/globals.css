@@ -59,6 +59,13 @@
    * pan within, and hit-testing a cell stays exact for tile drags.
    */
   --tile-size: var(--tile-base);
+  /*
+   * Rack tiles are sized independently of board tiles: the board has to fit 15 columns across,
+   * which on a phone forces a cell far below a comfortable touch target, while the rack only
+   * holds a handful and can afford to be bigger — it is what the player actually taps and drags
+   * most (ui-design.md section 41).
+   */
+  --rack-tile-size: clamp(1.75rem, calc((100vw - 7.5rem) / 8), 2.75rem);
   --touch-target: 2.75rem;
   --transition-fast: 120ms ease;
 }
@@ -104,6 +111,14 @@
 
 html {
   height: 100%;
+  /*
+   * Chrome on Android inflates text it judges too small to read, per element rather than per
+   * page. A tile's point value is much smaller than its letter, so boosting hit the two
+   * differently and the points stopped shrinking in step with the letter as the board zoomed
+   * out. Everything here is already sized proportionally; opting out keeps it that way.
+   */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,

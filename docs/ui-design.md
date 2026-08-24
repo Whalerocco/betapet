@@ -252,6 +252,12 @@ Do not rely only on color for this distinction.
 
 After a move is committed, the tiles should visually become part of the board.
 
+Rack tiles are sized independently of board tiles. The board must fit fifteen columns across,
+which on a phone forces a cell well below a comfortable touch target; the rack holds only a
+handful and is what the player taps and drags most, so it gets the larger size
+(`--rack-tile-size`). The shuffle control beside it is an icon rather than a text label for the
+same reason — the words took width the tiles need.
+
 Under Replace mode (`game-modifiers.md` section 7) the rack needs the same kind of distinction. A
 tile the current move displaced off the board arrives in the player's rack mixed in with tiles
 that were already there, and it is not an ordinary tile yet: until the turn ends it may not
@@ -296,6 +302,21 @@ A placed pending tile can then be:
 - Moved
 - Returned to the rack
 
+The rack itself can be rearranged, which matters because a player orders their hand while looking
+for a word:
+
+- **Dragging** a rack tile and dropping it back on the rack inserts it between the two tiles it
+  was dropped between, sliding the ones it passes.
+- **Tapping** a second rack tile while one is already selected exchanges the two. The tile stays
+  selected, so repeated taps walk it along the hand; tapping it again lets it go.
+
+Tapping a board square with a tile selected still places it, so the two meanings of a tap never
+collide: on the rack it rearranges, on the board it places.
+
+Rack order is part of `GameState` (`player.rack.tileIds`), like the order `Blanda brickor`
+produces, so a rearranged hand survives a refresh. It is not a game rule — the tiles held are
+unchanged — but it goes through the engine so there is one source of truth.
+
 This interaction works with:
 
 - Mouse
@@ -314,6 +335,7 @@ When a rack tile is selected:
 - Empty board squares should remain usable targets.
 - Under Replace mode, committed tiles become targets too, and should show the same kind of hover
   and keyboard-focus highlight an empty target square shows.
+- Tapping another *rack* tile rearranges the hand rather than moving the selection (section 11).
 
 That highlight is hover and keyboard-focus only, so on touch a committed tile looks the same
 whether or not it is currently a target. The project owner considered this on 2026-08-23 and

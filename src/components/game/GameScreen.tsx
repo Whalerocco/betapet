@@ -70,6 +70,53 @@ function resolveDropTarget(position: DragPointerPosition): DropTarget {
   return { overRack: element.closest("[data-rack-dropzone]") !== null };
 }
 
+/**
+ * The shuffle action is an icon rather than the words "Blanda brickor": beside the rack the label
+ * was wider than several tiles, and that space is what the tiles themselves need on a phone. The
+ * button keeps its Swedish accessible name, so nothing is lost to a screen reader.
+ */
+/**
+ * Which gap in the rack a drop at `pointerX` fell into, counted after the dragged tile has been
+ * lifted out of the order. Read from where the tiles actually are on screen rather than from a
+ * model of the layout, so it stays correct however the rack wraps or resizes.
+ */
+function rackDropIndex(draggedTileId: TileId, pointerX: number): number {
+  const tiles = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      "[data-rack-dropzone] [data-rack-tile-id]",
+    ),
+  ).filter((element) => element.dataset.rackTileId !== draggedTileId);
+
+  const index = tiles.findIndex((element) => {
+    const rect = element.getBoundingClientRect();
+    return pointerX < rect.left + rect.width / 2;
+  });
+  return index === -1 ? tiles.length : index;
+}
+
+function ShuffleIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="1.35em"
+      height="1.35em"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M16 3h5v5" />
+      <path d="M4 20 21 3" />
+      <path d="M21 16v5h-5" />
+      <path d="m15 15 6 6" />
+      <path d="m4 4 5 5" />
+    </svg>
+  );
+}
+
 export interface GameScreenProps {
   readonly initialState: GameState;
   readonly deps: GameControllerDependencies;
@@ -320,6 +367,18 @@ export function GameScreen({
       clearSelection();
       return;
     }
+    if (selectedTileId !== undefined) {
+      // A tile is already picked up, so tapping another one in the rack rearranges the hand
+      // rather than changing which tile is selected: the two exchange places, and the tile stays
+      // selected so it can be walked along with repeated taps. Tapping it again lets go of it.
+      dispatchTracked({
+        type: "SWAP_RACK_TILES",
+        playerId: currentPlayerId,
+        firstTileId: selectedTileId,
+        secondTileId: tileId,
+      });
+      return;
+    }
     setSelectedTileId(tileId);
     setPendingPlacement(undefined);
   }
@@ -448,6 +507,16 @@ export function GameScreen({
       if (result.success && selectedTileId === tileId) {
         clearSelection();
       }
+      return;
+    }
+
+    if (target.overRack) {
+      dispatchTracked({
+        type: "MOVE_RACK_TILE",
+        playerId: currentPlayerId,
+        tileId,
+        toIndex: rackDropIndex(tileId, position.x),
+      });
     }
   }
 
@@ -691,8 +760,9 @@ export function GameScreen({
                 className={styles.shuffleButton}
                 onClick={handleShuffleRack}
                 aria-label="Blanda brickorna i din hand"
+                title="Blanda brickorna i din hand"
               >
-                Blanda brickor
+                <ShuffleIcon />
               </button>
             </div>
 

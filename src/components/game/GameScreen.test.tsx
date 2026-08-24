@@ -483,6 +483,52 @@ describe("GameScreen", () => {
     expect(screen.getByText("Aktivt språk: Franska")).toBeInTheDocument();
   });
 
+  it("swaps two rack tiles when a second one is tapped with a tile already selected", async () => {
+    await renderGame(["B", "I", "L"]);
+    const rackLetters = () =>
+      Array.from(
+        screen.getByRole("group", { name: "Din hand" }).querySelectorAll("button"),
+      ).map((button) => button.textContent?.[0]);
+    expect(rackLetters()).toEqual(["B", "I", "L"]);
+
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Bricka L, 1 poäng"));
+
+    // The two exchange places; nothing is placed on the board.
+    expect(rackLetters()).toEqual(["L", "I", "B"]);
+    expect(screen.queryByLabelText(/^Pending bricka/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the tile selected after a swap, so it can be walked along the rack", async () => {
+    await renderGame(["B", "I", "L"]);
+    const rackLetters = () =>
+      Array.from(
+        screen.getByRole("group", { name: "Din hand" }).querySelectorAll("button"),
+      ).map((button) => button.textContent?.[0]);
+
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(screen.getByLabelText("Bricka I, 1 poäng"));
+    expect(rackLetters()).toEqual(["I", "B", "L"]);
+
+    // "B" is still the selected tile, so tapping the next one moves it along again.
+    await userEvent.click(screen.getByLabelText("Bricka L, 1 poäng"));
+    expect(rackLetters()).toEqual(["I", "L", "B"]);
+  });
+
+  it("still places the selected tile when a board square is tapped instead", async () => {
+    const { setup } = await renderGame(["B", "I", "L"]);
+    const centre = setup.board.centreCoordinate;
+
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+
+    expect(
+      screen.getByLabelText("Pending bricka B, tryck för att redigera"),
+    ).toBeInTheDocument();
+  });
+
   it("shuffling the rack keeps the same tiles without losing the player's turn", async () => {
     await renderGame(["B", "I", "L", "A", "R", "E", "N"]);
 

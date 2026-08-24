@@ -56,6 +56,8 @@ export function Rack({
       {tiles.map((tile) => (
         <Tile
           key={tile.id}
+          // Read by GameScreen to work out which gap a drop landed in (rackDropIndex).
+          dataRackTileId={tile.id}
           letter={tile.isBlank ? "☐" : tile.letter}
           points={tile.points}
           variant="rack"

@@ -119,7 +119,9 @@ export function BoardCell({
         data-testid={testId}
         data-coordinate={coordinateKey}
       >
-        {label?.short}
+        {label && (
+          <span className={styles.multiplierLabel}>{label.short}</span>
+        )}
       </button>
     );
   }
@@ -132,7 +134,7 @@ export function BoardCell({
       data-testid={testId}
       data-coordinate={coordinateKey}
     >
-      {label?.short}
+      {label && <span className={styles.multiplierLabel}>{label.short}</span>}
     </div>
   );
 }
