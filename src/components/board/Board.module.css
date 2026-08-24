@@ -1,9 +1,17 @@
+/*
+ * `container-type: inline-size` makes this element's width come from its parent rather than from
+ * the board inside it, which is what lets the board be sized from the space it actually has (see
+ * `--tile-base` on .viewport) instead of from the window.
+ */
 .boardArea {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  /* Keeps its natural height when a parent is short of space, rather than squashing the board. */
+  flex-shrink: 0;
   gap: var(--spacing-sm);
-  max-width: 100%;
+  width: 100%;
 }
 
 /*
@@ -16,6 +24,13 @@
  * pans by hand instead, and deliberately ignores gestures that start on a draggable tile.
  */
 .viewport {
+  /*
+   * A board cell is a fifteenth of the room the board has, less its own gaps, padding and border
+   * (2rem in total). Measured against the *container* rather than the viewport width: the
+   * game-over screen wraps the board in padding of its own, and a window-relative size overflowed
+   * there and pushed the board off-centre.
+   */
+  --tile-base: clamp(1.15rem, calc((100cqw - 2rem) / 15), 2.6rem);
   overflow: auto;
   /*
    * Hugs the board at fit-to-width and stops growing at the column width, so zooming enlarges
@@ -25,7 +40,13 @@
    */
   width: fit-content;
   max-width: 100%;
-  aspect-ratio: var(--board-aspect, 1);
+  /*
+   * Bounds the window's height without taking part in deciding its width. `aspect-ratio` did both,
+   * and on a screen that squeezed the board vertically it resolved the *width* from the squashed
+   * height, leaving a window narrower than the board inside it. The board is square, so a cap of
+   * one container-width keeps a zoomed board in a square window just the same.
+   */
+  max-height: 100cqw;
   /*
    * At fit-to-width there is nothing to pan to, so one finger is left to the browser and scrolls
    * the page as usual — the board can be a tall part of a long page (the game-over screen), and

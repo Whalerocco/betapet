@@ -1,10 +1,19 @@
+/*
+ * `width: 100%` is load-bearing: `margin: 0 auto` stops a flex item from stretching, so without
+ * it this column shrank to its widest child and every child inherited that narrower width —
+ * which left the final board sized for a container far narrower than the screen.
+ *
+ * The horizontal padding matches the game screen's, so the final board comes out the same size
+ * as the board the players were just looking at.
+ */
 .gameOver {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  width: 100%;
   max-width: 28rem;
   margin: 0 auto;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-lg) var(--spacing-md);
   text-align: center;
 }
 

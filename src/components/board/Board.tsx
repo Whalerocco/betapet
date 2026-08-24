@@ -209,11 +209,6 @@ export function Board({
         className={`${styles.viewport} ${
           zoomState.isZoomed ? styles.viewportZoomed : ""
         }`}
-        style={
-          {
-            "--board-aspect": `${boardDefinition.width} / ${boardDefinition.height}`,
-          } as CSSProperties
-        }
         onPointerDown={zoomState.onPointerDown}
         onPointerMove={zoomState.onPointerMove}
         onPointerUp={zoomState.onPointerUp}
