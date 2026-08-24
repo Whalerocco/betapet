@@ -9,6 +9,14 @@ test.use({
   hasTouch: true,
 });
 
+// Synthesising a two-finger pinch needs the Chrome DevTools Protocol, which only Chromium
+// exposes. The zoom itself is plain CSS and JS, so this is a limitation of the test harness
+// rather than of the feature.
+test.skip(
+  ({ browserName }) => browserName !== "chromium",
+  "pinch gestures need CDP",
+);
+
 /** Two-finger gestures need raw touch input; Playwright's own API only taps. */
 async function pinch(
   page: Page,

@@ -377,6 +377,16 @@ Start game
 → game restores correctly
 ```
 
+### Browsers
+
+Run the suite in **Chromium and WebKit**. Every browser on an iPhone is required to use WebKit, so
+it is the engine the game meets there whoever's browser a player prefers, and it is far from a
+formality: a CSS feature that works in Chromium evaluated to zero in an older WebKit and made
+every letter on the board invisible, which a Chromium-only suite had nothing to say about.
+
+A test needing the Chrome DevTools Protocol — synthesising a two-finger pinch, for instance —
+skips itself outside Chromium rather than failing.
+
 ### Deterministic games
 
 Tiles are dealt at random, so a test that needs particular letters cannot rely on the draw. Such

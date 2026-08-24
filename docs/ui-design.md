@@ -233,14 +233,20 @@ blank representing Ö
 
 A committed blank should make its represented letter visible while still indicating that it is a zero-point blank tile.
 
-The letter and the point value must keep the same proportion to each other at every size, which
-takes more than giving each a font size proportional to the tile. A browser applies a *minimum
-font size* — Chrome for Android exposes one as an accessibility setting — which floors a small
-computed font size but not a transform. Sized by font alone, the point value stopped shrinking
-with the tile: on a zoomed-out board it came out as large as the letter, then fell back to its
-true proportion once zooming lifted the letter clear of the floor. Both are therefore drawn at a
-fixed font size, comfortably above any plausible minimum, and scaled with a transform. The same
-applies to the multiplier captions on empty squares.
+The letter and the point value should keep the same proportion to each other at every size. Both
+are sized in proportion to the tile, which every browser understands.
+
+That is not quite sufficient, and the reason is worth knowing before anyone tries to improve it.
+A browser applies a *minimum font size* — Chrome for Android exposes one as an accessibility
+setting — which floors a small computed font size. On a zoomed-out board the point value hits that
+floor while the letter does not, so it stops shrinking with the tile and comes out too large.
+A transform is not subject to the floor, so drawing the text at a fixed size and scaling it fixes
+the proportions — but obtaining a unitless scale factor from a length needs `tan(atan2(a, b))` or
+length division, both far newer than they appear. An older WebKit parses the trig form and
+evaluates it to zero, which renders `scale(0)`: every letter, point value and multiplier caption
+disappears, on every iPhone browser, since they all use WebKit. Correct text everywhere beats
+correct proportions on one platform, so this stays proportional and the Android issue is tracked
+in `known-bugs.md` instead.
 
 ---
 

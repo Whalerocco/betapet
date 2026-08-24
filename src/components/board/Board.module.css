@@ -29,8 +29,13 @@
    * (2rem in total). Measured against the *container* rather than the viewport width: the
    * game-over screen wraps the board in padding of its own, and a window-relative size overflowed
    * there and pushed the board off-centre.
+   *
+   * The window-relative form is kept as a fallback for a browser without container units, where
+   * the container form would otherwise leave the board with no size at all. It is tuned for the
+   * game screen, so the board is merely off-centre on the game-over screen there — the old
+   * behaviour, rather than a broken one.
    */
-  --tile-base: clamp(1.15rem, calc((100cqw - 2rem) / 15), 2.6rem);
+  --tile-base: clamp(1.15rem, calc((100vw - 4rem) / 15), 2.6rem);
   overflow: auto;
   /*
    * Hugs the board at fit-to-width and stops growing at the column width, so zooming enlarges
@@ -66,6 +71,12 @@
  * content happens to fit exactly, so `contain` would swallow a swipe that ought to scroll the
  * page — which is what the game-over screen needs, the board being a tall part of a long page.
  */
+@supports (width: 1cqw) {
+  .viewport {
+    --tile-base: clamp(1.15rem, calc((100cqw - 2rem) / 15), 2.6rem);
+  }
+}
+
 .viewportZoomed {
   touch-action: none;
   overscroll-behavior: contain;
@@ -102,8 +113,6 @@
 }
 
 .cell {
-  /* Unitless pixel count of --tile-size; see the note in Tile.module.css. */
-  --tile-size-number: tan(atan2(var(--tile-size), 1px));
   position: relative;
   width: var(--tile-size);
   height: var(--tile-size);
@@ -118,15 +127,10 @@
   font-family: inherit;
 }
 
-/*
- * Scaled rather than sized, for the same reason as the tile's letter and point value: a browser
- * minimum font size floors a small computed font size but not a transform, which otherwise left
- * these captions looking oversized on a zoomed-out board and undersized on a zoomed-in one.
- */
+/* Proportional to the cell, like the tile's own text (see the note in Tile.module.css). */
 .multiplierLabel {
-  font-size: 32px;
+  font-size: calc(var(--tile-size) * 0.22);
   line-height: 1;
-  transform: scale(calc(var(--tile-size-number) * 0.22 / 32));
 }
 
 /*

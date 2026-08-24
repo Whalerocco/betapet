@@ -65,16 +65,33 @@ export function Board({
   const viewportRef = useRef<HTMLDivElement>(null);
   const zoomState = useBoardZoom();
 
-  // A ctrl+wheel (trackpad pinch) over the board would otherwise zoom the whole page. React's
-  // onWheel is passive and cannot preventDefault, so the blocking listener is registered here.
+  /*
+   * Stops the *page* zooming when the gesture was meant for the board.
+   *
+   * A ctrl+wheel (trackpad pinch) would otherwise zoom the whole page, and React's onWheel is
+   * passive so it cannot preventDefault. Safari on iOS ignores `touch-action` for pinch-zoom
+   * altogether and instead offers its own gesture events — preventing those is the only way to
+   * keep a two-finger pinch on the board from zooming the page underneath it as well, which
+   * otherwise reads as the board zooming lopsidedly. They do not exist in other browsers, where
+   * registering them is simply inert.
+   */
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const blockPageZoom = (event: WheelEvent) => {
-      if (event.ctrlKey) event.preventDefault();
+    const blockPageZoom = (event: Event) => {
+      if (event.type !== "wheel" || (event as WheelEvent).ctrlKey) {
+        event.preventDefault();
+      }
     };
-    viewport.addEventListener("wheel", blockPageZoom, { passive: false });
-    return () => viewport.removeEventListener("wheel", blockPageZoom);
+    const events = ["wheel", "gesturestart", "gesturechange", "gestureend"];
+    for (const name of events) {
+      viewport.addEventListener(name, blockPageZoom, { passive: false });
+    }
+    return () => {
+      for (const name of events) {
+        viewport.removeEventListener(name, blockPageZoom);
+      }
+    };
   }, []);
 
   const scoreBadgeKey = scoreBadgeCoordinate
