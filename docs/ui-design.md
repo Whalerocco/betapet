@@ -1067,6 +1067,13 @@ about 724px of width. The board therefore zooms independently of the page:
   a square still lands on that exact square at any zoom level.
 - Zoom is transient view state: it belongs to neither `GameState` nor the saved local session
   (`content-model.md` section 38), and it resets on reload.
+- The board must stay under the fingers across a whole gesture, not merely per step. A scroll
+  container rounds the offset it is given in some engines, so recomputing each step from the value
+  read back discards a fraction of a pixel every time and the board creeps away over a pinch's
+  many steps. The offset asked for is carried forward unrounded instead.
+- The page must not zoom with the board. WebKit ignores `touch-action` for pinch-zoom and offers
+  its own gesture events instead; those are declined at the document, since such an event targets
+  the common ancestor of both fingers and one finger is often outside the board.
 
 Avoid relying on hover.
 

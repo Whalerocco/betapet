@@ -16,6 +16,7 @@ import {
   scrollAfterZoom,
   MIN_ZOOM,
   type Point,
+  type ScrollOffset,
 } from "./boardZoom";
 
 /** Movement below this many pixels stays a tap, so tapping a square still places a tile. */
@@ -54,6 +55,38 @@ export function useBoardZoom(): BoardZoomResult {
   const isPanning = useRef(false);
   /** The live zoom mid-gesture, which handlers need before React has re-rendered. */
   const zoomValue = useRef(MIN_ZOOM);
+  /**
+   * The scroll offset we last asked for, kept as a float.
+   *
+   * A scroll container does not necessarily store what it is given: WebKit rounds an offset to a
+   * whole pixel where Chromium keeps the fraction. Recomputing each pinch step from the value
+   * read back out therefore throws away up to half a pixel every time, and a pinch is dozens of
+   * steps — the board visibly creeps away from the fingers. Carrying the unrounded value forward
+   * keeps the error from compounding.
+   */
+  const requestedScroll = useRef<ScrollOffset>({ scrollLeft: 0, scrollTop: 0 });
+
+  /**
+   * What to treat as the current offset: our own unrounded value while it still matches the
+   * element, and the element's own when something else has moved it — a native scroll, or a new
+   * gesture starting somewhere else entirely. A whole pixel of slack is enough to tell the two
+   * apart, since rounding can never exceed half of one.
+   */
+  function currentScroll(viewport: HTMLDivElement): ScrollOffset {
+    const requested = requestedScroll.current;
+    const movedElsewhere =
+      Math.abs(viewport.scrollLeft - requested.scrollLeft) > 1 ||
+      Math.abs(viewport.scrollTop - requested.scrollTop) > 1;
+    return movedElsewhere
+      ? { scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop }
+      : requested;
+  }
+
+  function applyScroll(viewport: HTMLDivElement, scroll: ScrollOffset): void {
+    requestedScroll.current = scroll;
+    viewport.scrollLeft = scroll.scrollLeft;
+    viewport.scrollTop = scroll.scrollTop;
+  }
 
   function applyZoom(
     viewport: HTMLDivElement,
@@ -67,10 +100,7 @@ export function useBoardZoom(): BoardZoomResult {
     const rect = viewport.getBoundingClientRect();
     const focus = { x: focalClientX - rect.left, y: focalClientY - rect.top };
     const scroll = scrollAfterZoom({
-      scroll: {
-        scrollLeft: viewport.scrollLeft,
-        scrollTop: viewport.scrollTop,
-      },
+      scroll: currentScroll(viewport),
       zoom: zoomValue.current,
       nextZoom,
       focus,
@@ -82,8 +112,7 @@ export function useBoardZoom(): BoardZoomResult {
     // extent, so writing before the re-render would clamp against the smaller board and the
     // content would creep out from under the fingers on every pinch step.
     flushSync(() => setZoom(nextZoom));
-    viewport.scrollLeft = scroll.scrollLeft;
-    viewport.scrollTop = scroll.scrollTop;
+    applyScroll(viewport, scroll);
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>): void {
@@ -139,12 +168,13 @@ export function useBoardZoom(): BoardZoomResult {
     }
     isPanning.current = true;
     const viewport = event.currentTarget;
-    const scroll = scrollAfterPan(
-      { scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop },
-      { x: position.x - previous.x, y: position.y - previous.y },
+    applyScroll(
+      viewport,
+      scrollAfterPan(currentScroll(viewport), {
+        x: position.x - previous.x,
+        y: position.y - previous.y,
+      }),
     );
-    viewport.scrollLeft = scroll.scrollLeft;
-    viewport.scrollTop = scroll.scrollTop;
   }
 
   function onPointerUp(event: PointerEvent<HTMLDivElement>): void {
@@ -169,6 +199,7 @@ export function useBoardZoom(): BoardZoomResult {
 
   const resetZoom = useCallback(() => {
     zoomValue.current = MIN_ZOOM;
+    requestedScroll.current = { scrollLeft: 0, scrollTop: 0 };
     setZoom(MIN_ZOOM);
   }, []);
 
