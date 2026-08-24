@@ -25,13 +25,13 @@ describe("HandoffScreen", () => {
     const onContinue = vi.fn();
     render(
       <HandoffScreen
-        message="Läggningen godkändes. Nu är det Annas tur."
-        continueLabel="Börja tur"
+        message="Läggningen nekades. Lämna tillbaka enheten till August."
+        continueLabel="Fortsätt"
         onContinue={onContinue}
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Börja tur" }));
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
 
     expect(onContinue).toHaveBeenCalledOnce();
   });

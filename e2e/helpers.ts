@@ -46,7 +46,7 @@ export async function startNewGame(
 
 /** Passes through whichever handoff screen is currently showing (ui-design.md section 24-25). */
 export async function continueHandoff(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /^(Fortsätt|Börja tur)$/ }).click();
+  await page.getByRole("button", { name: "Fortsätt" }).click();
 }
 
 /**

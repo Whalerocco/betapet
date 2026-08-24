@@ -440,17 +440,18 @@ to:
 Player B's normal turn
 ```
 
-A simple intermediate confirmation is appropriate:
+No intermediate confirmation is shown (DEC-019): the transition happens immediately, and Player
+B's rack appears as soon as they accept.
 
-```text
-Läggningen godkändes.
+This is not an exception to the handoff rule but a case the rule does not reach. A handoff screen
+exists to stop one player seeing the other's private information, and it is needed whenever the
+device must change hands. Here it does not: accepting passes the turn to the reviewer, who is the
+person already holding the device, and the rack about to be revealed is their own. A screen
+saying "now it is your turn" to the player who just tapped `Godkänn` only adds a tap — and one
+per turn in Illegal mode, where every move goes through approval.
 
-Nu är det Annas tur.
-
-[ Börja tur ]
-```
-
-Only after `Börja tur` should Player B's rack be shown.
+Rejection is the opposite case and keeps its screen: control returns to the *proposer*, so the
+device genuinely has to go back.
 
 ---
 

@@ -348,15 +348,17 @@ describe("GameScreen", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Godkänn" }));
 
-    expect(
-      screen.getByText(
-        `Läggningen godkändes. Nu är det ${setup.state.players[1].name}s tur.`,
-      ),
-    ).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Börja tur" }));
-
+    // Accepting drops straight into the reviewer's own turn (DEC-019): they are already holding
+    // the device, so there is no handoff screen to tap through.
     expect(
       screen.getByText(`Din tur: ${setup.state.players[1].name}`),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Börja tur" }),
+    ).not.toBeInTheDocument();
+    // The reviewer's own private area is on screen straight away, with nothing to tap through.
+    expect(
+      screen.getByRole("group", { name: "Din hand" }),
     ).toBeInTheDocument();
     const playerOneScore = screen.getByText(
       new RegExp(`^${setup.state.players[0].name}: \\d+$`),

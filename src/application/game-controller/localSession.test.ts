@@ -80,16 +80,15 @@ describe("deriveLocalSessionAfterAction", () => {
     });
   });
 
-  it("hands off to the reviewer's own normal turn after acceptance", () => {
+  it("goes straight into the reviewer's own turn after acceptance (DEC-019)", () => {
     const { state, playerTwoId } = buildEngineTestGame();
     const session = deriveLocalSessionAfterAction("ACCEPT_PROPOSED_MOVE", {
       ...state,
       turnState: { type: "PLAYER_TURN", playerId: playerTwoId },
     });
-    expect(session).toEqual({
-      mode: "HANDOFF_AFTER_ACCEPTANCE",
-      expectedViewerPlayerId: playerTwoId,
-    });
+    // Accepting passes the turn to the reviewer, who is already holding the device: there is
+    // nobody to hand it to, and the rack about to be revealed is their own.
+    expect(session).toEqual({ mode: "PLAYING" });
   });
 
   it("does not gate anything once the game has finished", () => {
@@ -141,15 +140,12 @@ describe("describeHandoff", () => {
     );
   });
 
-  it("uses Börja tur as the continue label after acceptance", () => {
-    const { state, playerTwoId } = buildEngineTestGame();
-    const result = describeHandoff(
-      { mode: "HANDOFF_AFTER_ACCEPTANCE", expectedViewerPlayerId: playerTwoId },
-      state,
-    );
-    expect(result).toEqual({
-      message: "Läggningen godkändes. Nu är det Annas tur.",
-      continueLabel: "Börja tur",
+  it("describes nothing while playing, since no screen is shown then", () => {
+    const { state } = buildEngineTestGame();
+
+    expect(describeHandoff({ mode: "PLAYING" }, state)).toEqual({
+      message: "",
+      continueLabel: "",
     });
   });
 });

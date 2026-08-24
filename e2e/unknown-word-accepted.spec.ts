@@ -45,11 +45,10 @@ test("an unknown word can be proposed, accepted, and commits the move", async ({
   await expect(page.getByText(`vill spela "${pick.word}"`)).toBeVisible();
   await page.getByRole("button", { name: "Godkänn" }).click();
 
-  await expect(page.getByText("Läggningen godkändes.")).toBeVisible();
-  await continueHandoff(page);
-
-  // The reviewer's own turn now begins, and the word is a committed part of the board.
+  // Accepting drops straight into the reviewer's own turn (DEC-019) — they are already holding
+  // the device, so there is no handoff screen in between.
   await expect(page.getByText(`Din tur: ${reviewer}`)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fortsätt" })).toHaveCount(0);
   await expect(page.locator('[data-coordinate="7,7"]')).toContainText(
     pick.word[0],
   );

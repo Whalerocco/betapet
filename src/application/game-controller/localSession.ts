@@ -13,7 +13,6 @@ export type LocalSessionMode =
   | "HANDOFF_TO_TURN"
   | "HANDOFF_TO_REVIEW"
   | "HANDOFF_BACK_AFTER_REJECTION"
-  | "HANDOFF_AFTER_ACCEPTANCE"
   | "RESUME_HANDOFF";
 
 export interface LocalSessionState {
@@ -103,15 +102,9 @@ export function deriveLocalSessionAfterAction(
         expectedViewerPlayerId: newState.turnState.playerId,
       };
     }
-    case "ACCEPT_PROPOSED_MOVE": {
-      if (newState.turnState.type !== "PLAYER_TURN") {
-        return { mode: "PLAYING" };
-      }
-      return {
-        mode: "HANDOFF_AFTER_ACCEPTANCE",
-        expectedViewerPlayerId: newState.turnState.playerId,
-      };
-    }
+    // ACCEPT_PROPOSED_MOVE deliberately has no handoff (DEC-019): accepting passes the turn to
+    // the reviewer, who is the person already holding the device, so there is nobody to hand it
+    // to and no rack to keep hidden from whoever is looking. It falls through to "PLAYING".
     default:
       return { mode: "PLAYING" };
   }
@@ -149,11 +142,6 @@ export function describeHandoff(
       return {
         message: `Läggningen nekades. Lämna tillbaka enheten till ${viewerName}.`,
         continueLabel: "Fortsätt",
-      };
-    case "HANDOFF_AFTER_ACCEPTANCE":
-      return {
-        message: `Läggningen godkändes. Nu är det ${viewerName}s tur.`,
-        continueLabel: "Börja tur",
       };
     case "RESUME_HANDOFF":
       return {

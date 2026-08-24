@@ -1813,3 +1813,62 @@ Relevant files:
 - `src/game/scoring/scoreMove.ts`, `scoreMove.test.ts`
 - `src/game/scoring/previewMoveScore.ts`
 - `src/game/engine/submitMove.ts`
+
+## DEC-019 — No handoff screen after a proposal is accepted
+
+**Date:** 2026-08-24
+**Status:** ACCEPTED
+**Area:** UI / Local multiplayer
+
+### Context
+
+`local-multiplayer.md` section 19 prescribed an intermediate screen after the reviewer accepts a
+proposed move — "Läggningen godkändes. Nu är det Annas tur." with a `Börja tur` button — and
+required that the reviewer's rack appear only after pressing it. `ui-design.md` section 28
+described the same moment more loosely, saying a confirmation could "appear as a small
+history/event message rather than requiring another blocking dialog", so the two documents already
+disagreed about whether the screen should block.
+
+The project owner hit it in play and asked for it to go: the text tells the person holding the
+device that it is their turn, which they already know, and it costs a tap every time. Illegal mode
+makes that every single turn, since every move there goes through approval.
+
+### Decision
+
+Accepting a proposal goes straight into the reviewer's own turn, with no handoff screen.
+
+This is not an exception to the hot-seat privacy rule but a case the rule does not reach. A
+handoff screen exists so one player cannot see the other's private information, and it is needed
+when the device changes hands. Accepting passes the turn to the reviewer — the person already
+holding the device — and the rack then revealed is their own, so there is nobody to hide it from.
+
+Rejection keeps its screen, because control returns to the proposer and the device really does
+have to go back. So does every other handoff.
+
+### Alternatives considered
+
+Keeping the screen but with a shorter label — rejected: the tap is the cost, not the wording.
+
+Showing a brief non-blocking confirmation of what was accepted, as `ui-design.md` section 28
+suggested — not implemented as part of this change: the committed move already appears in the
+history panel with its score, which covers the same ground without new UI.
+
+### Consequences
+
+- `local-multiplayer.md` section 19 states that no confirmation is shown, and why the privacy
+  rule does not apply to this transition.
+- `LocalSessionMode` loses `HANDOFF_AFTER_ACCEPTANCE`; `ACCEPT_PROPOSED_MOVE` falls through to
+  `PLAYING`. `Börja tur` no longer exists anywhere in the UI, so every remaining handoff continues
+  with `Fortsätt`.
+- Tests that walked through the acceptance handoff now assert its absence, including that the
+  reviewer's rack is on screen immediately.
+
+### Revisit when
+
+Not anticipated. If a future variant lets someone other than the reviewer take the next turn, the
+privacy argument above stops holding and the screen would have to come back for that case.
+
+Relevant files:
+- `docs/local-multiplayer.md` (section 19)
+- `src/application/game-controller/localSession.ts`, `localSession.test.ts`
+- `src/components/game/GameScreen.test.tsx`, `e2e/unknown-word-accepted.spec.ts`
