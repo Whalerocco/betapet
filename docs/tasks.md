@@ -1548,9 +1548,28 @@ separate, unhurried decision.
 
 ## T24.3 Server-side engine execution
 
-- [ ] Make shared engine usable server-side.
-- [ ] Keep engine independent from server framework.
-- [ ] Run authoritative actions on server.
+- [x] Make shared engine usable server-side.
+- [x] Keep engine independent from server framework.
+- [ ] Run authoritative actions on server. Waits on a server to run them.
+
+Both guarantees were being taken on trust, and now are not.
+
+The engine's tests run in a Node environment rather than jsdom (`vitest.config.mts` splits the
+suite into an `engine` project and a `ui` one). Under jsdom a stray dependency on a browser global
+would have passed every test while leaving the engine unusable on a server; 469 engine tests now
+run with no `window`, `document` or `localStorage` in existence.
+
+An ESLint rule stops engine code importing React, Next, components or the application layer.
+Running in Node does not catch that — importing React on a server works fine — but an engine that
+imports a component has stopped being portable all the same. The dependency runs one way: UI and
+application code build on the engine.
+
+`serializeGameState`/`parseGameState` (`src/game/model/serialization.ts`) carry a game through
+text and back, validating with the same invariant check every engine action relies on, so a state
+that survives storage can be played on immediately. The round-trip tests assert that continuing a
+restored game reaches the same state as continuing the original — a server has to continue a
+match, not merely display it. `localGameStorage` predates these and still validates inline; it can
+adopt them when persistence work begins in earnest.
 
 ---
 

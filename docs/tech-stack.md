@@ -303,6 +303,16 @@ The majority of game-rule tests should run without rendering React.
 
 ---
 
+The suite is split into two projects (`vitest.config.mts`): `engine` runs `src/game/**` in a
+**Node** environment, and `ui` runs everything else in jsdom.
+
+That split is a guarantee, not tidiness. The engine has to be usable on a server as well as in a
+browser, and under jsdom a stray dependency on a browser global would pass every test while
+leaving it unusable server-side. An ESLint rule covers the other half — engine code may not
+import React, Next, components or the application layer, which running in Node would not catch.
+
+---
+
 ## 13. React/component testing
 
 Use:
