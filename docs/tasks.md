@@ -1366,7 +1366,12 @@ Before declaring Version 1 complete:
       not against the physical Alfapet game.
 - [x] Dictionary license/source is documented.
 - [x] No online/backend code is required for local play.
-- [ ] Manual two-person hot-seat test completed.
+- [x] Manual two-person hot-seat test completed. Played on 2026-08-23 to 2026-08-26 and confirmed
+      done by the project owner. What it produced is recorded in `known-bugs.md`: the all-tiles
+      bonus paying for a move that left a tile in hand (DEC-018), an engine crash when taking back
+      a replacing tile whose displaced tile had been re-played, tiles placed this turn refusing to
+      be swapped (DEC-017), and the handoff screen after an acceptance (DEC-019). All fixed and
+      re-confirmed in play.
 - [x] Manual mobile/tablet test completed. Played on Android/Chrome over the LAN on 2026-08-23,
       confirmed OK by the project owner. Five defects came out of it, all fixed and re-confirmed
       on the device: the start-game handler crashing silently outside a secure context
@@ -1387,15 +1392,17 @@ Test with real players.
 
 Record problems involving:
 
-- [ ] Rules.
-- [ ] Scoring.
-- [ ] Dictionary coverage.
-- [ ] Unknown-word flow.
-- [ ] Handoff privacy.
-- [ ] Blank interaction.
-- [ ] Exchange/pass.
-- [ ] Game end.
-- [ ] Responsive UI.
+- [x] Rules. Replace mode produced most of them — see `known-bugs.md` and DEC-015 to DEC-017.
+- [x] Scoring. The all-tiles bonus rewarded holding a tile back (DEC-018), and a replace re-scored
+      a word it had only re-lettered (DEC-016).
+- [x] Dictionary coverage. Nothing reported.
+- [x] Unknown-word flow. The handoff after an acceptance was removed as redundant (DEC-019).
+- [x] Handoff privacy. Nothing reported; the remaining handoffs are covered by e2e tests.
+- [x] Blank interaction. Dragging a blank was fixed earlier in the round.
+- [x] Exchange/pass. Nothing reported.
+- [x] Game end. The finished board is now shown on the game-over screen.
+- [x] Responsive UI. The bulk of the mobile round: board zoom, rack sizing and rearranging, the
+      layout order, the address bar, and text that vanished on iPhone.
 
 ---
 
@@ -2028,34 +2035,43 @@ Do not start UI implementation before these foundations are sufficiently stable.
 Version 1 is done only when all of the following are true:
 
 ```text
-[ ] Two-player local game setup works
-[ ] Swedish Alfapet configuration is verified
-[ ] Board placement rules work
-[ ] Word detection works
-[ ] Swedish dictionary lookup works
-[ ] Forbidden-word handling works
-[ ] Unknown-word handling works
-[ ] Proposer confirmation works
-[ ] Opponent acceptance works
-[ ] Opponent rejection works
-[ ] Rejected tiles remain editable
-[ ] Accepted words remain valid within the game
-[ ] Blank tiles work
-[ ] Scoring works
-[ ] Complete-rack bonuses work
-[ ] Pass works
-[ ] Tile exchange works
-[ ] Game-ending rules work
-[ ] Final scoring works
-[ ] Hot-seat privacy works
-[ ] Local persistence works
-[ ] Refresh recovery works
-[ ] Game history works
-[ ] Responsive UI works
+[x] Two-player local game setup works
+[x] Swedish Alfapet configuration is verified
+[x] Board placement rules work
+[x] Word detection works
+[x] Swedish dictionary lookup works
+[x] Forbidden-word handling works
+[x] Unknown-word handling works
+[x] Proposer confirmation works
+[x] Opponent acceptance works
+[x] Opponent rejection works
+[x] Rejected tiles remain editable
+[x] Accepted words remain valid within the game
+[x] Blank tiles work
+[x] Scoring works
+[x] Complete-rack bonuses work
+[x] Pass works
+[x] Tile exchange works
+[x] Game-ending rules work
+[x] Final scoring works
+[x] Hot-seat privacy works
+[x] Local persistence works
+[x] Refresh recovery works
+[x] Game history works
+[x] Responsive UI works
 [ ] Core accessibility requirements work
-[ ] Critical automated tests pass
-[ ] Production build passes
-[ ] Real two-person playtesting completed
+[x] Critical automated tests pass
+[x] Production build passes
+[x] Real two-person playtesting completed
 ```
+
+Ticked 2026-08-26, after the hot-seat round the project owner confirmed complete. Every ticked
+line is covered by the automated suites (604 unit tests, 43 end-to-end across Chromium and
+WebKit) as well as by play, apart from the configuration line, which DEC-009 settled.
+
+One line is deliberately left open: `known-bugs.md` item 12 records that `Tile` puts
+`aria-pressed` on every tile it renders as a button, so a screen reader announces board tiles that
+are not toggles as "not pressed". Nothing is unusable and the fix is small, but the line should
+not be ticked while a known accessibility defect stands.
 
 Only after this checklist is satisfied should online multiplayer become the primary development focus.
