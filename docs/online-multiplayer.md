@@ -401,6 +401,11 @@ Do not return:
 
 The server should derive a player-specific view.
 
+This derivation is `toPlayerGameView` in `src/game/view/playerGameView.ts`, written as part of
+T24.5 before any server exists, so that the rule lives with the game rules and a backend cannot
+quietly diverge from it. A pending move follows the same principle and is included only for its
+owner, or for the opponent once it has been proposed to them for approval.
+
 ---
 
 # 17. Tile bag secrecy

@@ -873,9 +873,17 @@ PlayerGameView
 └── history
 ```
 
-Version 1 may not require a formal player-view API immediately, but the model should not make one difficult to add.
+Implemented as `toPlayerGameView` in `src/game/view/playerGameView.ts` (T24.5). It is a pure
+derivation from the authoritative state, kept in the engine so that a server inherits the rule
+rather than restating it.
 
-This becomes essential for online multiplayer.
+Version 1 does not need it — one browser holds the whole state and the UI hides a rack behind a
+handoff screen — but online it stops being an interface concern and becomes a security one: a
+client sent the full state can read the opponent's hand whatever it chooses to render.
+
+The view carries identities only for the tiles it legitimately exposes: the board, the viewer's
+own hand, and a pending move they are party to. Carrying the game's whole tile registry would
+hand over the opponent's hand and the bag in the same breath.
 
 ---
 

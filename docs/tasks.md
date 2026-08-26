@@ -1525,6 +1525,11 @@ above — the pipeline is still the same, but a word the move only re-lettered n
 
 Do not start these tasks until the local Version 1 release gate is satisfied and the project owner explicitly moves work into the online phase.
 
+The project owner opened this phase on 2026-08-26, after the hot-seat playtest round (section 44).
+Work here started with the tasks that do not depend on the hosting decision — T24.5, and the parts
+of T24.3 about keeping the engine framework-independent — so that choosing a stack stays a
+separate, unhurried decision.
+
 ## T24.1 Reevaluate backend stack
 
 - [ ] Confirm current hosting/backend needs.
@@ -1560,12 +1565,28 @@ Do not start these tasks until the local Version 1 release gate is satisfied and
 
 ## T24.5 Player-safe views
 
-- [ ] Return own rack.
-- [ ] Return opponent rack count only.
-- [ ] Hide tile-bag order.
-- [ ] Hide other private state.
+- [x] Return own rack.
+- [x] Return opponent rack count only.
+- [x] Hide tile-bag order.
+- [x] Hide other private state.
+- [x] Add authorization tests.
 
-Add authorization tests.
+`toPlayerGameView` in `src/game/view/playerGameView.ts` derives what one player may be told from
+the authoritative state (`online-multiplayer.md` sections 16-17). It lives in the engine rather
+than in a server, so whatever backend is chosen later inherits the rule instead of restating it,
+and so it can be tested as directly as any other rule.
+
+A pending move is part of this and is not mentioned in the task list: its owner always sees it,
+and the opponent only once it has been proposed to them for approval. Otherwise an opponent would
+watch letters being tried out and know the hand before the move was ever played.
+
+The authorization tests assert what is *absent*, including by serializing a view and sweeping the
+JSON for identifiers that must never appear in it — a leak anywhere in the structure fails, not
+only in the places someone thought to assert on. Leaking the full tile registry fails seven of
+them.
+
+Transport is still to come: nothing serves these views until T24.3/T24.4 have a server to serve
+them from.
 
 ---
 
