@@ -51,6 +51,17 @@ describe("parsing a turn action", () => {
     });
   });
 
+  it("accepts the disputed-word actions, which carry nothing but a name", () => {
+    for (const type of [
+      "CONFIRM_PROPOSAL",
+      "CANCEL_PROPOSAL",
+      "ACCEPT_PROPOSED_MOVE",
+      "REJECT_PROPOSED_MOVE",
+    ] as const) {
+      expect(parseTurnAction({ type })).toEqual({ type });
+    }
+  });
+
   it("rejects anything malformed", () => {
     expect(parseTurnAction(undefined)).toBeUndefined();
     expect(parseTurnAction({ type: "RESIGN" })).toBeUndefined();

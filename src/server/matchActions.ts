@@ -75,7 +75,21 @@ export type TurnAction =
         readonly coordinate: Coordinate;
         readonly representedLetter?: string;
       }[];
-    };
+    }
+  /*
+   * The disputed-word actions (`online-multiplayer.md` sections 21-25). A submitted move that
+   * forms an unknown word does not become the opponent's problem by itself: the proposer must
+   * first say `Spela ändå`, which is `CONFIRM_PROPOSAL`, or back out with `CANCEL_PROPOSAL`.
+   * The opponent then answers with one of the last two.
+   *
+   * Who may send which is not decided here. Each maps to an engine action naming the player, and
+   * the engine refuses a proposer reviewing their own proposal exactly as it does in a hot-seat
+   * game.
+   */
+  | { readonly type: "CONFIRM_PROPOSAL" }
+  | { readonly type: "CANCEL_PROPOSAL" }
+  | { readonly type: "ACCEPT_PROPOSED_MOVE" }
+  | { readonly type: "REJECT_PROPOSED_MOVE" };
 
 function seatOf(record: MatchRecord, userId: string): PlayerId | undefined {
   return record.players.find((seat) => seat.userId === userId)?.playerId;
@@ -239,15 +253,39 @@ export async function matchViewFor(
   return viewOf(record, record.gameState, playerId);
 }
 
-/** The engine actions one turn action becomes, in order. */
-function engineActions(action: TurnAction, playerId: PlayerId): GameAction[] {
+/**
+ * The engine actions one turn action becomes, in order.
+ *
+ * A submission starts by clearing whatever pending move the state already holds. Normally there
+ * is none, but a rejected proposal leaves one behind on purpose (`online-multiplayer.md`
+ * section 26: the placement returns to the proposer as editable state), and the client sends its
+ * complete intended placement rather than a diff (section 19). Clearing first is therefore how a
+ * second attempt after a rejection works at all — and it is safe, because the engine refuses to
+ * clear a pending move that is awaiting the opponent's review.
+ */
+function engineActions(
+  action: TurnAction,
+  playerId: PlayerId,
+  state: GameState,
+): GameAction[] {
   switch (action.type) {
     case "PASS":
       return [{ type: "PASS", playerId }];
     case "EXCHANGE_TILES":
       return [{ type: "EXCHANGE_TILES", playerId, tileIds: action.tileIds }];
+    case "CONFIRM_PROPOSAL":
+      return [{ type: "CONFIRM_PROPOSAL", playerId }];
+    case "CANCEL_PROPOSAL":
+      return [{ type: "CANCEL_PROPOSAL", playerId }];
+    case "ACCEPT_PROPOSED_MOVE":
+      return [{ type: "ACCEPT_PROPOSED_MOVE", reviewingPlayerId: playerId }];
+    case "REJECT_PROPOSED_MOVE":
+      return [{ type: "REJECT_PROPOSED_MOVE", reviewingPlayerId: playerId }];
     case "SUBMIT_MOVE":
       return [
+        ...(state.pendingMove
+          ? [{ type: "CLEAR_PENDING_MOVE", playerId } as const]
+          : []),
         ...action.placements.map((placement): GameAction => ({
           type: "PLACE_TILE",
           playerId,
@@ -294,7 +332,7 @@ export async function performTurn(
   const deps = await dependenciesFor(record.configuration);
 
   let state = record.gameState;
-  for (const action of engineActions(request.action, playerId)) {
+  for (const action of engineActions(request.action, playerId, state)) {
     const result = dispatchGameAction(state, deps, action);
     if (!result.success) {
       return { outcome: "RULE_REJECTED", error: result.error };

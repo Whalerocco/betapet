@@ -1769,34 +1769,75 @@ draws or advances twice. Two tabs are the same case as two clicks.
 
 ## T26.1 Proposer flow
 
-- [ ] Server detects unknown words.
-- [ ] Client asks proposer.
-- [ ] `Spela ändå` persists proposal.
+- [x] Server detects unknown words.
+- [x] Client asks proposer.
+- [x] `Spela ändå` persists proposal.
+
+Submitting a move that forms an unknown word leaves the state in
+`REQUIRES_PLAYER_CONFIRMATION`, and the opponent's view shows no pending move at all. That is
+`online-multiplayer.md` section 21's requirement made structural: a proposal only becomes the
+opponent's business once the proposer sends `CONFIRM_PROPOSAL`, the `Spela ändå` of the local
+game. `CANCEL_PROPOSAL` backs out instead.
+
+"Client asks proposer" is the server half of it — the state says plainly that confirmation is
+required, and the view carries the unknown words and the score preview to ask with. The screen
+that does the asking is Milestone 6.
 
 ---
 
 ## T26.2 Opponent review
 
-- [ ] Correct opponent sees review requirement.
-- [ ] Proposed board can be reconstructed.
-- [ ] Hidden racks remain private.
+- [x] Correct opponent sees review requirement.
+- [x] Proposed board can be reconstructed.
+- [x] Hidden racks remain private.
+
+All three came from `toPlayerGameView` (T24.5) rather than from new code: a pending move is shown
+to its owner always and to the opponent only once it has been proposed. Everything section 22 asks
+to be stored — placements, blanks, formed words, unknown words, the score preview — is inside the
+pending move in the serialized state, so nothing had to be stored twice or trusted from a client.
+The score is the engine's, computed again on acceptance rather than taken from the proposer.
+
+A test confirms the reviewer sees the three placed tiles and a count of the proposer's remaining
+rack, and that the serialized view contains no tile bag.
 
 ---
 
 ## T26.3 Accept/reject
 
-- [ ] Server verifies reviewer.
-- [ ] Acceptance commits atomically.
-- [ ] Rejection restores proposer control.
-- [ ] Accepted vocabulary persists for match.
+- [x] Server verifies reviewer.
+- [x] Acceptance commits atomically.
+- [x] Rejection restores proposer control.
+- [x] Accepted vocabulary persists for match.
+
+`ACCEPT_PROPOSED_MOVE` and `REJECT_PROPOSED_MOVE` go through the same pipeline as any other
+action, so acceptance is one conditional UPDATE (DEC-023): score, board, draw, vocabulary and
+turn either all land or none do. Section 24's list is the engine's existing behaviour, not
+re-implemented here.
+
+The reviewer is verified by the engine, which refuses anyone but the player the proposal is
+waiting on — tested from both wrong angles: the proposer cannot accept their own proposal, and
+the opponent cannot accept one that has not been confirmed yet.
+
+Accepted vocabulary lives in the match's own state, so section 27 holds by construction. A test
+plays the same nonsense word in a second match and finds it unknown there.
 
 ---
 
 ## T26.4 Reconnect tests
 
-- [ ] Proposal survives disconnect.
-- [ ] Review survives page reload.
-- [ ] Rejected placement returns to proposer.
+- [x] Proposal survives disconnect.
+- [x] Review survives page reload.
+- [x] Rejected placement returns to proposer.
+
+There is nothing to survive a disconnect: no part of the flow lives in a browser, and every read
+already comes from the database. The tests assert it rather than assume it — reopening the match
+as the reviewer finds the proposal at the same revision.
+
+Rejection returns the placement to the proposer as editable state (section 26), and the engine
+puts it straight back to `EDITING` rather than through an unlock step. Submitting again therefore
+has to cope with a pending move already being there, which is why a submission clears one first
+(DEC-024): the client sends its whole intended placement, not a diff. A test rejects a three-tile
+word and then submits two tiles instead.
 
 ---
 

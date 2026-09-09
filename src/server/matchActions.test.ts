@@ -1,7 +1,10 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { SWEDISH_CONFIGURATION_ID } from "@/game/configuration/swedishConfiguration";
-import type { TileId } from "@/game/model/ids";
+import { createGame } from "@/game/engine/createGame";
+import type { GameState } from "@/game/model/game";
+import { playerTurn } from "@/game/model/turnState";
+import { createPlayerId, type PlayerId, type TileId } from "@/game/model/ids";
 
 import type { SessionUser } from "./session";
 
@@ -103,6 +106,108 @@ describe.skipIf(!configured)("match actions", () => {
       actor: actorId === august.id ? august : anna,
       waiting: actorId === august.id ? anna : august,
     };
+  }
+
+  /**
+   * A game where one player holds exactly the letters a test needs, and it is their turn.
+   *
+   * Racks are dealt at random, so a test that needs to spell something has to arrange for it.
+   * The wanted tiles are taken from wherever they happen to be — the bag or either rack, since
+   * some letters exist only once in the Swedish set — and both racks are then refilled from what
+   * is left. Every tile still exists in exactly one place, which is the invariant each engine
+   * action relies on.
+   */
+  function gameWithRack(
+    playerIndex: 0 | 1,
+    letters: readonly string[],
+    seats: readonly { userId: string; playerId: PlayerId }[],
+  ): GameState {
+    const base = createGame({
+      playerOneName: "August",
+      playerTwoName: "Anna",
+      rackSize: 7,
+      playerOneId: seats[0]!.playerId,
+      playerTwoId: seats[1]!.playerId,
+    });
+
+    // The board is empty at this point, so every tile is in the bag or on a rack.
+    const pool = [
+      ...base.tileBag.tileIds,
+      ...base.players[0].rack.tileIds,
+      ...base.players[1].rack.tileIds,
+    ];
+
+    const chosen: TileId[] = [];
+    for (const letter of letters) {
+      const index = pool.findIndex((tileId) => {
+        const tile = base.tiles[tileId];
+        return tile.kind === "LETTER" && tile.letter === letter;
+      });
+      if (index < 0) throw new Error(`No ${letter} in this tile set`);
+      chosen.push(pool.splice(index, 1)[0]!);
+    }
+
+    const wanted = [...chosen, ...pool.splice(0, 7 - chosen.length)];
+    const other = pool.splice(0, 7);
+
+    const players: GameState["players"] = [
+      {
+        ...base.players[0],
+        rack: { tileIds: playerIndex === 0 ? wanted : other },
+      },
+      {
+        ...base.players[1],
+        rack: { tileIds: playerIndex === 1 ? wanted : other },
+      },
+    ];
+
+    return {
+      ...base,
+      players,
+      tileBag: { tileIds: pool },
+      currentPlayerId: players[playerIndex].id,
+      turnState: playerTurn(players[playerIndex].id),
+    };
+  }
+
+  /** A started match in which August holds XZB and it is his turn. */
+  async function matchAwaitingNonsense() {
+    const seats = [
+      { userId: august.id, playerId: createPlayerId() },
+      { userId: anna.id, playerId: createPlayerId() },
+    ] as const;
+
+    const state = gameWithRack(0, ["X", "Z", "B"], seats);
+    const record = await matches.createMatch({
+      createdByUserId: august.id,
+      configuration: CONFIGURATION,
+      players: [seats[0], seats[1]],
+      gameState: state,
+    });
+
+    return { record, state, augustPlayerId: seats[0].playerId };
+  }
+
+  /** Submits XZB across the centre — three letters that are not a Swedish word. */
+  async function submitNonsense(
+    matchId: string,
+    revision: number,
+    state: GameState,
+  ) {
+    const [x, z, b] = state.players[0].rack.tileIds;
+    return actions.performTurn({
+      user: august,
+      matchId,
+      expectedRevision: revision,
+      action: {
+        type: "SUBMIT_MOVE",
+        placements: [
+          { tileId: x!, coordinate: { row: 7, column: 7 } },
+          { tileId: z!, coordinate: { row: 7, column: 8 } },
+          { tileId: b!, coordinate: { row: 7, column: 9 } },
+        ],
+      },
+    });
   }
 
   describe("creating a match", () => {
@@ -251,6 +356,271 @@ describe.skipIf(!configured)("match actions", () => {
       expect((await actions.matchViewFor(stranger, matchId)).outcome).toBe(
         "NOT_FOUND",
       );
+    });
+  });
+
+  describe("the disputed-word flow", () => {
+    it("asks the proposer before it asks the opponent", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+
+      const result = await submitNonsense(record.id, record.revision, state);
+
+      expect(result.outcome).toBe("OK");
+      if (result.outcome !== "OK") return;
+
+      /*
+       * `online-multiplayer.md` section 21: an unknown word must not become the opponent's
+       * problem merely because validation found one. The proposer is asked first.
+       */
+      expect(result.view.pendingMove?.status).toBe(
+        "REQUIRES_PLAYER_CONFIRMATION",
+      );
+      const opponentView = await actions.matchViewFor(anna, record.id);
+      if (opponentView.outcome !== "OK") throw new Error(opponentView.outcome);
+      expect(opponentView.view.pendingMove).toBeUndefined();
+    });
+
+    it("shows the opponent the proposal only once it is confirmed", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+
+      expect(confirmed.outcome).toBe("OK");
+      const opponentView = await actions.matchViewFor(anna, record.id);
+      if (opponentView.outcome !== "OK") throw new Error(opponentView.outcome);
+
+      expect(opponentView.view.pendingMove?.status).toBe(
+        "WAITING_FOR_OPPONENT",
+      );
+      // Section 23: Anna sees the placement and the words, but never August's remaining rack.
+      expect(opponentView.view.pendingMove?.placedTiles).toHaveLength(3);
+      expect(opponentView.view.opponentRackCount).toBe(4);
+      expect(JSON.stringify(opponentView.view)).not.toContain("tileBag");
+    });
+
+    it("does not let the proposer review their own proposal", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+
+      const result = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: confirmed.revision,
+        action: { type: "ACCEPT_PROPOSED_MOVE" },
+      });
+
+      expect(result.outcome).toBe("RULE_REJECTED");
+    });
+
+    it("commits the move and the word when the opponent accepts", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+
+      const accepted = await actions.performTurn({
+        user: anna,
+        matchId: record.id,
+        expectedRevision: confirmed.revision,
+        action: { type: "ACCEPT_PROPOSED_MOVE" },
+      });
+
+      expect(accepted.outcome).toBe("OK");
+      if (accepted.outcome !== "OK") return;
+
+      const stored = await matches.loadMatchForUser(record.id, august.id);
+      const game = stored!.gameState!;
+      expect(game.board.occupiedCells).toHaveLength(3);
+      expect(game.pendingMove).toBeUndefined();
+      // Section 24: score applied, tiles redrawn, turn advanced to the reviewer.
+      const proposer = game.players.find(
+        (p) => p.id === state.currentPlayerId,
+      )!;
+      expect(proposer.score).toBeGreaterThan(0);
+      expect(proposer.rack.tileIds).toHaveLength(7);
+      expect(game.currentPlayerId).not.toBe(state.currentPlayerId);
+      // Section 27: the word is now this match's vocabulary.
+      expect(game.acceptedVocabulary.map((entry) => entry.word)).toContain(
+        "XZB",
+      );
+    });
+
+    it("keeps an accepted word inside the match that accepted it", async () => {
+      const first = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(
+        first.record.id,
+        first.record.revision,
+        first.state,
+      );
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: first.record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+      const accepted = await actions.performTurn({
+        user: anna,
+        matchId: first.record.id,
+        expectedRevision: confirmed.revision,
+        action: { type: "ACCEPT_PROPOSED_MOVE" },
+      });
+      if (accepted.outcome !== "OK") throw new Error(accepted.outcome);
+
+      // A different match, same word: still unknown (section 27).
+      const second = await matchAwaitingNonsense();
+      const again = await submitNonsense(
+        second.record.id,
+        second.record.revision,
+        second.state,
+      );
+
+      expect(again.outcome).toBe("OK");
+      if (again.outcome !== "OK") return;
+      expect(again.view.pendingMove?.status).toBe(
+        "REQUIRES_PLAYER_CONFIRMATION",
+      );
+    });
+
+    it("returns control and the placement to the proposer when rejected", async () => {
+      const { record, state, augustPlayerId } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+
+      const rejected = await actions.performTurn({
+        user: anna,
+        matchId: record.id,
+        expectedRevision: confirmed.revision,
+        action: { type: "REJECT_PROPOSED_MOVE" },
+      });
+
+      expect(rejected.outcome).toBe("OK");
+      const stored = await matches.loadMatchForUser(record.id, august.id);
+      const game = stored!.gameState!;
+
+      // Section 25: no score, no draw, no vocabulary, and the turn is August's again.
+      expect(game.players.every((player) => player.score === 0)).toBe(true);
+      expect(game.acceptedVocabulary).toHaveLength(0);
+      expect(game.currentPlayerId).toBe(augustPlayerId);
+      /*
+       * Section 26: the placement is still there and is editable again — the engine puts it
+       * straight back to EDITING rather than through an unlock step — and it is emphatically not
+       * board occupancy.
+       */
+      expect(game.board.occupiedCells).toHaveLength(0);
+      expect(game.pendingMove?.status).toBe("EDITING");
+      expect(game.pendingMove?.placedTiles).toHaveLength(3);
+    });
+
+    /*
+     * Section 26 again, from the other side: a rejected placement is the proposer's to change.
+     * The client sends its whole intended placement, so the server clears what is pending before
+     * replaying it — otherwise a second attempt could never be made.
+     */
+    it("lets the proposer submit a different placement after a rejection", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+      const rejected = await actions.performTurn({
+        user: anna,
+        matchId: record.id,
+        expectedRevision: confirmed.revision,
+        action: { type: "REJECT_PROPOSED_MOVE" },
+      });
+      if (rejected.outcome !== "OK") throw new Error(rejected.outcome);
+
+      const [x, z] = state.players[0].rack.tileIds;
+      const retried = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: rejected.revision,
+        action: {
+          type: "SUBMIT_MOVE",
+          placements: [
+            { tileId: x!, coordinate: { row: 7, column: 7 } },
+            { tileId: z!, coordinate: { row: 7, column: 8 } },
+          ],
+        },
+      });
+
+      expect(retried.outcome).toBe("OK");
+      if (retried.outcome !== "OK") return;
+      expect(retried.view.pendingMove?.placedTiles).toHaveLength(2);
+    });
+
+    it("does not let the opponent review a proposal the proposer has not confirmed", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+
+      const result = await actions.performTurn({
+        user: anna,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "ACCEPT_PROPOSED_MOVE" },
+      });
+
+      expect(result.outcome).toBe("RULE_REJECTED");
+    });
+
+    /*
+     * T26.4: nothing about the flow lives in a browser. Every read above already comes from the
+     * database, so a reload is only another read — which is what this asserts explicitly.
+     */
+    it("survives a reload, because the proposal is in the database", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+
+      const reopened = await actions.matchViewFor(anna, record.id);
+
+      expect(reopened.outcome).toBe("OK");
+      if (reopened.outcome !== "OK") return;
+      expect(reopened.view.pendingMove?.status).toBe("WAITING_FOR_OPPONENT");
+      expect(reopened.revision).toBe(confirmed.revision);
     });
   });
 

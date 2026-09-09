@@ -43,6 +43,14 @@ export function parseTurnAction(body: unknown): TurnAction | undefined {
     case "PASS":
       return { type: "PASS" };
 
+    // The disputed-word actions carry nothing but their name: which player may send each is the
+    // engine's judgment, made against the stored proposal (`online-multiplayer.md` section 24).
+    case "CONFIRM_PROPOSAL":
+    case "CANCEL_PROPOSAL":
+    case "ACCEPT_PROPOSED_MOVE":
+    case "REJECT_PROPOSED_MOVE":
+      return { type: body.type };
+
     case "EXCHANGE_TILES": {
       const tileIds = asStringArray(body.tileIds);
       return tileIds
