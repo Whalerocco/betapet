@@ -1,9 +1,14 @@
 import { eq, inArray } from "drizzle-orm";
 
+import {
+  dispatchGameAction,
+  type GameAction,
+} from "@/application/game-controller/gameController";
 import { createGame } from "@/game/engine/createGame";
-import type { GameState } from "@/game/model/game";
 import type { GameError } from "@/game/engine/gameError";
-import { createPlayerId, type PlayerId } from "@/game/model/ids";
+import type { Coordinate } from "@/game/model/coordinate";
+import type { GameState } from "@/game/model/game";
+import { createPlayerId, type PlayerId, type TileId } from "@/game/model/ids";
 import {
   toPlayerGameView,
   type PlayerGameView,
@@ -11,6 +16,7 @@ import {
 
 import { db } from "./db/client";
 import { user, type MatchConfiguration } from "./db/schema";
+import { dependenciesFor } from "./matchDependencies";
 import {
   cancelInvitation,
   createMatch as storeMatch,
@@ -26,7 +32,8 @@ import type { SessionUser } from "./session";
  *
  * Every action follows the same path, which is the one section 5 lays out — authenticate,
  * authorize, load the authoritative state, run the shared engine, persist atomically, return a
- * player-safe view. Nothing here decides a rule; the engine does.
+ * player-safe view. Nothing here decides a rule; the engine does, through the same
+ * `dispatchGameAction` the local game uses, so online and hot-seat play cannot drift apart.
  *
  * Note what a client never sends: a `playerId`. It is derived from the session and the match's
  * seats. Section 37's example — August must not be able to act as Anna — is not a check that can
@@ -49,6 +56,26 @@ export interface MatchView {
 }
 
 export type MatchViewResult = MatchView | MatchActionFailure;
+
+/**
+ * What a player may ask the server to do on their turn.
+ *
+ * Arranging tiles stays on the player's own device and only the finished placement is sent
+ * (`online-multiplayer.md` section 19, which recommends exactly this). The server then replays
+ * each placement onto the authoritative state before submitting, which is how it independently
+ * validates tile ownership and placement rather than taking the client's word for either.
+ */
+export type TurnAction =
+  | { readonly type: "PASS" }
+  | { readonly type: "EXCHANGE_TILES"; readonly tileIds: readonly TileId[] }
+  | {
+      readonly type: "SUBMIT_MOVE";
+      readonly placements: readonly {
+        readonly tileId: TileId;
+        readonly coordinate: Coordinate;
+        readonly representedLetter?: string;
+      }[];
+    };
 
 function seatOf(record: MatchRecord, userId: string): PlayerId | undefined {
   return record.players.find((seat) => seat.userId === userId)?.playerId;
@@ -210,4 +237,79 @@ export async function matchViewFor(
   }
 
   return viewOf(record, record.gameState, playerId);
+}
+
+/** The engine actions one turn action becomes, in order. */
+function engineActions(action: TurnAction, playerId: PlayerId): GameAction[] {
+  switch (action.type) {
+    case "PASS":
+      return [{ type: "PASS", playerId }];
+    case "EXCHANGE_TILES":
+      return [{ type: "EXCHANGE_TILES", playerId, tileIds: action.tileIds }];
+    case "SUBMIT_MOVE":
+      return [
+        ...action.placements.map((placement): GameAction => ({
+          type: "PLACE_TILE",
+          playerId,
+          tileId: placement.tileId,
+          coordinate: placement.coordinate,
+          representedLetter: placement.representedLetter,
+        })),
+        { type: "SUBMIT_MOVE", playerId },
+      ];
+  }
+}
+
+export interface PerformTurnRequest {
+  readonly user: SessionUser;
+  readonly matchId: string;
+  /** The revision the client believes it is acting on (`online-multiplayer.md` section 31). */
+  readonly expectedRevision: number;
+  readonly action: TurnAction;
+}
+
+/**
+ * Runs one turn action against the authoritative state and stores the result.
+ *
+ * A rejected action writes nothing: the engine is run against a state built in memory, and only a
+ * state the engine produced is persisted. A stale revision is likewise not an error but an
+ * ordinary answer — someone else acted first, and the client should refetch.
+ */
+export async function performTurn(
+  request: PerformTurnRequest,
+): Promise<MatchViewResult> {
+  const record = await loadMatchForUser(request.matchId, request.user.id);
+  if (!record) return { outcome: "NOT_FOUND" };
+
+  const playerId = seatOf(record, request.user.id);
+  if (!playerId) return { outcome: "NOT_FOUND" };
+
+  if (record.status !== "ACTIVE" || !record.gameState) {
+    return { outcome: "WRONG_MATCH_STATUS", status: record.status };
+  }
+  if (record.revision !== request.expectedRevision) {
+    return { outcome: "STALE_REVISION", currentRevision: record.revision };
+  }
+
+  const deps = await dependenciesFor(record.configuration);
+
+  let state = record.gameState;
+  for (const action of engineActions(request.action, playerId)) {
+    const result = dispatchGameAction(state, deps, action);
+    if (!result.success) {
+      return { outcome: "RULE_REJECTED", error: result.error };
+    }
+    state = result.state;
+  }
+
+  const saved = await saveGameState({
+    matchId: record.id,
+    actingUserId: request.user.id,
+    expectedRevision: request.expectedRevision,
+    gameState: state,
+  });
+
+  if (saved.outcome !== "SAVED") return saved as MatchActionFailure;
+
+  return viewOf(saved.match, state, playerId);
 }

@@ -1,6 +1,7 @@
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { SWEDISH_CONFIGURATION_ID } from "@/game/configuration/swedishConfiguration";
+import type { TileId } from "@/game/model/ids";
 
 import type { SessionUser } from "./session";
 
@@ -91,6 +92,17 @@ describe.skipIf(!configured)("match actions", () => {
     if (accepted.outcome !== "OK") throw new Error(accepted.outcome);
 
     return { matchId: created.matchId, accepted };
+  }
+
+  /** Whoever the engine decided starts, and the one who must wait. */
+  async function turnHolders(matchId: string) {
+    const record = await matches.loadMatchForUser(matchId, august.id);
+    const actorId = record!.currentActorUserId;
+    return {
+      record: record!,
+      actor: actorId === august.id ? august : anna,
+      waiting: actorId === august.id ? anna : august,
+    };
   }
 
   describe("creating a match", () => {
@@ -239,6 +251,164 @@ describe.skipIf(!configured)("match actions", () => {
       expect((await actions.matchViewFor(stranger, matchId)).outcome).toBe(
         "NOT_FOUND",
       );
+    });
+  });
+
+  describe("taking a turn", () => {
+    it("passes, and hands the turn to the opponent", async () => {
+      const { matchId } = await startedMatch();
+      const { record, actor, waiting } = await turnHolders(matchId);
+
+      const result = await actions.performTurn({
+        user: actor,
+        matchId,
+        expectedRevision: record.revision,
+        action: { type: "PASS" },
+      });
+
+      expect(result.outcome).toBe("OK");
+      const after = await matches.loadMatchForUser(matchId, august.id);
+      expect(after?.currentActorUserId).toBe(waiting.id);
+      expect(after?.revision).toBe(record.revision + 1);
+    });
+
+    /*
+     * Section 37's example, made concrete: acting out of turn is refused by the engine, and the
+     * caller never had a way to claim to be the other player in the first place.
+     */
+    it("refuses a player acting out of turn, and writes nothing", async () => {
+      const { matchId } = await startedMatch();
+      const { record, waiting } = await turnHolders(matchId);
+
+      const result = await actions.performTurn({
+        user: waiting,
+        matchId,
+        expectedRevision: record.revision,
+        action: { type: "PASS" },
+      });
+
+      expect(result.outcome).toBe("RULE_REJECTED");
+      const after = await matches.loadMatchForUser(matchId, august.id);
+      expect(after?.revision).toBe(record.revision);
+    });
+
+    it("refuses a stranger entirely", async () => {
+      const { matchId } = await startedMatch();
+      const { record } = await turnHolders(matchId);
+
+      const result = await actions.performTurn({
+        user: stranger,
+        matchId,
+        expectedRevision: record.revision,
+        action: { type: "PASS" },
+      });
+
+      expect(result.outcome).toBe("NOT_FOUND");
+    });
+
+    /* Section 32: the double-click must not advance two turns. */
+    it("applies a repeated submission once", async () => {
+      const { matchId } = await startedMatch();
+      const { record, actor } = await turnHolders(matchId);
+
+      const first = await actions.performTurn({
+        user: actor,
+        matchId,
+        expectedRevision: record.revision,
+        action: { type: "PASS" },
+      });
+      const second = await actions.performTurn({
+        user: actor,
+        matchId,
+        expectedRevision: record.revision,
+        action: { type: "PASS" },
+      });
+
+      expect(first.outcome).toBe("OK");
+      expect(second).toEqual({
+        outcome: "STALE_REVISION",
+        currentRevision: record.revision + 1,
+      });
+
+      const after = await matches.loadMatchForUser(matchId, august.id);
+      expect(after?.revision).toBe(record.revision + 1);
+      expect(after?.gameState?.consecutivePasses).toBe(1);
+    });
+
+    it("exchanges tiles, keeping the rack the size it was", async () => {
+      const { matchId } = await startedMatch();
+      const { record, actor } = await turnHolders(matchId);
+
+      const state = record.gameState!;
+      const actorSeat = record.players.find(
+        (seat) => seat.userId === actor.id,
+      )!;
+      const rack = state.players.find(
+        (player) => player.id === actorSeat.playerId,
+      )!.rack.tileIds;
+
+      const result = await actions.performTurn({
+        user: actor,
+        matchId,
+        expectedRevision: record.revision,
+        action: { type: "EXCHANGE_TILES", tileIds: rack.slice(0, 2) },
+      });
+
+      expect(result.outcome).toBe("OK");
+      if (result.outcome !== "OK") return;
+      expect(result.view.ownRack.tileIds).toHaveLength(7);
+    });
+
+    /*
+     * Section 19: editing stays on the player's device and only the finished placement is sent,
+     * so the server must independently validate that the tiles are the player's own. A tile from
+     * the opponent's rack is exactly the case that check exists for.
+     */
+    it("refuses a placement of a tile the player does not hold", async () => {
+      const { matchId } = await startedMatch();
+      const { record, actor, waiting } = await turnHolders(matchId);
+
+      const waitingSeat = record.players.find(
+        (seat) => seat.userId === waiting.id,
+      )!;
+      const opponentTile = record.gameState!.players.find(
+        (player) => player.id === waitingSeat.playerId,
+      )!.rack.tileIds[0] as TileId;
+
+      const result = await actions.performTurn({
+        user: actor,
+        matchId,
+        expectedRevision: record.revision,
+        action: {
+          type: "SUBMIT_MOVE",
+          placements: [
+            { tileId: opponentTile, coordinate: { row: 7, column: 7 } },
+          ],
+        },
+      });
+
+      expect(result.outcome).toBe("RULE_REJECTED");
+      const after = await matches.loadMatchForUser(matchId, august.id);
+      expect(after?.revision).toBe(record.revision);
+      expect(after?.gameState?.board.occupiedCells).toHaveLength(0);
+    });
+
+    it("refuses a turn on a match that has not started", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponentEmail: anna.email,
+        configuration: CONFIGURATION,
+      });
+      if (created.outcome !== "OK") throw new Error(created.outcome);
+
+      const result = await actions.performTurn({
+        user: august,
+        matchId: created.matchId,
+        expectedRevision: 1,
+        action: { type: "PASS" },
+      });
+
+      expect(result.outcome).toBe("WRONG_MATCH_STATUS");
     });
   });
 });

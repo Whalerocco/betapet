@@ -2,12 +2,83 @@ import { describe, expect, it } from "vitest";
 
 import { SWEDISH_CONFIGURATION_ID } from "@/game/configuration/swedishConfiguration";
 
-import { parseCreateMatch } from "./requests";
+import { parseCreateMatch, parseTurnAction } from "./requests";
 
 /**
  * These need no database: they are about what the server accepts from a client that may send
  * anything at all (`online-multiplayer.md` section 50).
  */
+
+describe("parsing a turn action", () => {
+  it("accepts a pass", () => {
+    expect(parseTurnAction({ type: "PASS" })).toEqual({ type: "PASS" });
+  });
+
+  it("accepts an exchange and a placement", () => {
+    expect(
+      parseTurnAction({ type: "EXCHANGE_TILES", tileIds: ["a", "b"] }),
+    ).toEqual({
+      type: "EXCHANGE_TILES",
+      tileIds: ["a", "b"],
+    });
+
+    expect(
+      parseTurnAction({
+        type: "SUBMIT_MOVE",
+        placements: [
+          { tileId: "t1", coordinate: { row: 7, column: 7 } },
+          {
+            tileId: "t2",
+            coordinate: { row: 7, column: 8 },
+            representedLetter: "A",
+          },
+        ],
+      }),
+    ).toEqual({
+      type: "SUBMIT_MOVE",
+      placements: [
+        {
+          tileId: "t1",
+          coordinate: { row: 7, column: 7 },
+          representedLetter: undefined,
+        },
+        {
+          tileId: "t2",
+          coordinate: { row: 7, column: 8 },
+          representedLetter: "A",
+        },
+      ],
+    });
+  });
+
+  it("rejects anything malformed", () => {
+    expect(parseTurnAction(undefined)).toBeUndefined();
+    expect(parseTurnAction({ type: "RESIGN" })).toBeUndefined();
+    expect(
+      parseTurnAction({ type: "EXCHANGE_TILES", tileIds: [1, 2] }),
+    ).toBeUndefined();
+    expect(
+      parseTurnAction({ type: "SUBMIT_MOVE", placements: "all" }),
+    ).toBeUndefined();
+    expect(
+      parseTurnAction({
+        type: "SUBMIT_MOVE",
+        placements: [{ tileId: "t1", coordinate: { row: 7.5, column: 7 } }],
+      }),
+    ).toBeUndefined();
+  });
+
+  /*
+   * A player id is never read from a request: the server derives it from the session and the
+   * match's seats (section 37). Sending one changes nothing.
+   */
+  it("ignores a player id a client tries to supply", () => {
+    const action = parseTurnAction({ type: "PASS", playerId: "somebody-else" });
+
+    expect(action).toEqual({ type: "PASS" });
+    expect(action).not.toHaveProperty("playerId");
+  });
+});
 
 describe("parsing a match creation", () => {
   it("defaults to the standard Swedish rules", () => {

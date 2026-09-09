@@ -36,6 +36,9 @@ export default defineConfig({
           name: "server",
           environment: "node",
           include: ["src/server/**/*.test.ts"],
+          // These talk to a real database over the network and load a dictionary of several
+          // megabytes on the first move of a run (DEC-011); the default 5s is not enough.
+          testTimeout: 30_000,
         },
       },
       {

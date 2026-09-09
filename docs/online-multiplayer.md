@@ -899,6 +899,20 @@ exchangeTiles
 sendChatMessage
 ```
 
+As built (T25.1-T25.4, DEC-024):
+
+```text
+GET    /api/matches                    the signed-in user's match list
+POST   /api/matches                    invite an opponent by email
+GET    /api/matches/:id                the match, as this player may see it
+POST   /api/matches/:id/accept         accept an invitation; starts the game
+POST   /api/matches/:id/decline        decline an invitation; cancels the match
+POST   /api/matches/:id/actions        one turn action: PASS, EXCHANGE_TILES, SUBMIT_MOVE
+```
+
+No request carries a `playerId`: which player the caller is comes from the session and the match's
+seats. The proposal actions of sections 20-26 are not here yet; they arrive with Milestone 5.2.
+
 Exact routing depends on the final backend architecture.
 
 ---

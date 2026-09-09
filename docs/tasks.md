@@ -1588,7 +1588,9 @@ string and a generated `BETTER_AUTH_SECRET` put in `.env.local` (see `.env.examp
 
 - [x] Make shared engine usable server-side.
 - [x] Keep engine independent from server framework.
-- [ ] Run authoritative actions on server. Waits on a server to run them.
+- [x] Run authoritative actions on server. Done with the action API (T25.3, DEC-024): every
+      gameplay transition now runs through `dispatchGameAction` on the server, against state
+      loaded from the database, and only the engine's own output is persisted.
 
 Both guarantees were being taken on trust, and now are not.
 
@@ -1724,18 +1726,42 @@ Again API only; the invitation list and its buttons are Milestone 6.
 
 Implement server-authoritative:
 
-- [ ] Submit move.
-- [ ] Pass.
-- [ ] Exchange.
-- [ ] Game end.
+- [x] Submit move.
+- [x] Pass.
+- [x] Exchange.
+- [x] Game end.
+
+`POST /api/matches/:id/actions` takes one domain action and the revision the client believes it is
+acting on. The pipeline is section 5's: authenticate, authorize, load the authoritative state, run
+the shared engine, persist atomically, return a player-safe view.
+
+Two properties are worth stating because they are what "without trusting the client" means here.
+A request carries no `playerId` — which player the caller is comes from the session and the match's
+seats, so the identity that section 37 forbids spoofing is never read from a request at all. And a
+submitted move carries placements, which the server replays through the engine's own `placeTile`
+against the authoritative state (section 19), so a tile the player does not hold is refused by the
+rules rather than by a check written a second time. A test plays the opponent's tile and is
+refused.
+
+Game end needs no action of its own: the engine's end conditions run inside the actions that
+trigger them, and the match's status follows the game's (DEC-023). Resignation is a separate
+matter and belongs with section 46, which is not scheduled yet.
+
+The unknown-word flow is untouched here — a submitted move that forms one still becomes a proposal
+in the stored state, and Milestone 5.2 is where the review actions are added.
 
 ---
 
 ## T25.4 Concurrency
 
-- [ ] Reject stale revisions.
-- [ ] Prevent duplicate commits.
-- [ ] Handle multiple tabs safely.
+- [x] Reject stale revisions.
+- [x] Prevent duplicate commits.
+- [x] Handle multiple tabs safely.
+
+All three are the one mechanism T24.4 built, now used: a stale revision comes back as a 409 naming
+the current revision, so the client refetches rather than retrying blindly. A double-submitted
+action is not merely idempotent but inert — the second write matches no row, so nothing scores,
+draws or advances twice. Two tabs are the same case as two clicks.
 
 ---
 

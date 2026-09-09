@@ -1,10 +1,13 @@
 import { SWEDISH_CONFIGURATION_ID } from "@/game/configuration/swedishConfiguration";
+import type { Coordinate } from "@/game/model/coordinate";
+import type { TileId } from "@/game/model/ids";
 import type { LanguageCode } from "@/game/model/language";
 import { ALL_LANGUAGE_CODES } from "@/game/model/language";
 import { ALL_MODIFIER_IDS, type ModifierId } from "@/game/model/modifiers";
 import type { RackSize } from "@/game/model/gameConfiguration";
 
 import type { MatchConfiguration } from "./db/schema";
+import type { TurnAction } from "./matchActions";
 
 /**
  * Turning request bodies into the types the action layer works with.
@@ -19,11 +22,61 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function asCoordinate(value: unknown): Coordinate | undefined {
+  if (!isRecord(value)) return undefined;
+  const { row, column } = value;
+  if (!Number.isInteger(row) || !Number.isInteger(column)) return undefined;
+  return { row: row as number, column: column as number };
+}
+
 function asStringArray(value: unknown): readonly string[] | undefined {
   if (!Array.isArray(value)) return undefined;
   return value.every((entry) => typeof entry === "string")
     ? (value as string[])
     : undefined;
+}
+
+export function parseTurnAction(body: unknown): TurnAction | undefined {
+  if (!isRecord(body)) return undefined;
+
+  switch (body.type) {
+    case "PASS":
+      return { type: "PASS" };
+
+    case "EXCHANGE_TILES": {
+      const tileIds = asStringArray(body.tileIds);
+      return tileIds
+        ? { type: "EXCHANGE_TILES", tileIds: tileIds as TileId[] }
+        : undefined;
+    }
+
+    case "SUBMIT_MOVE": {
+      if (!Array.isArray(body.placements)) return undefined;
+
+      const placements = [];
+      for (const entry of body.placements) {
+        if (!isRecord(entry) || typeof entry.tileId !== "string")
+          return undefined;
+        const coordinate = asCoordinate(entry.coordinate);
+        if (!coordinate) return undefined;
+        if (
+          entry.representedLetter !== undefined &&
+          typeof entry.representedLetter !== "string"
+        ) {
+          return undefined;
+        }
+        placements.push({
+          tileId: entry.tileId as TileId,
+          coordinate,
+          representedLetter: entry.representedLetter,
+        });
+      }
+      return { type: "SUBMIT_MOVE", placements };
+    }
+
+    default:
+      return undefined;
+  }
 }
 
 const RACK_SIZES: readonly RackSize[] = [6, 7, 8];
