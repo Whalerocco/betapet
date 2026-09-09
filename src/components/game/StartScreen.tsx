@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import styles from "./StartScreen.module.css";
 
 export interface StartScreenProps {
@@ -7,8 +9,12 @@ export interface StartScreenProps {
 }
 
 /**
- * The minimal entry screen (ui-design.md section 5, section 37). No accounts, profiles, or
- * online lobbies. "Fortsätt spel" only appears when a valid saved game was found.
+ * The entry screen (ui-design.md section 5, section 37). "Fortsätt spel" only appears when a
+ * valid saved game was found.
+ *
+ * The online link is the one addition to what section 37 describes, and it is deliberately just a
+ * link: hot-seat play needs no account and asks for nothing, and reaching the online game is a
+ * choice rather than a step on the way in.
  */
 export function StartScreen({
   onStartNewGame,
@@ -26,6 +32,9 @@ export function StartScreen({
           Fortsätt spel
         </button>
       )}
+      <Link className={styles.link} href="/online">
+        Spela online
+      </Link>
       {loadError && (
         <p className={styles.notice}>
           Det gick inte att återställa det sparade spelet.

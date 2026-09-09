@@ -44,4 +44,13 @@ describe("StartScreen", () => {
       screen.queryByRole("button", { name: "Fortsätt spel" }),
     ).not.toBeInTheDocument();
   });
+
+  it("offers a way to the online game without requiring it", () => {
+    render(<StartScreen onStartNewGame={vi.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Spela online" })).toHaveAttribute(
+      "href",
+      "/online",
+    );
+  });
 });

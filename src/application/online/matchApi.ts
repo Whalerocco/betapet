@@ -1,0 +1,146 @@
+"use client";
+
+import type { Coordinate } from "../../game/model/coordinate";
+import type { TileId } from "../../game/model/ids";
+import type { PlayerGameView } from "../../game/view/playerGameView";
+
+/**
+ * The interface's view of the server's domain actions (`online-multiplayer.md` section 36).
+ *
+ * Components never call `fetch` themselves: they call these, and get back either a result or a
+ * named failure. Keeping that here means one place understands the wire format, and one place
+ * decides what a 409 means in Swedish.
+ *
+ * No call sends a player id. The server derives it from the session (DEC-024), so the interface
+ * has nothing to get wrong.
+ */
+
+export type MatchListCategory =
+  | "YOUR_TURN"
+  | "AWAITING_YOUR_REVIEW"
+  | "WAITING_FOR_OPPONENT"
+  | "FINISHED"
+  | "INVITATION_RECEIVED"
+  | "INVITATION_SENT"
+  | "CANCELLED";
+
+export interface MatchListEntry {
+  readonly id: string;
+  readonly category: MatchListCategory;
+  readonly opponentName: string;
+  readonly revision: number;
+  readonly updatedAt: string;
+}
+
+export interface MatchSnapshot {
+  readonly matchId: string;
+  readonly revision: number;
+  readonly status: string;
+  readonly view: PlayerGameView;
+}
+
+/** Everything that can come back other than success, as something the interface can act on. */
+export type ApiFailure =
+  | { readonly error: "UNAUTHENTICATED" }
+  | { readonly error: "NOT_FOUND" }
+  | { readonly error: "OPPONENT_NOT_FOUND" }
+  | { readonly error: "CANNOT_PLAY_ALONE" }
+  | { readonly error: "WRONG_MATCH_STATUS"; readonly status?: string }
+  | { readonly error: "STALE_REVISION"; readonly currentRevision: number }
+  | {
+      readonly error: "RULE_REJECTED";
+      readonly code?: string;
+      readonly messageKey?: string;
+    }
+  | { readonly error: "NETWORK" }
+  | { readonly error: "UNKNOWN" };
+
+export type ApiResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly failure: ApiFailure };
+
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResult<T>> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers: { "content-type": "application/json", ...init?.headers },
+    });
+  } catch {
+    return { ok: false, failure: { error: "NETWORK" } };
+  }
+
+  const body: unknown = await response.json().catch(() => undefined);
+
+  if (response.ok) return { ok: true, value: body as T };
+
+  const failure =
+    body && typeof body === "object" && "error" in body
+      ? (body as ApiFailure)
+      : ({ error: "UNKNOWN" } as const);
+
+  return { ok: false, failure };
+}
+
+export function listMatches(): Promise<
+  ApiResult<{ matches: readonly MatchListEntry[] }>
+> {
+  return request("/api/matches");
+}
+
+export function createMatch(
+  opponentEmail: string,
+  configuration: { rackSize: number; modifiers: readonly string[] },
+): Promise<ApiResult<{ matchId: string }>> {
+  return request("/api/matches", {
+    method: "POST",
+    body: JSON.stringify({ opponentEmail, configuration }),
+  });
+}
+
+export function acceptInvitation(
+  matchId: string,
+): Promise<ApiResult<MatchSnapshot>> {
+  return request(`/api/matches/${matchId}/accept`, { method: "POST" });
+}
+
+export function declineInvitation(
+  matchId: string,
+): Promise<ApiResult<{ status: string }>> {
+  return request(`/api/matches/${matchId}/decline`, { method: "POST" });
+}
+
+export function fetchMatch(matchId: string): Promise<ApiResult<MatchSnapshot>> {
+  return request(`/api/matches/${matchId}`);
+}
+
+/** What a player may ask the server to do; placements are sent whole, never as a diff. */
+export type TurnAction =
+  | { readonly type: "PASS" }
+  | { readonly type: "EXCHANGE_TILES"; readonly tileIds: readonly TileId[] }
+  | {
+      readonly type: "SUBMIT_MOVE";
+      readonly placements: readonly {
+        readonly tileId: TileId;
+        readonly coordinate: Coordinate;
+        readonly representedLetter?: string;
+      }[];
+    }
+  | { readonly type: "CONFIRM_PROPOSAL" }
+  | { readonly type: "CANCEL_PROPOSAL" }
+  | { readonly type: "ACCEPT_PROPOSED_MOVE" }
+  | { readonly type: "REJECT_PROPOSED_MOVE" };
+
+export function sendTurnAction(
+  matchId: string,
+  expectedRevision: number,
+  action: TurnAction,
+): Promise<ApiResult<MatchSnapshot>> {
+  return request(`/api/matches/${matchId}/actions`, {
+    method: "POST",
+    body: JSON.stringify({ expectedRevision, action }),
+  });
+}

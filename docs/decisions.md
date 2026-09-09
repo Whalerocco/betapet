@@ -2411,3 +2411,85 @@ Relevant files:
 - `src/server/db/schema/match.ts`
 - `docs/decisions.md` (DEC-023)
 
+---
+
+## DEC-026 — The online interface renders a view, and arranges tiles without the engine
+
+**Date:** 2026-09-09
+**Status:** ACCEPTED
+**Area:** Online / UI
+
+### Context
+
+Milestone 6 needs screens: signing in, a match list, and playing a match against the server. The
+hot-seat screen could not simply be pointed at an online match, because it is built around holding
+a `GameState` and dispatching actions into the engine locally. An online client holds a
+`PlayerGameView` — no opponent rack, no bag — and could not run the engine even if it wanted to.
+
+`tasks.md` had no entries for any of this while `roadmap.md` section 33 required it; the gap was
+raised with the project owner, who chose to build the interface in full.
+
+### Decision
+
+**A separate screen for online play, sharing every presentational component with the local one.**
+`OnlineGameScreen` renders from a `PlayerGameView`; `GameScreen` keeps rendering from `GameState`.
+Board, Rack, ScoreBoard, TurnActions, OpponentReview, UnknownWordNotice, BlankLetterPicker,
+GameHistory and GameOverScreen are used unchanged by both, because they were already written
+against plain data — a board, some tiles, a rack — rather than against engine state. The two games
+therefore look identical while disagreeing entirely about who decides the rules.
+
+**Arranging tiles is local and unjudged.** The online client cannot ask the engine whether a
+placement is legal, so it does not try: it tracks where tiles have been put, refuses only what it
+can see for itself (an occupied square), and sends the finished placement. The server replays it
+through the engine and answers. This is `online-multiplayer.md` section 19's recommendation, and
+the consequence is deliberate — an illegal move is refused after `Spela`, not prevented before it.
+
+**One place owns the wire format.** `matchApi.ts` wraps every endpoint and returns either a value
+or a named failure; `failureMessages.ts` turns a failure into Swedish. A rejected rule defers to
+`describeGameError`, so an online player and a hot-seat player are told the same thing in the same
+words when the engine refuses the same move.
+
+**The open match polls every 15 seconds** (DEC-020 chose polling). A poll never overwrites an
+error the player has not read, and a response that arrives after the screen has moved on is
+discarded.
+
+### Alternatives considered
+
+**Making `GameScreen` accept either shape.** Rejected: every branch inside it would have to ask
+which game it was in, and the privacy rule — that this client must never hold the opponent's rack
+— would become a property of careful branching rather than of the type it receives.
+
+**Sending each placement to the server as it happens** (section 19's Option B). Rejected as the
+document recommends: more requests and more concurrency, to gain resuming an unfinished
+arrangement on another device.
+
+**Running the engine client-side against a synthetic state.** Would give a live score preview and
+instant validation, at the cost of inventing a fake bag and a fake opponent rack for the engine to
+chew on. A client that models what it is not allowed to know is a bad foundation.
+
+### Consequences
+
+- Known differences from the hot-seat game, all of them consequences of the client not holding the
+  game: no drag-and-drop (tap a tile, tap a square), and no live score preview while arranging —
+  the score appears with the proposal or the committed move, from the server.
+- `TurnActions` gained a `showEndGame` prop. Ending a game early online is resignation, which is a
+  match-level action nobody has built (`online-multiplayer.md` section 46), and a permanently
+  disabled button is worse than no button.
+- `/online` is reachable from the start screen by a link, and by nothing else. Hot-seat play still
+  needs no account and asks for nothing.
+- Verified by playing a real match through the browser against the Frankfurt database: two
+  accounts created, an invitation sent, accepted from the other account, and DUM played across the
+  centre for 14 points, with the rack refilled and the turn handed over. The test accounts were
+  removed afterwards.
+
+### Revisit when
+
+Drag-and-drop or a live score preview is wanted online. Both need the client to answer questions
+it currently cannot, and the honest way to get them is a server-side preview endpoint rather than
+a client-side engine.
+
+Relevant files:
+- `src/components/online/`, `src/app/online/page.tsx`
+- `src/application/online/matchApi.ts`, `src/application/online/failureMessages.ts`
+- `src/application/auth/authClient.ts`
+

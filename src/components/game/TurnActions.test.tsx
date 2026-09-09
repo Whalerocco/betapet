@@ -40,4 +40,20 @@ describe("TurnActions exchange confirmation label", () => {
       screen.getByRole("button", { name: "Byt 0 brickor" }),
     ).toBeInTheDocument();
   });
+
+  it("can leave out ending the game, for a game that has no such action", () => {
+    render(
+      <TurnActions
+        {...baseProps}
+        exchangeMode={false}
+        exchangeSelectionCount={0}
+        showEndGame={false}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "Avsluta spel" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Passa" })).toBeInTheDocument();
+  });
 });

@@ -1867,12 +1867,46 @@ review. The list would have told both players they were waiting for each other. 
 from the turn state, with a second column recording whether the waiting player owes a move or a
 verdict — which is exactly the distinction `Din tur` and `Ord att granska` draw.
 
-**Still to come before Milestone 6's exit criteria are met:** the sections above exist as data,
-not as a screen. Nothing in `tasks.md` covers the online interface — sign-in, the match list
-screen, or playing a match against a server rather than the local controller — while
-`roadmap.md` section 33 requires "users can independently create and continue matches through the
-normal website UI". That gap is the project owner's to close; it is noted here rather than filled
-in by invention.
+The sections above began as data with no screen to show them. `tasks.md` had no entries for the
+online interface at all, while `roadmap.md` section 33 requires that "users can independently
+create and continue matches through the normal website UI" — a gap between the two documents that
+was put to the project owner, who chose to build the interface in full. T27.2 below is the result,
+added after the fact rather than planned in advance.
+
+---
+
+## T27.2 Online interface
+
+Added on 2026-09-09 to close the gap described above (DEC-026).
+
+- [x] Sign in and create an account.
+- [x] Match list with the sections of T27.1, and the opponent's name.
+- [x] Invite an opponent; accept or decline an invitation.
+- [x] Play a match against the server: place, submit, pass, exchange.
+- [x] The disputed-word flow from both sides: `Spela ändå`, and `Godkänn`/`Neka`.
+
+`OnlineGameScreen` renders a `PlayerGameView`, where the hot-seat `GameScreen` renders a
+`GameState`. That is the whole difference, and every presentational component is shared unchanged
+between them — they were already written against plain data rather than engine state, so the two
+games look identical while disagreeing entirely about who decides the rules.
+
+Arranging tiles is local and unjudged: this client cannot ask the engine whether a placement is
+legal, because it holds neither the bag nor the opponent's rack. It sends the finished placement
+and the server answers (`online-multiplayer.md` section 19). An open match polls every 15 seconds,
+since DEC-020 chose polling.
+
+**Known differences from hot-seat play,** all following from the client not holding the game: no
+drag-and-drop (tap a tile, then a square), and no live score preview while arranging — the score
+arrives with the proposal or the committed move. Getting either honestly would mean a server-side
+preview, not a client-side engine.
+
+Verified in the browser against the real database: two accounts, an invitation, an acceptance from
+the other account, and DUM played across the centre for 14 points — rack refilled, turn handed
+over, history written, no console errors. The test accounts were deleted afterwards.
+
+**Not built, and not pretended to be:** notifications and badges (Milestone 7.2), friends and user
+search (Milestone 7 — an opponent is found by email until then), resignation (section 46), and
+chat.
 
 ---
 

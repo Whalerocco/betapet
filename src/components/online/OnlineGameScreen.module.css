@@ -1,0 +1,39 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.status {
+  margin: 0;
+  font-weight: 600;
+}
+
+.waiting {
+  color: var(--color-muted, #666);
+  font-weight: 400;
+}
+
+.button {
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 0.4rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.error {
+  color: var(--color-error, #b02a2a);
+  margin: 0;
+}

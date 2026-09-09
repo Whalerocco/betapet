@@ -54,3 +54,7 @@
   color: var(--danger);
   font-size: 0.9rem;
 }
+
+.link {
+  color: inherit;
+}

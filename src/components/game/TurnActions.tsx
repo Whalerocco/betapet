@@ -9,6 +9,12 @@ export interface TurnActionsProps {
   readonly canPass: boolean;
   readonly canClear: boolean;
   readonly canEndGame: boolean;
+  /**
+   * Whether to offer ending the game early at all. Online matches do not: giving up is
+   * resignation, which is a match-level action of its own (`online-multiplayer.md` section 46)
+   * and is not built. A permanently disabled button would be worse than no button.
+   */
+  readonly showEndGame?: boolean;
   readonly exchangeMode: boolean;
   readonly exchangeSelectionCount: number;
   readonly canStartExchange: boolean;
@@ -31,6 +37,7 @@ export function TurnActions({
   canPass,
   canClear,
   canEndGame,
+  showEndGame = true,
   exchangeMode,
   exchangeSelectionCount,
   canStartExchange,
@@ -115,16 +122,18 @@ export function TurnActions({
         >
           Passa
         </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            endGameTriggerRef.current = event.currentTarget;
-            setConfirmingEndGame(true);
-          }}
-          disabled={!canEndGame}
-        >
-          Avsluta spel
-        </button>
+        {showEndGame && (
+          <button
+            type="button"
+            onClick={(event) => {
+              endGameTriggerRef.current = event.currentTarget;
+              setConfirmingEndGame(true);
+            }}
+            disabled={!canEndGame}
+          >
+            Avsluta spel
+          </button>
+        )}
       </div>
 
       {confirmingPass && (
@@ -135,8 +144,7 @@ export function TurnActions({
         >
           <div className={styles.actions}>
             <p>
-              Vill du passa? Din tur avslutas utan att du spelar några
-              brickor.
+              Vill du passa? Din tur avslutas utan att du spelar några brickor.
             </p>
             <div className={styles.buttonRow}>
               <button type="button" onClick={() => setConfirmingPass(false)}>
@@ -169,10 +177,7 @@ export function TurnActions({
               vanligt, men detta kan inte ångras.
             </p>
             <div className={styles.buttonRow}>
-              <button
-                type="button"
-                onClick={() => setConfirmingEndGame(false)}
-              >
+              <button type="button" onClick={() => setConfirmingEndGame(false)}>
                 Avbryt
               </button>
               <button
