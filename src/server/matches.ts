@@ -310,3 +310,33 @@ export async function saveGameState(
     throw error;
   }
 }
+
+/**
+ * Cancels an invitation that was never accepted, guarded by the same revision check every other
+ * write uses so that a decline cannot land on a match that has meanwhile started.
+ *
+ * Returns whether the row changed.
+ */
+export async function cancelInvitation(
+  matchId: string,
+  expectedRevision: number,
+): Promise<boolean> {
+  const rows = await db
+    .update(match)
+    .set({
+      status: "CANCELLED",
+      revision: expectedRevision + 1,
+      currentActorUserId: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(match.id, matchId),
+        eq(match.revision, expectedRevision),
+        eq(match.status, "INVITED"),
+      ),
+    )
+    .returning({ id: match.id });
+
+  return rows.length > 0;
+}

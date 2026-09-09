@@ -2252,3 +2252,88 @@ Relevant files:
 - `drizzle/0001_matches.sql`
 - `docs/online-multiplayer.md` (sections 31-38, 49)
 
+---
+
+## DEC-024 — The server action API: session-derived identity, replayed placements
+
+**Date:** 2026-09-09
+**Status:** ACCEPTED
+**Area:** Online / API
+
+### Context
+
+Milestone 5.1 moves authoritative gameplay onto the server: a client asks for a move to be made
+rather than writing a state. `online-multiplayer.md` section 36 names the actions and section 5
+gives the pipeline — authenticate, authorize, load, run the engine, persist, return a player-safe
+view. Several things inside that were left open.
+
+### Decision
+
+**A request never carries a `playerId`.** Which player the caller is comes from the session and
+the match's seats. Section 37's example is that August must not be able to accept his own proposal
+as Anna; the way to guarantee that is not to check the id a client sends, but never to read one.
+The action types the API accepts have no such field, so the check cannot be forgotten and there is
+nothing to spoof.
+
+**A submitted move carries placements, and the server replays them.** Section 19 recommends
+keeping ordinary tile arranging on the player's own device and sending the finished placement, and
+adds that the server must then independently validate tile ownership and placement. It does that
+by dispatching each placement through the same `placeTile` the local game uses, against the
+authoritative state, before submitting. A tile the player does not hold is refused by the engine,
+not by a check written a second time for the server.
+
+**The server runs `dispatchGameAction`, the application layer's existing entry point, rather than
+calling engine functions directly.** Online and hot-seat play then cannot drift apart: there is
+one place where an action becomes a state, and it already existed.
+
+**Nothing is written unless the engine produced it.** The engine runs against an in-memory state
+and only its output is persisted, so a rejected action leaves the row untouched — no rollback
+needed, because nothing was written to roll back.
+
+**An opponent is found by email.** It is the only identifier an account has today. Friends and
+user search are Milestone 7, and this is meant to be replaced by them rather than to stand.
+
+**Rebuilt configuration, not stored configuration.** A match stores the rules selection (DEC-023),
+and the board definition and dictionaries are rebuilt from code on each server process. A match
+that carried its own copy of them would keep playing by a snapshot of the code. The rebuild is
+memoized per distinct selection, since the dictionaries are megabytes (DEC-011) and one process
+serves many matches.
+
+### Alternatives considered
+
+**Persisting each tile placement as it happens** (section 19's Option B). Rejected as the
+document itself recommends: more writes, more concurrency, and the only gain is resuming an
+unfinished arrangement on another device.
+
+**A REST verb per action** (`/pass`, `/exchange`, `/move`). Rejected in favour of one `actions`
+endpoint taking a typed action, which is closer to section 36's "domain actions" and mirrors the
+`GameAction` union the controller already dispatches. Invitation accept and decline stay separate
+endpoints, because they act on the match rather than inside the game.
+
+**Returning the full state to the acting player.** Rejected: `toPlayerGameView` exists (T24.5), and
+the acting player has no more right to the tile bag's order than the waiting one.
+
+### Consequences
+
+- A 404 covers both "no such match" and "not your match" (section 38: an id is not
+  authorization). A 409 is a stale revision or a match in the wrong status, and a 422 is the
+  engine refusing a move — the last of which means the client's request was well-formed and the
+  rules said no.
+- `createGame` now accepts optional seat ids. An online match maps accounts to seats before a game
+  exists, so the ids are recorded at invitation time and handed to the engine when the game starts,
+  rather than generated and reconciled afterwards. Local play still omits them.
+- Declining an invitation cancels the match rather than deleting it, since section 15 has a status
+  for exactly that and the inviter should see what became of it.
+- No screens. The routes are usable with any HTTP client; Milestone 6 is where the interface for
+  them lands.
+
+### Revisit when
+
+Friends arrive and email lookup should give way to user search; or resignation and time limits
+(sections 45-46) need actions that end a game without a move.
+
+Relevant files:
+- `src/server/matchActions.ts`, `src/server/requests.ts`, `src/server/http.ts`, `src/server/session.ts`
+- `src/app/api/matches/**`
+- `docs/online-multiplayer.md` (sections 5, 19, 31-38)
+

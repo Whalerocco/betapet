@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { SWEDISH_CONFIGURATION_ID } from "@/game/configuration/swedishConfiguration";
 import { createGame } from "@/game/engine/createGame";
 import { endGame } from "@/game/engine/endGame";
 import type { GameState } from "@/game/model/game";
@@ -23,7 +24,7 @@ try {
 const configured = Boolean(process.env.DATABASE_URL);
 
 const CONFIGURATION = {
-  configurationId: "sv-alfapet-v1",
+  configurationId: SWEDISH_CONFIGURATION_ID,
   rackSize: 7,
   modifiers: [],
   polyglotLanguages: [],
@@ -99,7 +100,7 @@ describe.skipIf(!configured)("match persistence", () => {
 
       expect(created.status).toBe("ACTIVE");
       expect(created.revision).toBe(1);
-      expect(created.configurationId).toBe("sv-alfapet-v1");
+      expect(created.configurationId).toBe(SWEDISH_CONFIGURATION_ID);
       expect(created.gameState?.id).toBe(game.id);
       expect(created.players).toHaveLength(2);
     });

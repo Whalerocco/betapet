@@ -1682,17 +1682,41 @@ them from.
 
 ## T25.1 Create online match
 
-- [ ] Select opponent.
-- [ ] Select supported game configuration.
-- [ ] Create invitation/match.
+- [x] Select opponent.
+- [x] Select supported game configuration.
+- [x] Create invitation/match.
+
+`POST /api/matches` invites an opponent by email — the only identifier an account has until
+friends and user search arrive in Milestone 7 (DEC-024). The body may choose rack size and
+modifiers; it may not choose a ruleset, because Swedish Alfapet is the only one the first online
+release offers (`online-multiplayer.md` section 12) and the stored `configurationId` exists to
+keep a match on the rules it started with (section 49), not to let a client pick another.
+
+A created match is an invitation: two seats, the agreed rules, no game. Seat ids are generated
+now and handed to the engine when the game starts, because an invitation is sent to a person
+rather than to a `PlayerId`.
+
+At the API level only. The screens for choosing an opponent are Milestone 6, which is where the
+roadmap puts making online play usable without developer tooling.
 
 ---
 
 ## T25.2 Match invitation
 
-- [ ] Accept.
-- [ ] Decline.
-- [ ] Start game after acceptance.
+- [x] Accept.
+- [x] Decline.
+- [x] Start game after acceptance.
+
+`POST /api/matches/:id/accept` and `.../decline`. Only the invited player can do either: the
+inviter accepting on the opponent's behalf is refused, which is `online-multiplayer.md`
+section 37 applied to the invitation itself.
+
+Accepting is what creates the game (section 13). Who moves first is still drawn from the bag as
+`game-rules.md` section 2 requires — inviting somebody is not a first-move advantage. Declining
+cancels the match rather than deleting it, since section 15 has a status for it and the inviter
+should be able to see what became of an invitation.
+
+Again API only; the invitation list and its buttons are Milestone 6.
 
 ---
 

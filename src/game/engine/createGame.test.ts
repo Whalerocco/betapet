@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLetterTile } from "../model/tile";
-import { createTileId, createPlayerId } from "../model/ids";
+import { createTileId, createPlayerId, type PlayerId } from "../model/ids";
 import { createTileBag } from "../model/tileBag";
 import { createGame, determineStartingPlayer } from "./createGame";
 
@@ -159,5 +159,48 @@ describe("createGame", () => {
 
     expect(lettersOf(stateA, 0)).toEqual(lettersOf(stateB, 0));
     expect(lettersOf(stateA, 1)).toEqual(lettersOf(stateB, 1));
+  });
+
+  describe("seat identities", () => {
+    it("uses the ids it is given, so a server can map accounts to seats", () => {
+      const playerOneId = "user-august" as PlayerId;
+      const playerTwoId = "user-anna" as PlayerId;
+
+      const state = createGame({
+        playerOneName: "August",
+        playerTwoName: "Anna",
+        rackSize: 7,
+        playerOneId,
+        playerTwoId,
+      });
+
+      expect(state.players.map((player) => player.id)).toEqual([
+        playerOneId,
+        playerTwoId,
+      ]);
+      expect([playerOneId, playerTwoId]).toContain(state.currentPlayerId);
+    });
+
+    it("generates its own ids when none are given", () => {
+      const state = createGame({
+        playerOneName: "August",
+        playerTwoName: "Anna",
+        rackSize: 7,
+      });
+
+      expect(state.players[0].id).not.toBe(state.players[1].id);
+    });
+
+    it("refuses two seats with the same id", () => {
+      expect(() =>
+        createGame({
+          playerOneName: "August",
+          playerTwoName: "Anna",
+          rackSize: 7,
+          playerOneId: "same" as PlayerId,
+          playerTwoId: "same" as PlayerId,
+        }),
+      ).toThrow(/different ids/);
+    });
   });
 });

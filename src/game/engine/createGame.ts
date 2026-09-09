@@ -35,6 +35,15 @@ export interface CreateGameOptions {
   readonly polyglotLanguages?: readonly LanguageCode[];
   /** Selected languages for Wild mode, in rotation order; required (≥2) when `modifiers` has "WILD". */
   readonly wildLanguages?: readonly LanguageCode[];
+  /**
+   * Seat identities, when the caller already knows them. An online match maps accounts to seats
+   * before the game exists — the invitation is sent to a person, not to a `PlayerId` — so the
+   * server supplies the ids it has already recorded rather than reconciling generated ones
+   * afterwards (`online-multiplayer.md` section 8). Local play omits both and lets the engine
+   * generate them.
+   */
+  readonly playerOneId?: PlayerId;
+  readonly playerTwoId?: PlayerId;
   /** Injectable for deterministic tests; defaults to `Math.random` for normal play. */
   readonly randomSource?: RandomSource;
 }
@@ -80,8 +89,11 @@ export function createGame(options: CreateGameOptions): GameState {
     options.wildLanguages,
   );
 
-  const playerOneId = createPlayerId();
-  const playerTwoId = createPlayerId();
+  const playerOneId = options.playerOneId ?? createPlayerId();
+  const playerTwoId = options.playerTwoId ?? createPlayerId();
+  if (playerOneId === playerTwoId) {
+    throw new Error("A game's two players must have different ids");
+  }
 
   const { tiles, tileIds } = createTileInstances(
     SWEDISH_SCRABBLE_TILE_DEFINITIONS,
