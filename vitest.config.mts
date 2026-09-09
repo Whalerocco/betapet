@@ -5,13 +5,16 @@ import path from "node:path";
 const alias = { "@": path.resolve(import.meta.dirname, "./src") };
 
 /**
- * Two projects, because the game engine and the interface have to run in different places.
+ * Three projects, because the engine, the server and the interface run in different places.
  *
  * The engine is meant to be usable on a server as well as in a browser (`architecture.md`: the
  * same engine must eventually serve both local and online play). Running its tests in jsdom would
  * never show a stray dependency on a browser global — every test would pass while the engine was
  * quietly unusable server-side. Running them in `node` is what makes that guarantee real, and it
  * fails immediately if engine code reaches for `window`, `document` or `localStorage`.
+ *
+ * Server code has the same requirement for the opposite reason — it only ever runs on a server —
+ * so it gets its own `node` project rather than being swept into jsdom by the interface project.
  *
  * Everything else — components, and the application layer that talks to localStorage — keeps
  * jsdom.
@@ -28,6 +31,14 @@ export default defineConfig({
         },
       },
       {
+        resolve: { alias },
+        test: {
+          name: "server",
+          environment: "node",
+          include: ["src/server/**/*.test.ts"],
+        },
+      },
+      {
         plugins: [react()],
         resolve: { alias },
         test: {
@@ -41,6 +52,7 @@ export default defineConfig({
           include: ["src/**/*.test.{ts,tsx}"],
           exclude: [
             "src/game/**/*.test.ts",
+            "src/server/**/*.test.ts",
             "src/**/*.e2e.test.{ts,tsx}",
             "node_modules/**",
           ],

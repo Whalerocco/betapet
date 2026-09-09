@@ -1550,9 +1550,37 @@ driver). It is a major dependency in its own right, and T24.2 is the first task 
 
 ## T24.2 Authentication
 
-- [ ] Add managed authentication.
-- [ ] Add minimal profile.
-- [ ] Do not build custom password storage.
+- [x] Add managed authentication.
+- [x] Add minimal profile.
+- [x] Do not build custom password storage.
+
+Better Auth (DEC-020) over Drizzle and Neon (DEC-022), mounted at `/api/auth/[...all]`. Better
+Auth owns the whole credential path — hashing, sessions, verification tokens — and its four tables
+(`user`, `session`, `account`, `verification`) are generated rather than hand-written, in
+`src/server/db/schema/auth.ts`, with the first migration in `drizzle/0000_auth_tables.sql`.
+
+The profile is Better Auth's own `user` row: `name` is the display name and `image` the optional
+avatar that `online-multiplayer.md` section 10 asks for, so there is no separate profile table to
+drift out of step. `user.id` is the `User` of section 8 — an account across many matches, not a
+`Player` within one.
+
+Email and password is the only method for now. Section 9 says the first online version does not
+need every method, and it is the only one that needs no external service while the project runs at
+no cost (DEC-020). Magic links and OAuth are configuration on the same object. Email verification
+is off deliberately: with no mail sender configured, requiring it would lock out every account it
+created.
+
+Nothing here touches the engine. The engine still knows only a `playerId`, and the ESLint boundary
+that already kept it clear of React and components now covers `src/server/` too.
+
+No sign-in or sign-up screen exists yet — those are Phase 6 (T25.x), and there is nothing for a
+signed-in user to do until matches exist. What is testable without a database is tested in
+`src/server/auth.test.ts`, in a new Node-environment `server` project alongside the engine's
+(`vitest.config.mts`).
+
+**Before this can run:** a Neon project must be created in Europe (Frankfurt), its connection
+string and a generated `BETTER_AUTH_SECRET` put in `.env.local` (see `.env.example`), and
+`npm run db:migrate` run once.
 
 ---
 

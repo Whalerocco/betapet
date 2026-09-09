@@ -32,9 +32,10 @@ const eslintConfig = defineConfig([
                 "**/components/**",
                 "**/application/**",
                 "**/app/**",
+                "**/server/**",
               ],
               message:
-                "The game engine must run on a server as well as in a browser: it cannot depend on React, Next, components or the application layer.",
+                "The game engine must run on a server as well as in a browser: it cannot depend on React, Next, components, the application layer or the server layer.",
             },
           ],
         },

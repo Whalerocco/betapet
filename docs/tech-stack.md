@@ -639,8 +639,16 @@ A relational database is a good fit for:
 - Match history
 - Persistent game metadata
 
+The application talks to it through **Drizzle ORM**, with `drizzle-kit` for migrations, over
+Neon's WebSocket driver rather than its HTTP one — the HTTP driver cannot hold a transaction open
+across statements, and match persistence needs that (DEC-022).
+
 The serialized/structured authoritative game state can be stored alongside normalized relational
 data as appropriate.
+
+Server-side code lives under `src/server/`: `db/client.ts` for the connection, `db/schema/` for
+the tables, and `auth.ts` for authentication. The engine may not import any of it
+(`eslint.config.mjs`).
 
 The exact online schema should be designed later.
 

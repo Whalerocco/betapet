@@ -843,6 +843,9 @@ src/
 │   ├── game-controller/
 │   ├── persistence/
 │   └── ...
+├── server/
+│   ├── db/
+│   └── ...
 ├── data/
 │   └── ...
 └── tests/
@@ -850,6 +853,10 @@ src/
 ```
 
 The exact directory structure can be adjusted once the technology stack is finalized.
+
+`server/` was added when the online phase began (DEC-020, DEC-022). It holds code that only ever
+runs on a server — the database connection, the schema, and authentication — and the engine may
+not import it, on the same grounds it may not import React or a component.
 
 The important boundary is that the core game logic remains isolated from the web framework.
 

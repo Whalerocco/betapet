@@ -16,14 +16,22 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
-    "playtest": "BETAPET_NO_STORE=1 next build && BETAPET_NO_STORE=1 next start -H 0.0.0.0"
+    "playtest": "BETAPET_NO_STORE=1 next build && BETAPET_NO_STORE=1 next start -H 0.0.0.0",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env.local ./node_modules/.bin/drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "auth:generate": "DATABASE_URL=\"${DATABASE_URL:-postgresql://generate:generate@localhost/generate}\" better-auth generate --config scripts/better-auth-config.ts --output src/server/db/schema/auth.ts --yes"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "better-auth": "^1.7.3",
+    "drizzle-orm": "^0.45.2",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@better-auth/cli": "^1.4.22",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
@@ -32,6 +40,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.5",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "eslint-config-prettier": "^10.1.8",
