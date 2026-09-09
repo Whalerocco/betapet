@@ -1,4 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import type { GameState } from "@/game/model/game";
 import type { PlayerId } from "@/game/model/ids";
@@ -8,7 +9,9 @@ import { db } from "./db/client";
 import {
   match,
   matchPlayer,
+  user,
   type MatchConfiguration,
+  type MatchPendingAction,
   type MatchStatus,
 } from "./db/schema";
 
@@ -102,14 +105,36 @@ function toRecord(
   };
 }
 
-/** The user whose turn it is, or `undefined` once the game is over. */
-function actorFor(
+/**
+ * Who the match is waiting for, and what for.
+ *
+ * Read from the turn state rather than from `currentPlayerId`. The two agree for an ordinary turn
+ * and part company exactly where it matters: while a proposed word awaits review the current
+ * player is still the proposer, but the player who must act is the reviewer. Deriving this from
+ * `currentPlayerId` would file a match in the reviewer's "waiting for the opponent" pile while
+ * the opponent waited for them.
+ */
+function waitingOn(
   state: GameState,
   players: readonly MatchSeat[],
-): string | undefined {
-  if (state.status === "FINISHED") return undefined;
-  return players.find((seat) => seat.playerId === state.currentPlayerId)
-    ?.userId;
+): { userId?: string; action?: MatchPendingAction } {
+  const userFor = (playerId: PlayerId) =>
+    players.find((seat) => seat.playerId === playerId)?.userId;
+
+  switch (state.turnState.type) {
+    case "PLAYER_TURN":
+      return { userId: userFor(state.turnState.playerId), action: "PLAY" };
+    case "REQUIRES_PLAYER_CONFIRMATION":
+      // The proposer's own move is unfinished until they confirm it or withdraw it.
+      return { userId: userFor(state.turnState.playerId), action: "PLAY" };
+    case "WAITING_FOR_OPPONENT_APPROVAL":
+      return {
+        userId: userFor(state.turnState.reviewingPlayerId),
+        action: "REVIEW",
+      };
+    case "FINISHED":
+      return {};
+  }
 }
 
 /**
@@ -141,7 +166,10 @@ export async function createMatch(
         configuration: input.configuration,
         gameState: input.gameState,
         currentActorUserId: input.gameState
-          ? actorFor(input.gameState, input.players)
+          ? waitingOn(input.gameState, input.players).userId
+          : undefined,
+        pendingAction: input.gameState
+          ? waitingOn(input.gameState, input.players).action
           : undefined,
         createdByUserId: input.createdByUserId,
       })
@@ -197,40 +225,99 @@ export async function loadMatchForUser(
 }
 
 /**
+ * Where a match belongs in the player's list (`tasks.md` T27.1), from that player's side.
+ *
+ * The same match is in different piles for the two players, which is why this is derived per
+ * viewer rather than stored. The Swedish labels the interface shows are, in order: `Din tur`,
+ * `Ord att granska`, `Väntar på motståndaren`, `Avslutade`.
+ */
+export type MatchListCategory =
+  | "YOUR_TURN"
+  | "AWAITING_YOUR_REVIEW"
+  | "WAITING_FOR_OPPONENT"
+  | "FINISHED"
+  | "INVITATION_RECEIVED"
+  | "INVITATION_SENT"
+  | "CANCELLED";
+
+export interface MatchListEntry {
+  readonly id: string;
+  readonly status: MatchStatus;
+  readonly revision: number;
+  readonly category: MatchListCategory;
+  readonly opponentName: string;
+  readonly updatedAt: Date;
+  readonly lastActionAt?: Date;
+}
+
+function categorize(
+  row: {
+    status: MatchStatus;
+    currentActorUserId: string | null;
+    pendingAction: MatchPendingAction | null;
+    createdByUserId: string;
+  },
+  userId: string,
+): MatchListCategory {
+  switch (row.status) {
+    case "FINISHED":
+      return "FINISHED";
+    case "CANCELLED":
+      return "CANCELLED";
+    case "INVITED":
+      return row.createdByUserId === userId
+        ? "INVITATION_SENT"
+        : "INVITATION_RECEIVED";
+    case "ACTIVE":
+      if (row.currentActorUserId !== userId) return "WAITING_FOR_OPPONENT";
+      return row.pendingAction === "REVIEW"
+        ? "AWAITING_YOUR_REVIEW"
+        : "YOUR_TURN";
+  }
+}
+
+/**
  * Every match a user plays in, most recently active first — the match list of section 14.
  *
- * The game state is deliberately not read here: a list needs a status and whose turn it is, both
- * of which are columns, and deserializing every game to draw a list would be wasteful.
+ * The game state is deliberately not read here. What a list needs is the opponent's name and
+ * which pile the match belongs in, and both come from columns: the opponent from the seats, and
+ * the pile from the status and the two derived columns that say who the match is waiting for and
+ * what for. Deserializing every game to draw a list would be wasteful, and section 34 asks for
+ * exactly this instead.
  */
-export async function listMatchesForUser(userId: string): Promise<
-  readonly {
-    readonly id: string;
-    readonly status: MatchStatus;
-    readonly revision: number;
-    readonly isUsersTurn: boolean;
-    readonly updatedAt: Date;
-    readonly lastActionAt?: Date;
-  }[]
-> {
+export async function listMatchesForUser(
+  userId: string,
+): Promise<readonly MatchListEntry[]> {
+  const mine = alias(matchPlayer, "mine");
+  const theirs = alias(matchPlayer, "theirs");
+
   const rows = await db
     .select({
       id: match.id,
       status: match.status,
       revision: match.revision,
       currentActorUserId: match.currentActorUserId,
+      pendingAction: match.pendingAction,
+      createdByUserId: match.createdByUserId,
+      opponentName: user.name,
       updatedAt: match.updatedAt,
       lastActionAt: match.lastActionAt,
     })
     .from(match)
-    .innerJoin(matchPlayer, eq(matchPlayer.matchId, match.id))
-    .where(eq(matchPlayer.userId, userId))
-    .orderBy(sql`${match.updatedAt} desc`);
+    .innerJoin(mine, and(eq(mine.matchId, match.id), eq(mine.userId, userId)))
+    .innerJoin(
+      theirs,
+      and(eq(theirs.matchId, match.id), ne(theirs.userId, userId)),
+    )
+    .innerJoin(user, eq(user.id, theirs.userId))
+    .orderBy(desc(match.updatedAt));
 
   return rows.map((row) => ({
     id: row.id,
     status: row.status,
     revision: row.revision,
-    isUsersTurn: row.currentActorUserId === userId,
+    category: categorize(row, userId),
+    opponentName: row.opponentName,
     updatedAt: row.updatedAt,
     lastActionAt: row.lastActionAt ?? undefined,
   }));
@@ -273,7 +360,8 @@ export async function saveGameState(
           gameState: input.gameState,
           revision: input.expectedRevision + 1,
           status: input.gameState.status === "FINISHED" ? "FINISHED" : "ACTIVE",
-          currentActorUserId: actorFor(input.gameState, seats) ?? null,
+          currentActorUserId: waitingOn(input.gameState, seats).userId ?? null,
+          pendingAction: waitingOn(input.gameState, seats).action ?? null,
           updatedAt: new Date(),
           lastActionAt: new Date(),
         })

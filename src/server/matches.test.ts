@@ -302,7 +302,7 @@ describe.skipIf(!configured)("match persistence", () => {
   });
 
   describe("the match list", () => {
-    it("shows a user their own matches, and marks whose turn it is", async () => {
+    it("shows a user their own matches, and which pile each belongs in", async () => {
       const created = await createActiveMatch();
       const actorId =
         game.currentPlayerId === augustPlayerId ? augustId : annaId;
@@ -311,11 +311,11 @@ describe.skipIf(!configured)("match persistence", () => {
       const forActor = await matches.listMatchesForUser(actorId);
       const forWaiting = await matches.listMatchesForUser(waitingId);
 
-      expect(forActor.find((row) => row.id === created.id)?.isUsersTurn).toBe(
-        true,
+      expect(forActor.find((row) => row.id === created.id)?.category).toBe(
+        "YOUR_TURN",
       );
-      expect(forWaiting.find((row) => row.id === created.id)?.isUsersTurn).toBe(
-        false,
+      expect(forWaiting.find((row) => row.id === created.id)?.category).toBe(
+        "WAITING_FOR_OPPONENT",
       );
     });
 

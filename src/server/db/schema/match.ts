@@ -59,6 +59,20 @@ export interface MatchConfiguration {
   readonly wildLanguages: readonly LanguageCode[];
 }
 
+/**
+ * What the match is waiting for, when it is waiting for somebody.
+ *
+ * Playing and reviewing are different demands on a player and the match list shows them
+ * separately — `Din tur` against `Ord att granska` (`tasks.md` T27.1) — so the column that says
+ * *who* must act is paired with one that says *what* they must do.
+ */
+export const matchPendingAction = pgEnum("match_pending_action", [
+  "PLAY",
+  "REVIEW",
+]);
+
+export type MatchPendingAction = (typeof matchPendingAction.enumValues)[number];
+
 export const match = pgTable(
   "match",
   {
@@ -91,14 +105,22 @@ export const match = pgTable(
     configuration: jsonb("configuration").$type<MatchConfiguration>().notNull(),
 
     /**
-     * Whose turn it is, denormalized from the game state so the match list can be built with one
-     * query per user rather than by deserializing every match (`online-multiplayer.md`
-     * sections 14 and 34). Null while a match is INVITED or once it has finished.
+     * Who the match is waiting for, denormalized from the game state so the match list can be
+     * built with one query per user rather than by deserializing every match
+     * (`online-multiplayer.md` sections 14 and 34). Null while a match is INVITED or once it has
+     * finished.
+     *
+     * This is taken from the turn state rather than from `currentPlayerId`, because the two part
+     * company exactly when it matters: while a proposed word is awaiting review, the current
+     * player is still the proposer, but the person who must act is the reviewer.
      */
     currentActorUserId: text("current_actor_user_id").references(
       () => user.id,
       { onDelete: "set null" },
     ),
+
+    /** Whether the waiting player owes a move or a verdict on a proposed word. */
+    pendingAction: matchPendingAction("pending_action"),
 
     createdByUserId: text("created_by_user_id")
       .notNull()

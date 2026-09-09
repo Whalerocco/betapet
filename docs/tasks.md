@@ -1847,10 +1847,32 @@ word and then submits two tiles instead.
 
 Support sections/statuses such as:
 
-- [ ] `Din tur`
-- [ ] `Ord att granska`
-- [ ] `Väntar på motståndaren`
-- [ ] `Avslutade`
+- [x] `Din tur`
+- [x] `Ord att granska`
+- [x] `Väntar på motståndaren`
+- [x] `Avslutade`
+
+`listMatchesForUser` returns a category per match, derived per viewer — the same match is in
+different piles for the two players — along with the opponent's name, which is what a list is
+actually read by. `GET /api/matches` serves it.
+
+Two categories beyond the four are included, since the list is otherwise a dead end: an
+`INVITED` match is `INVITATION_RECEIVED` or `INVITATION_SENT` depending on who sent it, and a
+declined one is `CANCELLED`. The task says "such as", and without them an invitation could not be
+reached from the list it appears in.
+
+This uncovered a real defect in T24.4's derived column, now **DEC-025**: it took whose turn it was
+from `GameState.currentPlayerId`, which stays with the proposer while a proposed word awaits
+review. The list would have told both players they were waiting for each other. It is now derived
+from the turn state, with a second column recording whether the waiting player owes a move or a
+verdict — which is exactly the distinction `Din tur` and `Ord att granska` draw.
+
+**Still to come before Milestone 6's exit criteria are met:** the sections above exist as data,
+not as a screen. Nothing in `tasks.md` covers the online interface — sign-in, the match list
+screen, or playing a match against a server rather than the local controller — while
+`roadmap.md` section 33 requires "users can independently create and continue matches through the
+normal website UI". That gap is the project owner's to close; it is noted here rather than filled
+in by invention.
 
 ---
 

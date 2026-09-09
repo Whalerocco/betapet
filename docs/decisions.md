@@ -2337,3 +2337,77 @@ Relevant files:
 - `src/app/api/matches/**`
 - `docs/online-multiplayer.md` (sections 5, 19, 31-38)
 
+---
+
+## DEC-025 — A match is waiting on the turn state, not on the current player
+
+**Date:** 2026-09-09
+**Status:** ACCEPTED
+**Area:** Online / Persistence
+
+### Context
+
+DEC-023 gave the match table a derived `current_actor_user_id` so the match list could be drawn
+from columns rather than by deserializing every game. It was derived from `GameState.currentPlayerId`.
+
+Building the match list's sections (T27.1) showed that to be wrong. `confirmProposal` leaves
+`currentPlayerId` as the proposer and moves only the turn state to
+`WAITING_FOR_OPPONENT_APPROVAL`. So while a proposed word awaited review, the column named the
+proposer — and the list would have told the reviewer she was waiting for her opponent while her
+opponent waited for her. A match could sit in both players' "waiting" piles until somebody
+guessed.
+
+The defect was in the derivation, not in the engine: `currentPlayerId` means what it says, and the
+engine is right to leave it alone while a proposal is outstanding. Nothing had been built on the
+column yet, so nothing had gone wrong in play.
+
+### Decision
+
+The column is derived from `state.turnState`, which is the field that actually says what the game
+is waiting for:
+
+| Turn state | Waiting on | Doing what |
+|---|---|---|
+| `PLAYER_TURN` | that player | `PLAY` |
+| `REQUIRES_PLAYER_CONFIRMATION` | that player | `PLAY` |
+| `WAITING_FOR_OPPONENT_APPROVAL` | the **reviewer** | `REVIEW` |
+| `FINISHED` | nobody | — |
+
+A second derived column, `pending_action`, records which of the two it is, because the match list
+shows them as different sections: `Din tur` against `Ord att granska` (T27.1). Both columns are
+written by the server from the state, never supplied by a caller, as DEC-023 requires.
+
+An unconfirmed proposal stays with its proposer and counts as `PLAY`: their move is unfinished
+until they say `Spela ändå` or withdraw it, and it is nobody else's business yet
+(`online-multiplayer.md` section 21).
+
+### Alternatives considered
+
+**Deserializing each game to build the list.** Correct and obviously wasteful — a list needs a
+status and a name, not a board. DEC-023 rejected it and this does not change that.
+
+**Computing the category in the client from the state.** Would mean sending every match's full
+state to draw a list, which is both wasteful and a leak.
+
+**Keeping one column and inferring the action from the match status.** The status is the wrapper's
+(INVITED/ACTIVE/FINISHED/CANCELLED) and knows nothing about proposals, so it cannot tell a move
+apart from a verdict.
+
+### Consequences
+
+- Migration `drizzle/0002_match_pending_action.sql`, applied.
+- `listMatchesForUser` returns a per-viewer category rather than a boolean: the same match is in
+  different piles for the two players.
+- A test confirms that a confirmed proposal appears as `AWAITING_YOUR_REVIEW` for the reviewer and
+  `WAITING_FOR_OPPONENT` for the proposer — the case that was wrong.
+
+### Revisit when
+
+A future turn state is added; it must be given a place in the table above rather than falling
+through to a default, which is why the derivation switches exhaustively over the turn state's kind.
+
+Relevant files:
+- `src/server/matches.ts` (`waitingOn`, `listMatchesForUser`)
+- `src/server/db/schema/match.ts`
+- `docs/decisions.md` (DEC-023)
+

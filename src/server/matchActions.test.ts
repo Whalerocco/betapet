@@ -336,6 +336,53 @@ describe.skipIf(!configured)("match actions", () => {
     });
   });
 
+  describe("the match list", () => {
+    it("separates an invitation received from one sent", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponentEmail: anna.email,
+        configuration: CONFIGURATION,
+      });
+      if (created.outcome !== "OK") throw new Error(created.outcome);
+
+      const forAnna = await matches.listMatchesForUser(anna.id);
+      const forAugust = await matches.listMatchesForUser(august.id);
+
+      expect(forAnna.find((row) => row.id === created.matchId)?.category).toBe(
+        "INVITATION_RECEIVED",
+      );
+      expect(
+        forAugust.find((row) => row.id === created.matchId)?.category,
+      ).toBe("INVITATION_SENT");
+    });
+
+    it("names the opponent, which is what a list is read by", async () => {
+      const { matchId } = await startedMatch();
+
+      const forAugust = await matches.listMatchesForUser(august.id);
+
+      expect(forAugust.find((row) => row.id === matchId)?.opponentName).toBe(
+        "Anna",
+      );
+    });
+
+    it("files a declined invitation as cancelled", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponentEmail: anna.email,
+        configuration: CONFIGURATION,
+      });
+      if (created.outcome !== "OK") throw new Error(created.outcome);
+      await actions.declineInvitation(anna, created.matchId);
+
+      const forAugust = await matches.listMatchesForUser(august.id);
+
+      expect(
+        forAugust.find((row) => row.id === created.matchId)?.category,
+      ).toBe("CANCELLED");
+    });
+  });
+
   describe("reading a match", () => {
     it("shows a player their own rack and only a count of the opponent's", async () => {
       const { matchId } = await startedMatch();
@@ -597,6 +644,34 @@ describe.skipIf(!configured)("match actions", () => {
       });
 
       expect(result.outcome).toBe("RULE_REJECTED");
+    });
+
+    /*
+     * The match list has to put this match in front of the reviewer, not leave it looking like
+     * the proposer's turn. While a proposal waits, `currentPlayerId` is still the proposer's, so
+     * a list built from that would tell both players they were waiting for each other.
+     */
+    it("puts a waiting proposal in the reviewer's list, not the proposer's", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const submitted = await submitNonsense(record.id, record.revision, state);
+      if (submitted.outcome !== "OK") throw new Error(submitted.outcome);
+      const confirmed = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: submitted.revision,
+        action: { type: "CONFIRM_PROPOSAL" },
+      });
+      if (confirmed.outcome !== "OK") throw new Error(confirmed.outcome);
+
+      const forAnna = await matches.listMatchesForUser(anna.id);
+      const forAugust = await matches.listMatchesForUser(august.id);
+
+      expect(forAnna.find((row) => row.id === record.id)?.category).toBe(
+        "AWAITING_YOUR_REVIEW",
+      );
+      expect(forAugust.find((row) => row.id === record.id)?.category).toBe(
+        "WAITING_FOR_OPPONENT",
+      );
     });
 
     /*
