@@ -650,7 +650,8 @@ Server-side code lives under `src/server/`: `db/client.ts` for the connection, `
 the tables, and `auth.ts` for authentication. The engine may not import any of it
 (`eslint.config.mjs`).
 
-The exact online schema should be designed later.
+The schema so far: Better Auth's four tables, plus `match` and `match_player` (T24.4, DEC-023).
+Friendships, invitations, chat and notifications come with their own phases.
 
 ---
 

@@ -817,6 +817,10 @@ The exact normalized schema should be designed in the online implementation phas
 
 Do not prematurely create database tables during Version 1.
 
+As built (T24.4): `user`, `session`, `account` and `verification` belong to Better Auth; `match`
+and `match_player` are the application's own. Friendships, invitations, chat and notifications
+are still to come, in their own phases.
+
 ---
 
 # 34. Game-state persistence strategy
@@ -844,6 +848,11 @@ Relational tables can separately support:
 - Chat
 
 Do not duplicate every engine field into relational columns unless queries require it.
+
+This is what was built (T24.4, DEC-023). Two columns are derived from the state because the match
+list needs them without deserializing every game: whose turn it is, and the match's status. Both
+are written by the server from the state itself, never supplied by a caller, so they cannot drift
+from the game they describe.
 
 ---
 

@@ -1613,10 +1613,41 @@ adopt them when persistence work begins in earnest.
 
 ## T24.4 Match persistence
 
-- [ ] Persist authoritative serialized game state.
-- [ ] Add match revision/version.
-- [ ] Store match metadata.
-- [ ] Use transactional updates.
+- [x] Persist authoritative serialized game state.
+- [x] Add match revision/version.
+- [x] Store match metadata.
+- [x] Use transactional updates.
+
+Tables `match` and `match_player` (`src/server/db/schema/match.ts`, migration
+`drizzle/0001_matches.sql`, applied), with the storage functions in `src/server/matches.ts`.
+DEC-023 records the design and the alternatives.
+
+The state is one `jsonb` column, read back through the engine's own `parseGameState`, so a row
+that would not survive the invariant check is never handed to a caller — and never written in the
+first place.
+
+The revision is a compare-and-set, not a counter that is read and then incremented: state,
+revision, status and whose-turn-it-is move in a single conditional UPDATE. That is what makes the
+double-click of section 32 harmless — the second write matches no row and changes nothing.
+Rejecting stale revisions in the *action* layer is still T25.4; what exists now is the mechanism
+it will use.
+
+Note that `GameState.version` is not this revision. It is the serialized format's schema version
+(`content-model.md` section 6) and does not move as a game is played. Two different things called
+version, one of which must never be used as the other.
+
+Authorization is inside the queries rather than beside them (sections 37-38): every function takes
+the acting user, and a non-participant is told the match does not exist rather than that it may
+not be read.
+
+Tested against the real database — 16 tests covering the revision guard, the stranger who cannot
+read or write, a state the engine would reject, a game followed to FINISHED, and the match list's
+"whose turn" flag. They skip when no `DATABASE_URL` is configured, so a checkout without one still
+runs a green suite.
+
+**Left for later, deliberately:** invitations (T25.1/T25.2 own the `GameInvitation` of section 13;
+a match with no state is already an invitation as far as the schema is concerned), and unifying
+`MatchConfiguration` with `SavedLocalGame` once match creation exists to unify them for.
 
 ---
 

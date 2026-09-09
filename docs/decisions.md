@@ -2166,3 +2166,89 @@ Relevant files:
 - `drizzle.config.ts`, `drizzle/`, `scripts/better-auth-config.ts`
 - `docs/decisions.md` (DEC-020)
 
+---
+
+## DEC-023 — Match persistence: one JSONB state, guarded by a compare-and-set revision
+
+**Date:** 2026-09-09
+**Status:** ACCEPTED
+**Area:** Online / Persistence
+
+### Context
+
+T24.4 asks for four things: the authoritative serialized game state persisted, a match revision,
+match metadata, and transactional updates. `online-multiplayer.md` sections 31-35 describe what
+they are for but leave the schema and the mechanism to the implementation phase. Several choices
+inside that were not dictated by the documents.
+
+### Decision
+
+**The game state is one `jsonb` column, not a set of relational columns.** Section 34 asks for
+this directly and warns against duplicating engine fields into columns no query needs. The engine
+already turns a state into text and back through `serializeGameState`/`parseGameState` (T24.3), so
+the row and the engine agree on what a valid game is without either restating the other.
+
+**A write is a single conditional UPDATE, not a read followed by a write.** The state, the
+revision, the match status and whose turn it is next all move in one statement whose `WHERE`
+clause names the revision the caller expected. This is what section 35 means by treating the
+engine's resulting state as one authoritative transition, and it is stronger than a transaction
+around a read-then-write, which would still race. It also makes section 32's double-submit
+harmless for free: the second write matches no row and changes nothing, rather than needing a
+separate idempotency check.
+
+**Two columns are derived from the state, never taken from the caller:** whose turn it is
+(`current_actor_user_id`) and the match's status. Both exist so the match list can be drawn
+without deserializing every game (section 14). A caller that could set them could also let them
+drift from the game they describe, and a match list that lies about whose turn it is would be a
+bug nobody notices until a player is waiting for a turn they already have.
+
+**Authorization is folded into the queries rather than being a step before them.** Every function
+that reaches a match takes the acting user, and participation is part of the `WHERE` clause. A
+non-participant gets "not found" rather than a refusal, so an id cannot be used to discover which
+matches exist — sections 37 and 38, expressed in a way a caller cannot forget.
+
+### Alternatives considered
+
+**Columns for the engine's fields** (scores, current player, board). Rejected: it duplicates the
+engine's model in SQL, and every rule change would then need a migration.
+
+**A `SELECT ... FOR UPDATE` then a write, inside a transaction.** Correct, but it holds a row lock
+for the duration and needs the caller to remember the pattern. The compare-and-set is one
+statement and cannot be got wrong.
+
+**A separate idempotency/action-id table** (section 32 mentions request IDs as an option).
+Rejected for now: the revision already makes a repeated submit a no-op. An action id becomes
+worth its weight if a client ever needs to distinguish "my write landed" from "someone else's
+did", which the current outcomes already report.
+
+**Storing the built `GameConfiguration`.** Rejected: it carries a whole board definition and a
+`Set`, neither of which belongs in a column. The match stores the *selection* a player made —
+configuration id, rack size, modifiers, Polyglot and Wild languages — which is what section 49
+requires to keep a match playing by the rules it started with.
+
+### Consequences
+
+- Tables `match` and `match_player` (`drizzle/0001_matches.sql`, applied). `match_player` is where
+  `online-multiplayer.md` section 8's User-versus-Player distinction lives: it maps an account to
+  a seat, and every authorization check leans on it.
+- `saveGameState` reports `SAVED`, `STALE_REVISION`, `NOT_FOUND` or `INVALID_STATE` rather than
+  throwing. A stale revision is an ordinary outcome of two tabs, not an exception.
+- `MatchConfiguration` in `src/server/db/schema/match.ts` deliberately mirrors `SavedLocalGame` in
+  `src/application/persistence/localGameStorage.ts`. The two stores should share one type once
+  T25 builds match creation and both can be changed together; today they are duplicated field
+  names, which is a small debt recorded here rather than left silent.
+- The tests run against a real database and skip when none is configured. The guarantees at stake
+  — atomicity, a rejected stale write, a match a stranger cannot read — are properties of
+  Postgres, and a mock would assert only that the mock behaves as written.
+
+### Revisit when
+
+A query needs a field that only exists inside the JSON (the fix is a derived column, written the
+same way `current_actor_user_id` is), or a client needs to tell its own write apart from an
+opponent's, which is where an action id would earn its place.
+
+Relevant files:
+- `src/server/db/schema/match.ts`, `src/server/matches.ts`, `src/server/matches.test.ts`
+- `drizzle/0001_matches.sql`
+- `docs/online-multiplayer.md` (sections 31-38, 49)
+
