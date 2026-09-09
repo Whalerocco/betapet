@@ -1872,3 +1872,216 @@ Relevant files:
 - `docs/local-multiplayer.md` (section 19)
 - `src/application/game-controller/localSession.ts`, `localSession.test.ts`
 - `src/components/game/GameScreen.test.tsx`, `e2e/unknown-word-accepted.spec.ts`
+
+## DEC-020 — Online backend stack: Neon Postgres with Better Auth
+
+**Date:** 2026-08-26
+**Accepted:** 2026-09-09
+**Status:** ACCEPTED
+**Area:** Online / Tooling
+
+### Context
+
+`tech-stack.md` sections 25-27 named PostgreSQL as the intended database and Supabase as "a
+sensible future option", while explicitly requiring that the choice be re-evaluated before
+anything depends on it. T24.1 is that re-evaluation. It is needed now because authentication
+(T24.2), match persistence (T24.4) and running authoritative actions on a server all wait on it,
+while the two tasks that did not — player-safe views (T24.5) and the server-side engine guarantees
+(T24.3) — are done.
+
+What this project actually needs from a backend is narrow:
+
+- Postgres-shaped relational data: users, matches, invitations, and later friends and chat
+  (`tech-stack.md` section 25).
+- Somewhere to store the authoritative serialized game state per match, with a revision for
+  optimistic concurrency (T24.4).
+- Managed authentication, explicitly not hand-rolled password storage (section 27).
+- Somewhere to run the existing TypeScript engine as the authority (section 28). The engine is
+  already framework-independent and proven to run outside a browser (T24.3).
+- Turn-based updates. Section 29 is explicit that realtime infrastructure need not be elaborate
+  and that correct persistent state matters more than latency.
+
+What it does not need, at least for Milestone 5: file storage, edge functions, row-level security
+as the primary defence (the server is authoritative and derives player-safe views itself), or
+realtime push.
+
+One property of this particular game deserves weight beyond the feature lists: a match is
+asynchronous and can sit untouched for days between moves.
+
+### Decision
+
+Neon for Postgres, Better Auth for authentication, and no platform beyond that for
+now — the Next.js application talks to Postgres directly and runs the engine server-side.
+Realtime, if it is ever wanted, is decided separately when Milestone 7 arrives; polling suits a
+turn-based game.
+
+Facts gathered on 2026-08-26, and worth re-checking before anything is signed up for, since both
+vendors have changed pricing within the last year:
+
+| | Neon | Supabase |
+|---|---|---|
+| Free tier | 100 CU-hours/month, 0.5 GB storage per project, up to 100 projects | 500 MB database, 5 GB egress, 50k MAU, 2 active projects |
+| Inactivity | Compute scales to zero, resumes automatically on the next query in a few hundred ms | Project **pauses after 7 days**, and must be restored by hand from the dashboard |
+| Bundled auth | Neon Auth, 60k MAU | Supabase Auth, 50k MAU |
+| First paid step | Usage-based from $0.106/CU-hour, no monthly minimum since December 2025 | $25/month per project |
+
+### Alternatives considered
+
+**Supabase**, the original guess. Its appeal is that one vendor covers database, auth, realtime,
+storage and row-level security, so there is less to assemble. Against it: this project needs
+almost none of that bundle, and the free tier pauses a project after seven days of inactivity.
+For an asynchronous game where a week between moves is ordinary, that is not an edge case — it is
+a Tuesday. The workarounds are a heartbeat cron job that exists purely to defeat a billing policy,
+or $25/month from the outset. Neither is disqualifying, and if the answer to the budget question
+below is "$25/month is fine", Supabase becomes a reasonable choice again, with realtime already
+solved for Milestone 7.
+
+**Neon with Auth.js instead of Better Auth.** Rejected on current facts: Auth.js v5 is stable but
+entered maintenance mode in early 2026 — security patches only, and its own maintainers now point
+new projects at Better Auth. Starting on a library whose authors have moved on is a poor way to
+begin.
+
+**Neon Auth rather than Better Auth.** Plausible, and one fewer thing to run. Better Auth is
+proposed instead because it keeps user records in our own Postgres alongside the match data, which
+keeps identity portable if the database ever moves; Neon Auth ties it to Neon. This is the
+weakest preference in the proposal and easily reversed.
+
+**Convex or Firebase.** Rejected: both would replace the relational model the documents have
+assumed throughout with a different one, which is a larger change than the problem calls for.
+
+**Self-hosted Postgres on a VPS.** Rejected: cheapest in cash and dearest in attention. Backups,
+upgrades and uptime become a single developer's problem, for a game whose entire traffic is two
+people at a time.
+
+### Rationale
+
+The deciding factor is not price or features — at this scale both vendors are free — but which
+one behaves sensibly when a game is left alone for a week. Neon's compute sleeping and waking by
+itself matches an asynchronous game; a project that pauses until someone opens a dashboard does
+not.
+
+The rest follows from keeping the surface small. The project's own instruction is to prefer few,
+well-understood dependencies, and the engine is deliberately portable. A plain Postgres plus a
+library that owns its tables leaves the server doing what the architecture already says it should:
+running the engine and writing rows.
+
+### Resolved by the project owner
+
+Answered on 2026-09-09:
+
+1. **Budget — free only.** No monthly cost is acceptable at present. This removes the one route
+   past Supabase's seven-day project pause other than a heartbeat cron job, and so settles the
+   choice rather than merely leaning it: Neon.
+2. **Data residency — EU, recorded as a requirement.** The players are in Sweden. The Neon
+   project is created in **Europe (Frankfurt), `aws-eu-central-1`**. This is not a deployment
+   detail that can be adjusted later: a Neon project's region is fixed when the project is
+   created, so moving means creating a new project and migrating the data.
+3. **Realtime — not needed.** Polling is acceptable for the foreseeable future. This changes
+   nothing structurally, because `online-multiplayer.md` sections 29 and 31 already forbid making
+   correctness depend on a live connection and already require a match revision; refetching a
+   match must recover authoritative state whether or not a socket exists. Realtime stays where the
+   roadmap put it, as the optional T30.2 in Milestone 7.2.
+4. **Hosting — decided separately and immediately, as DEC-021:** Vercel Hobby, functions pinned to
+   Frankfurt so the application sits beside its database.
+
+### Consequences
+
+- `tech-stack.md` sections 25-27 name the chosen stack rather than a candidate; section 29 records
+  that polling is the chosen approach for now.
+- T24.1 is complete. T24.2 (authentication) and T24.4 (match persistence) are unblocked.
+- A first schema is designed: users, matches, match players, and the serialized state with a
+  revision column for the optimistic concurrency T24.4 requires.
+- The database access layer — an ORM or a plain driver — is **not** settled by this entry. It is a
+  major dependency in its own right and needs its own decision before code is written.
+- The engine keeps knowing only `playerId` (`tech-stack.md` section 27). Better Auth owns identity;
+  nothing about sessions or tokens reaches `src/game`.
+
+### Revisit when
+
+The pricing and inactivity behaviour above were checked on 2026-08-26 and again on 2026-09-09;
+both vendors have moved within the last year, so re-check before relying on any specific number.
+Also revisit if realtime becomes a requirement earlier than Milestone 7, or if the free tier's
+storage ceiling comes into view — unlikely, since a serialized game is a few kilobytes.
+
+Relevant files:
+- `docs/tech-stack.md` (sections 25-31)
+- `docs/online-multiplayer.md`
+- `docs/tasks.md` (T24.1)
+
+---
+
+## DEC-021 — Host the application on Vercel, in the Frankfurt region
+
+**Date:** 2026-09-09
+**Status:** ACCEPTED
+**Area:** Online / Tooling
+
+### Context
+
+`tech-stack.md` section 31 has never named a hosting platform. It asked only that the application
+stay deployable as a standard Next.js application, that hosting-specific code be avoided, and that
+a platform be chosen once a first playable version existed. That version exists, and DEC-020's
+fourth open question deferred hosting to here.
+
+The constraints are the ones the project owner set alongside DEC-020: no monthly cost, and the
+data in the EU.
+
+One constraint is specific to a serverless deployment: a function pays the network round trip to
+its database on every query. With the database fixed in Frankfurt by DEC-020, putting the
+application anywhere else is a self-inflicted latency cost on every request.
+
+### Decision
+
+**Vercel, Hobby plan, with functions pinned to Frankfurt (`fra1`).**
+
+Facts as checked on 2026-09-09, worth re-checking before relying on them:
+
+- The Hobby tier includes 100 GB fast data transfer, 1M edge requests, 1M function invocations,
+  and 6,000 build minutes per month.
+- Hobby is restricted by Vercel's terms to **personal, non-commercial use**. A Betapet played by
+  friends is within that. Adding advertising, payments or a paid tier would not be, and would mean
+  moving to a paid plan.
+- Hobby accounts cannot buy overage. Exceeding a limit pauses the resource until the monthly
+  window rolls over, rather than producing a bill.
+
+### Alternatives considered
+
+**Cloudflare Workers via the OpenNext adapter.** A more generous free allowance (100k requests per
+day), but the free plan caps a Worker at 3 MiB and 10 ms of CPU per request. A Next.js application
+carrying the engine and a Swedish dictionary is an awkward fit for both. It also runs at the edge
+by design, which makes "the application runs in the EU" harder to assert rather than easier.
+
+**Netlify's free tier.** Workable and broadly comparable, but less native to Next.js, with no
+advantage here that offsets that.
+
+**A small VPS (~€4/month).** Rejected on the same grounds DEC-020 rejected self-hosted Postgres:
+cheapest in cash, dearest in attention. It is, however, the option that would provide long-lived
+WebSocket connections, so it returns to the table if the realtime answer ever changes.
+
+### Rationale
+
+Vercel is the platform Next.js is built for, which serves section 31's actual requirement — that
+no hosting-specific code be needed. Frankfurt is chosen not for its own sake but to sit beside the
+Neon project DEC-020 fixed there.
+
+The non-commercial clause is recorded here deliberately. It is not a limitation today, but it is
+the kind of term that is discovered at the worst moment, and it converts "should Betapet ever earn
+money" from a technical question into a billing one.
+
+### Consequences
+
+- `tech-stack.md` section 31 names Vercel and Frankfurt.
+- Deployment configuration is added when there is a server to deploy — no Vercel-specific code or
+  configuration is added by this entry.
+- The region for functions must be set explicitly; Vercel's default is not Frankfurt.
+- If Betapet is ever monetised, the hosting plan must be revisited before that happens.
+
+### Revisit when
+
+Betapet acquires any commercial aspect; a free-tier limit is reached repeatedly; or realtime push
+becomes a requirement, since the serverless model does not hold long-lived sockets.
+
+Relevant files:
+- `docs/tech-stack.md` (section 31)
+- `docs/decisions.md` (DEC-020)
+

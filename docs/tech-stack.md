@@ -621,9 +621,12 @@ Adding a backend before it is needed would increase complexity without improving
 
 ## 25. Future database
 
-For the online phase, the preferred direction is:
+For the online phase, the database is (DEC-020):
 
-> **PostgreSQL**
+> **PostgreSQL, hosted on Neon, in Europe (Frankfurt) — `aws-eu-central-1`**
+
+The region is a requirement, not a deployment detail: the players are in Sweden, and a Neon
+project's region is fixed when the project is created.
 
 A relational database is a good fit for:
 
@@ -636,7 +639,8 @@ A relational database is a good fit for:
 - Match history
 - Persistent game metadata
 
-The serialized/structured authoritative game state can be stored alongside normalized relational data as appropriate.
+The serialized/structured authoritative game state can be stored alongside normalized relational
+data as appropriate.
 
 The exact online schema should be designed later.
 
@@ -644,33 +648,38 @@ The exact online schema should be designed later.
 
 ## 26. Future backend platform
 
-A sensible future option is:
+There is no backend platform beyond the database (DEC-020).
 
-> **Supabase**
+The Next.js application talks to Postgres directly and runs the game engine itself as the
+authority (section 28). Nothing sits in between.
 
-Potential uses include:
+Supabase was the original candidate for this role, and was reconsidered in T24.1 and rejected.
+The deciding factor was not price or features — at this scale both vendors are free — but that
+Supabase's free tier pauses a project after seven days of inactivity, and must then be restored by
+hand. Betapet matches are asynchronous, and a week between moves is ordinary rather than
+exceptional. Neon's compute sleeps and wakes by itself on the next query. DEC-020 records the
+comparison in full.
 
-- PostgreSQL hosting
-- Authentication
-- Realtime features
-- Database APIs
-- User/session management
-
-However:
-
-> Supabase is not part of Version 1.
-
-Do not introduce Supabase dependencies until online multiplayer work begins.
-
-At that point, evaluate whether it still fits the project's needs before committing to it.
+What this project does not need from a platform, and so does not take on: file storage, edge
+functions, row-level security as the primary defence (the server is authoritative and derives
+player-safe views itself, via `toPlayerGameView`), and realtime push (section 29).
 
 ---
 
 ## 27. Future authentication
 
-Authentication should not be implemented in Version 1.
+Authentication is not part of Version 1.
 
-For online multiplayer, use a mature authentication solution rather than building passwords/session security manually.
+For online multiplayer, authentication uses (DEC-020):
+
+> **Better Auth**
+
+Better Auth keeps its tables in the project's own Postgres, alongside the match data, so identity
+stays portable if the database ever moves. Auth.js was considered and rejected: v5 entered
+maintenance mode in early 2026. Neon Auth was the closest alternative and would tie identity to
+Neon.
+
+Do not build passwords or session security manually.
 
 Authentication should remain separate from game-engine logic.
 
@@ -721,14 +730,19 @@ The same TypeScript engine used locally should be reusable on the server where p
 
 Online multiplayer will eventually need updates between players.
 
-Potential approaches include:
+The chosen approach for the foreseeable future is **polling** (DEC-020, resolved question 3).
+The game is turn-based and asynchronous, so a client refetching a match when it is opened — and
+periodically while it is open — is enough. Realtime push remains optional and stays where the
+roadmap puts it, as T30.2 in Milestone 7.2.
 
-- Supabase Realtime
-- WebSockets
-- Server-sent updates
-- Polling for very simple turn-based behaviour
+This choice is structurally free, because `online-multiplayer.md` sections 29 and 31 already
+require that correctness never depend on a live connection and that refetching a match recover
+authoritative state. Those requirements hold whether or not a socket exists, so adding push later
+changes responsiveness and nothing else.
 
-Do not choose or implement the realtime transport in Version 1.
+If push is ever wanted, note that it constrains hosting rather than the database: serverless
+functions do not hold long-lived WebSocket connections (DEC-021). Server-sent events are the
+lighter option and work on more hosts.
 
 Because the game is turn-based, realtime infrastructure does not need to be overly complex.
 
@@ -748,11 +762,20 @@ Do not implement chat in Version 1.
 
 ## 31. Deployment
 
-The initial application should be deployable as a standard Next.js web application.
+The application is deployed as a standard Next.js web application to (DEC-021):
 
-A suitable hosting platform can be chosen once the first playable version exists.
+> **Vercel, Hobby plan, with functions pinned to Frankfurt (`fra1`)**
 
-The project should avoid unnecessary hosting-specific code.
+Frankfurt is not arbitrary: it is where the Neon project lives (section 25), and a serverless
+function pays the round trip to its database on every query. The region must be set explicitly,
+because Vercel's default is not Frankfurt.
+
+Two properties of the Hobby plan are worth knowing before relying on it. It is restricted to
+personal, non-commercial use, so monetising Betapet in any form would require a paid plan. And a
+Hobby account cannot buy overage: exceeding a limit pauses the resource until the monthly window
+rolls over, rather than producing a bill.
+
+The project should still avoid unnecessary hosting-specific code.
 
 The deployment should support:
 

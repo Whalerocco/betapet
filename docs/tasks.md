@@ -1532,9 +1532,19 @@ separate, unhurried decision.
 
 ## T24.1 Reevaluate backend stack
 
-- [ ] Confirm current hosting/backend needs.
-- [ ] Reevaluate Supabase/PostgreSQL choice.
-- [ ] Document final decision.
+- [x] Confirm current hosting/backend needs.
+- [x] Reevaluate Supabase/PostgreSQL choice.
+- [x] Document final decision.
+
+Settled on 2026-09-09. **DEC-020** (accepted) chooses Neon Postgres in Frankfurt with Better Auth,
+over the Supabase that `tech-stack.md` had assumed; the project owner's answers — no monthly cost,
+EU data residency, no need for realtime — decided it, since the free-tier escape from Supabase's
+seven-day inactivity pause was the paid plan. **DEC-021** chooses Vercel Hobby, also Frankfurt, so
+the application sits beside its database. `tech-stack.md` sections 25-27, 29 and 31 now name the
+stack rather than candidates.
+
+Still open, and deliberately not decided here: the **database access layer** (an ORM or a plain
+driver). It is a major dependency in its own right, and T24.2 is the first task that needs it.
 
 ---
 
