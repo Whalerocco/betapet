@@ -44,16 +44,19 @@ describe.skipIf(!configured)("match actions", () => {
     id: `test-user-${crypto.randomUUID()}`,
     name: "August",
     email: `august-${crypto.randomUUID()}@example.invalid`,
+    handle: `august${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`,
   };
   const anna: SessionUser = {
     id: `test-user-${crypto.randomUUID()}`,
     name: "Anna",
     email: `anna-${crypto.randomUUID()}@example.invalid`,
+    handle: `anna${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`,
   };
   const stranger: SessionUser = {
     id: `test-user-${crypto.randomUUID()}`,
     name: "Stranger",
     email: `stranger-${crypto.randomUUID()}@example.invalid`,
+    handle: `stranger${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`,
   };
 
   beforeAll(async () => {
@@ -69,6 +72,7 @@ describe.skipIf(!configured)("match actions", () => {
         name: person.name,
         email: person.email,
         emailVerified: false,
+        handle: person.handle,
       })),
     );
   });
@@ -86,7 +90,7 @@ describe.skipIf(!configured)("match actions", () => {
   async function startedMatch() {
     const created = await actions.createMatch({
       user: august,
-      opponentEmail: anna.email,
+      opponent: { kind: "EMAIL", email: anna.email },
       configuration: CONFIGURATION,
     });
     if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -214,7 +218,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("invites an opponent by email, and starts no game yet", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
 
@@ -229,7 +233,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("reports an opponent who has no account", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: "nobody@example.invalid",
+        opponent: { kind: "EMAIL", email: "nobody@example.invalid" },
         configuration: CONFIGURATION,
       });
 
@@ -239,11 +243,57 @@ describe.skipIf(!configured)("match actions", () => {
     it("refuses a match against oneself", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: august.email,
+        opponent: { kind: "EMAIL", email: august.email },
         configuration: CONFIGURATION,
       });
 
       expect(created.outcome).toBe("CANNOT_PLAY_ALONE");
+    });
+
+    /*
+     * Naming a friend by id rather than by email (T28.3). The id is only accepted from somebody
+     * the opponent has accepted as a friend, so these two tests are the whole of that rule.
+     */
+    it("invites a friend by id", async () => {
+      const friends = await import("./friends");
+      const sent = await friends.sendFriendRequest({
+        userId: august.id,
+        handle: anna.handle,
+      });
+      if (sent.outcome !== "OK") throw new Error(sent.outcome);
+      const { incoming } = await friends.listSocialGraph(anna.id);
+      await friends.respondToFriendRequest({
+        userId: anna.id,
+        requestId: incoming[0].requestId,
+        response: "ACCEPT",
+      });
+
+      const created = await actions.createMatch({
+        user: august,
+        opponent: { kind: "USER_ID", userId: anna.id },
+        configuration: CONFIGURATION,
+      });
+
+      expect(created.outcome).toBe("OK");
+      if (created.outcome !== "OK") return;
+      expect(
+        (await matches.loadMatchForUser(created.matchId, anna.id))?.status,
+      ).toBe("INVITED");
+
+      await db
+        .delete(schema.friendship)
+        .where(drizzle.eq(schema.friendship.id, incoming[0].requestId));
+    });
+
+    it("gives a stranger's id the same answer as an id that does not exist", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponent: { kind: "USER_ID", userId: stranger.id },
+        configuration: CONFIGURATION,
+      });
+
+      // Not a 403: a different answer would confirm the account exists (section 38).
+      expect(created.outcome).toBe("OPPONENT_NOT_FOUND");
     });
   });
 
@@ -271,7 +321,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("does not let the inviter accept on the opponent's behalf", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -286,7 +336,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("is invisible to a stranger", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -301,7 +351,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("cancels the match rather than deleting it", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -325,7 +375,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("is not something the inviter can do to their own invitation", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -340,7 +390,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("separates an invitation received from one sent", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -369,7 +419,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("files a declined invitation as cancelled", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);
@@ -841,7 +891,7 @@ describe.skipIf(!configured)("match actions", () => {
     it("refuses a turn on a match that has not started", async () => {
       const created = await actions.createMatch({
         user: august,
-        opponentEmail: anna.email,
+        opponent: { kind: "EMAIL", email: anna.email },
         configuration: CONFIGURATION,
       });
       if (created.outcome !== "OK") throw new Error(created.outcome);

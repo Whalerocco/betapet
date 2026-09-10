@@ -10,8 +10,16 @@ import {
 } from "../../application/auth/authClient";
 import { describeFailure } from "../../application/online/failureMessages";
 import {
+  acceptFriendRequest,
+  declineFriendRequest,
+  fetchSocialGraph,
+  sendFriendRequest,
+  type SocialGraph,
+} from "../../application/online/friendsApi";
+import {
   acceptInvitation,
   createMatch,
+  createMatchWithFriend,
   declineInvitation,
   fetchMatch,
   listMatches,
@@ -21,12 +29,32 @@ import {
   type MatchSnapshot,
   type TurnAction,
 } from "../../application/online/matchApi";
+import { FriendsScreen } from "../../components/online/FriendsScreen";
 import { MatchListScreen } from "../../components/online/MatchListScreen";
 import { OnlineGameScreen } from "../../components/online/OnlineGameScreen";
 import { SignInScreen } from "../../components/online/SignInScreen";
 
 /** How often an open match asks the server whether anything happened (DEC-020: polling). */
 const POLL_INTERVAL_MS = 15_000;
+
+/**
+ * Why signing in or creating an account failed, in Swedish.
+ *
+ * A handle that breaks the rules and a handle somebody already has are different mistakes with
+ * different fixes, and the server distinguishes them (`INVALID_HANDLE` against a refused write),
+ * so the message does too. Beyond that, Better Auth reports a taken email and a taken handle the
+ * same way, so that message names both rather than guessing which it was.
+ */
+function describeSignUpFailure(
+  mode: "SIGN_IN" | "SIGN_UP",
+  code: string | undefined,
+): string {
+  if (mode === "SIGN_IN") return "Fel e-post eller lösenord.";
+  if (code === "INVALID_HANDLE") {
+    return "Vänkoden fungerar inte. 3-20 tecken: a-z, 0-9 och _, och den måste börja med en bokstav.";
+  }
+  return "Kontot kunde inte skapas. Är e-postadressen eller vänkoden redan tagen?";
+}
 
 export default function OnlinePage() {
   const { data: session, isPending: sessionPending } = useSession();
@@ -35,6 +63,10 @@ export default function OnlinePage() {
   const [openMatch, setOpenMatch] = useState<MatchSnapshot | undefined>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
+
+  /** The friends screen, which the match list is the way back from (T28.2). */
+  const [friends, setFriends] = useState<SocialGraph | undefined>();
+  const [friendsNotice, setFriendsNotice] = useState<string | undefined>();
 
   /** Unwraps a call, turning a failure into Swedish text rather than throwing. */
   const run = useCallback(async function run<T>(
@@ -53,6 +85,11 @@ export default function OnlinePage() {
   const refreshList = useCallback(async () => {
     const result = await listMatches();
     if (result.ok) setMatches(result.value.matches);
+  }, []);
+
+  const refreshFriends = useCallback(async () => {
+    const result = await fetchSocialGraph();
+    if (result.ok) setFriends(result.value);
   }, []);
 
   useEffect(() => {
@@ -97,6 +134,7 @@ export default function OnlinePage() {
     email: string;
     password: string;
     name: string;
+    handle: string;
   }) {
     setBusy(true);
     setError(undefined);
@@ -108,15 +146,12 @@ export default function OnlinePage() {
             email: values.email,
             password: values.password,
             name: values.name,
+            handle: values.handle,
           });
 
     setBusy(false);
     if (result.error) {
-      setError(
-        values.mode === "SIGN_IN"
-          ? "Fel e-post eller lösenord."
-          : "Kontot kunde inte skapas. Är e-postadressen redan använd?",
-      );
+      setError(describeSignUpFailure(values.mode, result.error.code));
     }
   }
 
@@ -167,6 +202,66 @@ export default function OnlinePage() {
     );
   }
 
+  if (friends) {
+    return (
+      <FriendsScreen
+        graph={friends}
+        busy={busy}
+        error={error}
+        notice={friendsNotice}
+        onSendRequest={(handle) => {
+          void (async () => {
+            setFriendsNotice(undefined);
+            const sent = await run(sendFriendRequest(handle));
+            if (sent) {
+              setFriendsNotice(
+                sent.status === "ACCEPTED"
+                  ? `${sent.addressee.name} hade redan skickat en förfrågan till dig. Ni är vänner.`
+                  : `Förfrågan skickad till ${sent.addressee.name}.`,
+              );
+            }
+            await refreshFriends();
+          })();
+        }}
+        onAccept={(requestId) => {
+          void (async () => {
+            setFriendsNotice(undefined);
+            await run(acceptFriendRequest(requestId));
+            await refreshFriends();
+          })();
+        }}
+        onDecline={(requestId) => {
+          void (async () => {
+            setFriendsNotice(undefined);
+            await run(declineFriendRequest(requestId));
+            await refreshFriends();
+          })();
+        }}
+        onStartMatch={(friendUserId) => {
+          void (async () => {
+            setFriendsNotice(undefined);
+            const created = await run(
+              createMatchWithFriend(friendUserId, {
+                rackSize: 7,
+                modifiers: [],
+              }),
+            );
+            if (created) {
+              // The invitation is in the match list, which is where it is answered from.
+              setFriends(undefined);
+              await refreshList();
+            }
+          })();
+        }}
+        onBack={() => {
+          setFriends(undefined);
+          setFriendsNotice(undefined);
+          setError(undefined);
+        }}
+      />
+    );
+  }
+
   return (
     <MatchListScreen
       playerName={session.user.name}
@@ -198,11 +293,19 @@ export default function OnlinePage() {
           await refreshList();
         })();
       }}
+      onShowFriends={() => {
+        void (async () => {
+          setError(undefined);
+          const graph = await run(fetchSocialGraph());
+          if (graph) setFriends(graph);
+        })();
+      }}
       onSignOut={() => {
         void (async () => {
           await signOut();
           setMatches([]);
           setOpenMatch(undefined);
+          setFriends(undefined);
         })();
       }}
     />

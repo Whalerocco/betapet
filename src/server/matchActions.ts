@@ -16,6 +16,7 @@ import {
 
 import { db } from "./db/client";
 import { user, type MatchConfiguration } from "./db/schema";
+import { areFriends } from "./friends";
 import { dependenciesFor } from "./matchDependencies";
 import {
   cancelInvitation,
@@ -24,6 +25,7 @@ import {
   saveGameState,
   type MatchRecord,
 } from "./matches";
+import type { OpponentReference } from "./requests";
 import type { SessionUser } from "./session";
 
 /**
@@ -111,7 +113,7 @@ function viewOf(
 
 export interface CreateMatchRequest {
   readonly user: SessionUser;
-  readonly opponentEmail: string;
+  readonly opponent: OpponentReference;
   readonly configuration: MatchConfiguration;
 }
 
@@ -121,20 +123,45 @@ export type CreateMatchResult =
   | { readonly outcome: "CANNOT_PLAY_ALONE" };
 
 /**
+ * Resolves the opponent a client named, or nothing.
+ *
+ * The two references are not equally trusted. An email address is a thing the inviter had to know
+ * already, so knowing it is the authorization. A user id is not: ids travel in responses and are
+ * guessable in a way an address is not, so one is only accepted from somebody the opponent has
+ * accepted as a friend (T28.3). A stranger's id therefore resolves to nothing at all — the same
+ * answer as an id that does not exist, because a different answer would confirm the account
+ * (`online-multiplayer.md` section 38).
+ */
+async function resolveOpponent(
+  request: CreateMatchRequest,
+): Promise<{ readonly id: string } | undefined> {
+  if (request.opponent.kind === "EMAIL") {
+    const [found] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, request.opponent.email.trim().toLowerCase()))
+      .limit(1);
+    return found;
+  }
+
+  const { userId } = request.opponent;
+  if (userId === request.user.id) return { id: userId };
+
+  return (await areFriends(request.user.id, userId))
+    ? { id: userId }
+    : undefined;
+}
+
+/**
  * Creates a match as an invitation: two seats, the agreed rules, and no game yet. The game begins
  * when the opponent accepts (`online-multiplayer.md` section 13).
  *
- * The opponent is found by email because it is the only identifier an account has today. Friends
- * and user search arrive in Milestone 7, and this is meant to be replaced by them.
+ * An opponent is named by email address or, since T28.3, by being a friend.
  */
 export async function createMatch(
   request: CreateMatchRequest,
 ): Promise<CreateMatchResult> {
-  const [opponent] = await db
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.email, request.opponentEmail.trim().toLowerCase()))
-    .limit(1);
+  const opponent = await resolveOpponent(request);
 
   if (!opponent) return { outcome: "OPPONENT_NOT_FOUND" };
   if (opponent.id === request.user.id) return { outcome: "CANNOT_PLAY_ALONE" };

@@ -45,6 +45,11 @@ export type ApiFailure =
   | { readonly error: "NOT_FOUND" }
   | { readonly error: "OPPONENT_NOT_FOUND" }
   | { readonly error: "CANNOT_PLAY_ALONE" }
+  // The friends endpoints (T28.1-T28.2).
+  | { readonly error: "USER_NOT_FOUND" }
+  | { readonly error: "CANNOT_FRIEND_SELF" }
+  | { readonly error: "ALREADY_FRIENDS" }
+  | { readonly error: "ALREADY_REQUESTED" }
   | { readonly error: "WRONG_MATCH_STATUS"; readonly status?: string }
   | { readonly error: "STALE_REVISION"; readonly currentRevision: number }
   | {
@@ -59,7 +64,8 @@ export type ApiResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly failure: ApiFailure };
 
-async function request<T>(
+/** Exported so `friendsApi` sends and reads requests the same way, rather than its own way. */
+export async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<ApiResult<T>> {
@@ -91,13 +97,35 @@ export function listMatches(): Promise<
   return request("/api/matches");
 }
 
+export interface MatchRules {
+  readonly rackSize: number;
+  readonly modifiers: readonly string[];
+}
+
+/** Invites somebody who is not a friend; knowing their address is what makes it possible. */
 export function createMatch(
   opponentEmail: string,
-  configuration: { rackSize: number; modifiers: readonly string[] },
+  configuration: MatchRules,
 ): Promise<ApiResult<{ matchId: string }>> {
   return request("/api/matches", {
     method: "POST",
     body: JSON.stringify({ opponentEmail, configuration }),
+  });
+}
+
+/**
+ * Invites a friend, named by the id the friend list already holds (T28.3).
+ *
+ * The server accepts an id only from an accepted friend, so this is not a way to invite an
+ * arbitrary account.
+ */
+export function createMatchWithFriend(
+  opponentUserId: string,
+  configuration: MatchRules,
+): Promise<ApiResult<{ matchId: string }>> {
+  return request("/api/matches", {
+    method: "POST",
+    body: JSON.stringify({ opponentUserId, configuration }),
   });
 }
 

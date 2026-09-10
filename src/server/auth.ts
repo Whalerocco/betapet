@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 import { db } from "./db/client";
 import * as schema from "./db/schema";
+import { isValidHandle, normalizeHandle } from "./handles";
 
 /**
  * Authentication (DEC-020: Better Auth, keeping its tables in the project's own Postgres).
@@ -42,6 +44,44 @@ export function createAuth() {
       // No email provider is configured yet, so a verification mail could not be delivered and
       // would lock every new account out. Turn this on together with an email sender.
       requireEmailVerification: false,
+    },
+    user: {
+      additionalFields: {
+        /*
+         * The handle every player is found by (DEC-027). It lives on Better Auth's own `user`
+         * table rather than in a profile table of ours, for the same reason `name` and `image`
+         * do: section 10 wants the profile minimal, and a second table holding one column would
+         * be a join with nothing in it.
+         *
+         * `unique` is what makes a handle an address: the database rejects the second claim on
+         * one, whichever request wins the race.
+         */
+        handle: {
+          type: "string",
+          required: true,
+          input: true,
+          unique: true,
+        },
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          /*
+           * Sign-up goes through Better Auth's own endpoint, so this is the only place the
+           * handle can be normalized and checked before it is stored. Doing it here rather than
+           * in a route of ours means there is no way to create a user that skips it.
+           */
+          before: async (creating) => {
+            const handle = normalizeHandle(String(creating.handle ?? ""));
+            if (!isValidHandle(handle)) {
+              throw new APIError("BAD_REQUEST", { code: "INVALID_HANDLE" });
+            }
+
+            return { data: { ...creating, handle } };
+          },
+        },
+      },
     },
   });
 }

@@ -23,6 +23,7 @@ function renderList(matches: readonly MatchListEntry[], props = {}) {
     onAccept: vi.fn(),
     onDecline: vi.fn(),
     onCreate: vi.fn(),
+    onShowFriends: vi.fn(),
     onSignOut: vi.fn(),
   };
   render(
@@ -100,5 +101,14 @@ describe("MatchListScreen", () => {
     renderList([]);
 
     expect(screen.getByText("Du har inga matcher än.")).toBeInTheDocument();
+  });
+
+  /* The other way to start a match, once there are friends to start one with (T28.3). */
+  it("opens the friends screen", async () => {
+    const handlers = renderList([]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Vänner" }));
+
+    expect(handlers.onShowFriends).toHaveBeenCalled();
   });
 });

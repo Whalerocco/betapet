@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { SWEDISH_CONFIGURATION_ID } from "@/game/configuration/swedishConfiguration";
 
-import { parseCreateMatch, parseTurnAction } from "./requests";
+import {
+  parseCreateMatch,
+  parseFriendRequest,
+  parseTurnAction,
+} from "./requests";
 
 /**
  * These need no database: they are about what the server accepts from a client that may send
@@ -149,5 +153,37 @@ describe("parsing a match creation", () => {
         configuration: { modifiers: ["TELEPORT"] },
       }),
     ).toBeUndefined();
+  });
+
+  it("accepts a friend named by id instead of by email (T28.3)", () => {
+    const parsed = parseCreateMatch({ opponentUserId: "user-123" });
+
+    expect(parsed?.opponent).toEqual({ kind: "USER_ID", userId: "user-123" });
+  });
+
+  it("refuses a body naming both an email and an id, or neither", () => {
+    // Accepting both would leave the server choosing which one the client meant.
+    expect(
+      parseCreateMatch({
+        opponentEmail: "anna@example.com",
+        opponentUserId: "user-123",
+      }),
+    ).toBeUndefined();
+    expect(parseCreateMatch({ opponentUserId: "  " })).toBeUndefined();
+  });
+});
+
+describe("parsing a friend request", () => {
+  it("normalizes the handle it accepts (DEC-027)", () => {
+    expect(parseFriendRequest({ handle: " @Anna " })).toEqual({
+      handle: "anna",
+    });
+  });
+
+  it("rejects a handle the rules do not allow", () => {
+    expect(parseFriendRequest({ handle: "anna lindqvist" })).toBeUndefined();
+    expect(parseFriendRequest({ handle: "an" })).toBeUndefined();
+    expect(parseFriendRequest({})).toBeUndefined();
+    expect(parseFriendRequest(undefined)).toBeUndefined();
   });
 });

@@ -36,6 +36,8 @@ export interface MatchListScreenProps {
   readonly onAccept: (matchId: string) => void;
   readonly onDecline: (matchId: string) => void;
   readonly onCreate: (opponentEmail: string) => void;
+  /** Opens the friends screen, which is the other way to start a match (T28.3). */
+  readonly onShowFriends: () => void;
   readonly onSignOut: () => void;
   readonly busy?: boolean;
   readonly error?: string;
@@ -48,6 +50,7 @@ export function MatchListScreen({
   onAccept,
   onDecline,
   onCreate,
+  onShowFriends,
   onSignOut,
   busy,
   error,
@@ -69,9 +72,18 @@ export function MatchListScreen({
     <div className={styles.screen}>
       <div className={styles.header}>
         <h1>Mina matcher</h1>
-        <button type="button" className={styles.button} onClick={onSignOut}>
-          Logga ut
-        </button>
+        <span className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.button}
+            onClick={onShowFriends}
+          >
+            Vänner
+          </button>
+          <button type="button" className={styles.button} onClick={onSignOut}>
+            Logga ut
+          </button>
+        </span>
       </div>
       <p className={styles.empty}>Inloggad som {playerName}</p>
 

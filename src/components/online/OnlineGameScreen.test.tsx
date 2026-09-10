@@ -60,9 +60,20 @@ describe("OnlineGameScreen", () => {
     const state = onTurn(game(), 0);
     const snapshot = snapshotFor(state, 0);
     const handlers = renderScreen(snapshot);
-    const [firstTile] = snapshot.view.ownRack.tileIds;
+    /*
+     * The first tile that is not blank, clicked by its own id rather than by position. The bag is
+     * shuffled, so a rack may open with a blank — which is labelled "Blank bricka" and, when
+     * placed, asks for a letter first. Taking "the first tile" and clicking "the first thing
+     * labelled Bricka …" were therefore two different tiles on some runs.
+     */
+    const plainTile = snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
 
-    await userEvent.click(screen.getAllByLabelText(/^Bricka /)[0]!);
+    const rack = screen.getByRole("group", { name: "Din hand" });
+    await userEvent.click(
+      rack.querySelector<HTMLElement>(`[data-rack-tile-id="${plainTile}"]`)!,
+    );
     await userEvent.click(screen.getByTestId("cell-7,7"));
     await userEvent.click(screen.getByRole("button", { name: "Spela" }));
 
@@ -70,7 +81,7 @@ describe("OnlineGameScreen", () => {
       type: "SUBMIT_MOVE",
       placements: [
         {
-          tileId: firstTile,
+          tileId: plainTile,
           coordinate: { row: 7, column: 7 },
           representedLetter: undefined,
         },
@@ -193,7 +204,14 @@ describe("OnlineGameScreen", () => {
 
     renderScreen(snapshotFor(state, 0));
 
-    // The tile is on the board, so it is no longer among the tiles left in hand.
-    expect(screen.getAllByLabelText(/^Bricka /)).toHaveLength(6);
+    /*
+     * The tile is on the board, so it is no longer among the tiles left in hand. Counted inside
+     * the rack rather than across the screen: the rack labels a blank "Blank bricka", which an
+     * anchored /^Bricka / misses, while a board tile is labelled "Pending bricka …", which a
+     * looser pattern would wrongly include. The bag is shuffled, so either mistake only shows up
+     * on some runs.
+     */
+    const rack = screen.getByRole("group", { name: "Din hand" });
+    expect(within(rack).getAllByLabelText(/bricka/i)).toHaveLength(6);
   });
 });

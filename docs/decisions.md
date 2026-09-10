@@ -2507,3 +2507,175 @@ Relevant files:
 - `src/application/online/matchApi.ts`, `src/application/online/failureMessages.ts`
 - `src/application/auth/authClient.ts`
 
+---
+
+## DEC-027 — A user is found by a unique handle, not by email or name
+
+**Date:** 2026-09-10
+**Status:** ACCEPTED
+**Area:** Online / Identity
+
+### Context
+
+`online-multiplayer.md` section 10 lists what identity the game needs — find friends, identify
+opponents, display match ownership, send invitations — but never says what a user is *found by*.
+T28.1 asks for user discovery "using the chosen identity/search model" without a model having been
+chosen anywhere, and adds that it must avoid exposing unnecessary personal data.
+
+Until now an opponent was found by exact email address (T25.1). That works, but it means playing
+Betapet with somebody requires knowing their email address, and it makes the address the thing
+people pass around.
+
+### Decision
+
+**Every account has a `handle`: unique, chosen at sign-up, and the only way to find a user.**
+
+The rules are in `src/server/handles.ts`: 3 to 20 characters, lowercase `a-z`, digits and `_`, and
+a letter first. The handle is stored normalized — `@Anna`, `anna ` and `ANNA` are one handle — and
+displayed with a leading `@` that is decoration rather than part of the value.
+
+Three consequences of "the only way" are deliberate:
+
+- There is **no user search endpoint**. A handle is resolved by sending a friend request to it, so
+  a caller learns the name behind a handle it already knew, and learns nothing about one it did
+  not. Nothing in the API returns a list of users.
+- A handle that does not exist and a request that failed look the same from outside.
+- An email address is never returned to a client. It remains how a non-friend is invited, because
+  knowing an address is itself the permission to invite its owner.
+
+The project owner chose this over exact-email-only search and display-name search, having been
+shown all three.
+
+### Alternatives considered
+
+**Exact email address only.** Already built, no schema change, and no enumeration surface. Rejected
+because it makes a private address the thing friends must exchange, and there is no way to invite
+somebody without it.
+
+**Search by display name.** The easiest to use with no prior knowledge, and rejected for exactly
+that reason: it publishes the user list to anyone signed in. Names are not unique either, so two
+people called Anna are indistinguishable and a request can go to the wrong one — which is worse
+than a failed search.
+
+### Rationale
+
+A handle is the only one of the three that is *deliberately published by its owner*. It carries
+nothing they did not choose to share, it can be read aloud or texted, and it does not require the
+sender to hold anything private about the recipient.
+
+The character rules exist for the person typing it in, not for the game's language: lowercase so
+case cannot be got wrong, ASCII so no keyboard layout can fail to produce it (which is why å, ä
+and ö are excluded from handles while remaining central to the game itself), and a letter first so
+a handle can never be mistaken for an id.
+
+### Consequences
+
+- `user.handle` is declared through Better Auth's `additionalFields`, so it lives on its `user`
+  table and sign-up accepts it. `unique` is what makes it an address: the database, not the
+  application, settles a race between two people claiming one.
+- Normalization and validation happen in Better Auth's `databaseHooks.user.create.before`, which is
+  the only path that creates a user. An illegal handle is refused as `INVALID_HANDLE`.
+- Existing accounts predate the column. Migration `0003` adds it nullable, derives a handle for
+  every existing row, then sets `NOT NULL` — a generated one where the derivation would be illegal
+  or collide.
+- **Changing a handle is not built.** A handle is therefore permanent, including a derived one.
+  That is acceptable while the accounts are a handful of friends' and is the first thing to build
+  if it stops being.
+- The interface never normalizes a handle itself; it sends what was typed. One place decides what
+  a handle is.
+
+### Revisit when
+
+Somebody wants to change their handle, or when finding people needs to work without exchanging
+anything at all — at which point the question is a real search feature, with the enumeration
+problem this entry avoided.
+
+Relevant files:
+- `src/server/handles.ts`, `src/server/auth.ts`
+- `drizzle/0003_handles_and_friendships.sql`
+- `src/application/auth/authClient.ts`, `src/components/online/SignInScreen.tsx`
+
+---
+
+## DEC-028 — One friendship row per pair, ordered by the database
+
+**Date:** 2026-09-10
+**Status:** ACCEPTED
+**Area:** Online / Data model
+
+### Context
+
+`online-multiplayer.md` section 11 sketches a friendship as `requesterUserId`, `recipientUserId`
+and a status from `PENDING`, `ACCEPTED`, `DECLINED`, `BLOCKED`, and says explicitly that "the exact
+social model should be designed when this phase begins". This is that design. Milestone 7 asks for
+five things: find a user, send a request, accept or decline, list friends, and start a match with a
+friend.
+
+The awkward part of any friendship model is that a request is directed while a friendship is not,
+and that two people can send each other the mirror-image request at the same moment.
+
+### Decision
+
+**One row per pair, in whichever direction the first request went, with the pair enforced unordered
+by the database.**
+
+- The row keeps `requesterUserId` and `addresseeUserId`, because a `PENDING` request is genuinely
+  directed: only the addressee may answer it. Once `ACCEPTED`, the direction stops meaning
+  anything, and every read treats the pair as unordered.
+- A unique index on `(least(requester, addressee), greatest(requester, addressee))` makes "August
+  and Anna" and "Anna and August" the same key, so two rows for one pair cannot exist — including
+  under a simultaneous double request.
+- A check constraint forbids befriending oneself, so no code path can write that row.
+- **A request that crosses one coming the other way is an acceptance.** Both people have asked for
+  the same thing; leaving them each waiting for the other would be an absurdity the interface could
+  not explain.
+- `DECLINED` is kept rather than deleted, so a declined request stops being pending for both sides
+  without the requester being told whether it was refused or merely unanswered. A later request
+  between the same two people reuses the row, in the direction it is then sent.
+- **`BLOCKED` is not implemented.** It is a moderation feature with rules of its own — what a
+  blocked user may still see, whether they are told, what happens to a match in progress — and
+  Milestone 7 asks for none of them. The enum value is deliberately absent rather than present and
+  unhonoured.
+
+### Alternatives considered
+
+**Two mirrored rows per friendship.** Reads become trivial (`where user_id = me`), and every write
+becomes two, with no way for the database to keep them consistent. Rejected: it trades one honest
+`CASE` in a query for a class of bug where half a friendship exists.
+
+**Deleting a declined row.** Simpler, and it lets the same request be re-sent immediately and
+repeatedly. Keeping the row costs nothing and leaves a record of the answer.
+
+**Storing a canonical `userAId`/`userBId` pair plus `requestedBy`.** Equivalent in power, but it
+renames both columns away from what section 11 wrote and buries the direction in a third column.
+
+### Rationale
+
+Where a rule can be enforced by the database, it is: the pair's uniqueness and the self-friendship
+ban are both constraints rather than checks in application code, so nothing can be written that
+violates them regardless of which path writes it. Where the rule is genuinely about intent — who
+may accept — it is folded into the `where` clause of the update, in the same style as `matches.ts`,
+so an id alone is never enough to answer somebody else's request.
+
+Answering a request addressed to somebody else returns `NOT_FOUND` rather than a refusal, for the
+reason section 38 gives: any other answer confirms the request exists.
+
+### Consequences
+
+- `friendship` table, `friendship_status` enum, and `src/server/friends.ts` with the four
+  operations the milestone needs. Nothing in it imports the engine.
+- `listSocialGraph` is one query: the other user is whichever end of the row this user is not, and
+  friends, incoming and outgoing come out of a single pass.
+- Removing a friend is not built — the milestone does not ask for it, and a friendship has no
+  effect other than allowing an invitation.
+- `createMatch` accepts an opponent named by id only when the two are friends, which is what makes
+  T28.3's "start a match from the friend list" safe without exposing addresses.
+
+### Revisit when
+
+Blocking is wanted, or unfriending, or a friendship starts carrying privileges beyond invitation —
+each of which is a question this entry deliberately left open.
+
+Relevant files:
+- `src/server/db/schema/friendship.ts`, `src/server/friends.ts`
+- `src/app/api/friends/`, `src/components/online/FriendsScreen.tsx`

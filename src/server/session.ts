@@ -12,6 +12,8 @@ export interface SessionUser {
   readonly id: string;
   readonly name: string;
   readonly email: string;
+  /** The name others find this user by (DEC-027). */
+  readonly handle: string;
 }
 
 export async function currentUser(
@@ -24,5 +26,6 @@ export async function currentUser(
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
+    handle: session.user.handle,
   };
 }

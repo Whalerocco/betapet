@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const result = await createMatch({
     user,
-    opponentEmail: body.opponentEmail,
+    opponent: body.opponent,
     configuration: body.configuration,
   });
 

@@ -14,9 +14,9 @@
   gap: 1rem;
 }
 
-.headerActions {
-  display: flex;
-  gap: 0.5rem;
+.ownHandle {
+  margin: 0;
+  color: var(--color-muted, #666);
 }
 
 .section {
@@ -30,26 +30,25 @@
   margin: 0;
 }
 
-.match {
+.row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--color-border, #ccc);
   border-radius: 0.5rem;
-  background: transparent;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
-.opponent {
+.name {
   font-weight: 600;
 }
 
-.invitationActions {
+.handle {
+  color: var(--color-muted, #666);
+}
+
+.actions {
   display: flex;
   gap: 0.5rem;
 }
@@ -69,7 +68,7 @@
   color: #fff;
 }
 
-.newMatch {
+.panel {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -93,6 +92,10 @@
 
 .error {
   color: var(--color-error, #b02a2a);
+}
+
+.notice {
+  color: var(--color-muted, #666);
 }
 
 .empty {

@@ -993,6 +993,10 @@ User
 
 A `User` is an account.
 
+As built (T24.4, T28.1): the account carries `id`, `name` (the display name), `handle` (the unique
+name other users find it by, DEC-027), `email`, `image` and `createdAt`. There is no separate
+profile table — the profile is small enough to be these columns.
+
 A `Player` is participation in a particular game.
 
 The relationship is:

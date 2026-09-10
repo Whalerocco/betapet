@@ -7,6 +7,7 @@ import { ALL_MODIFIER_IDS, type ModifierId } from "@/game/model/modifiers";
 import type { RackSize } from "@/game/model/gameConfiguration";
 
 import type { MatchConfiguration } from "./db/schema";
+import { parseHandle } from "./handles";
 import type { TurnAction } from "./matchActions";
 
 /**
@@ -99,19 +100,45 @@ function asLanguages(value: unknown): readonly LanguageCode[] | undefined {
     : undefined;
 }
 
+/**
+ * Who the invitation is for.
+ *
+ * An email address is how an opponent was named before there were friends (T25.1) and still is
+ * for somebody who is not one. A friend is named by id instead, because the friend list already
+ * holds it and a friend's email is not the interface's business — the server only accepts an id
+ * from a user who is actually a friend of it (T28.3).
+ */
+export type OpponentReference =
+  | { readonly kind: "EMAIL"; readonly email: string }
+  | { readonly kind: "USER_ID"; readonly userId: string };
+
 export interface CreateMatchBody {
-  readonly opponentEmail: string;
+  readonly opponent: OpponentReference;
   readonly configuration: MatchConfiguration;
+}
+
+function asOpponent(
+  body: Record<string, unknown>,
+): OpponentReference | undefined {
+  // Exactly one of the two, so a body naming both cannot leave the server choosing.
+  const hasEmail = typeof body.opponentEmail === "string";
+  const hasUserId = typeof body.opponentUserId === "string";
+  if (hasEmail === hasUserId) return undefined;
+
+  if (hasEmail) {
+    const email = (body.opponentEmail as string).trim();
+    return email.includes("@") ? { kind: "EMAIL", email } : undefined;
+  }
+
+  const userId = (body.opponentUserId as string).trim();
+  return userId.length > 0 ? { kind: "USER_ID", userId } : undefined;
 }
 
 export function parseCreateMatch(body: unknown): CreateMatchBody | undefined {
   if (!isRecord(body)) return undefined;
-  if (
-    typeof body.opponentEmail !== "string" ||
-    !body.opponentEmail.includes("@")
-  ) {
-    return undefined;
-  }
+
+  const opponent = asOpponent(body);
+  if (!opponent) return undefined;
 
   const configuration = isRecord(body.configuration) ? body.configuration : {};
 
@@ -133,7 +160,7 @@ export function parseCreateMatch(body: unknown): CreateMatchBody | undefined {
   if (!polyglotLanguages || !wildLanguages) return undefined;
 
   return {
-    opponentEmail: body.opponentEmail,
+    opponent,
     configuration: {
       // Swedish Alfapet is the only ruleset the first online release offers
       // (`online-multiplayer.md` section 12); the field exists so a match keeps playing by the
@@ -145,4 +172,17 @@ export function parseCreateMatch(body: unknown): CreateMatchBody | undefined {
       wildLanguages,
     },
   };
+}
+
+export interface FriendRequestBody {
+  /** Normalized and validated: `@Anna` and `anna` arrive here as `anna` (DEC-027). */
+  readonly handle: string;
+}
+
+export function parseFriendRequest(
+  body: unknown,
+): FriendRequestBody | undefined {
+  if (!isRecord(body)) return undefined;
+  const handle = parseHandle(body.handle);
+  return handle ? { handle } : undefined;
 }

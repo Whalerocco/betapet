@@ -1939,23 +1939,92 @@ reached the database. No account or match was created, so nothing had to be clea
 
 ## T28.1 User discovery
 
-- [ ] Find another user using the chosen identity/search model.
-- [ ] Avoid exposing unnecessary personal data.
+- [x] Find another user using the chosen identity/search model.
+- [x] Avoid exposing unnecessary personal data.
+
+The identity/search model had never been chosen — `online-multiplayer.md` section 10 listed what
+identity is *for* without saying what a user is found *by*, and section 11 said the social model
+should be designed when this phase began. It was put to the project owner as three options: exact
+email only, a unique handle, or display-name search. They chose the handle, and it is **DEC-027**.
+
+Every account now has a `handle` — unique, chosen at sign-up, 3-20 characters of `a-z`, `0-9` and
+`_`, a letter first, stored lowercase, shown as `@anna`. The rules are in `src/server/handles.ts`
+and are about the person typing it in: no case to get wrong, and no character a keyboard might not
+produce, which is why å, ä and ö are excluded from handles while remaining central to the game.
+
+The second checkbox is why there is **no user search endpoint at all**. A handle is resolved by
+sending a friend request to it, so a caller learns the name behind a handle it already had and
+nothing about one it did not; no endpoint returns a list of users, and no endpoint returns an email
+address. A handle nobody owns and a request that failed look identical from outside.
+
+Handles are declared through Better Auth's `additionalFields`, so sign-up accepts one and the
+unique constraint — the database, not the application — settles a race between two people claiming
+the same handle. Existing accounts predate the column, so migration `0003` adds it nullable,
+derives a handle for every existing row, and only then sets `NOT NULL`.
+
+**Not built:** changing a handle. A handle is permanent for now, including a derived one, which is
+the first thing to build if that stops being acceptable.
 
 ---
 
 ## T28.2 Friend requests
 
-- [ ] Send.
-- [ ] Accept.
-- [ ] Decline.
-- [ ] List friends.
+- [x] Send.
+- [x] Accept.
+- [x] Decline.
+- [x] List friends.
+
+One `friendship` row per pair of users, in whichever direction the first request went (**DEC-028**).
+The direction is kept because a pending request is genuinely directed — only the addressee may
+answer it — and stops meaning anything once accepted.
+
+Two rules are the database's rather than the code's, because that is the only place they can hold
+regardless of which path writes: a unique index over the *unordered* pair, so two rows for one pair
+cannot exist even under a simultaneous double request, and a check constraint against befriending
+oneself. Answering a request addressed to somebody else is a 404, not a refusal — anything else
+would confirm it exists (section 38).
+
+Three cases the tests pin down because they are the ones a naive model gets wrong. A request that
+crosses one coming the other way is treated as an **acceptance**, since both people asked for the
+same thing and leaving each waiting for the other could not be explained. A **declined** request is
+kept as `DECLINED` rather than deleted, so it stops being pending for both sides without telling
+the requester whether it was refused or merely unanswered, and a later request reuses the row in
+whichever direction it is then sent. And the **requester cannot accept their own** request.
+
+`listSocialGraph` is one query, not three: the other user is whichever end of the row this user is
+not, so friends, incoming and outgoing all come out of a single pass.
+
+`FriendsScreen` opens with the user's own handle, because reading it out to somebody is the first
+thing anyone needs from that screen.
+
+**Not built:** `BLOCKED`, which is a moderation feature whose rules Milestone 7 does not specify, so
+the enum value is absent rather than present and unhonoured; and removing a friend, which the
+milestone does not ask for.
 
 ---
 
 ## T28.3 Start match with friend
 
-- [ ] Create invitation directly from friend list.
+- [x] Create invitation directly from friend list.
+
+Each friend in the list has a `Ny match` button, and `POST /api/matches` now names an opponent by
+either `opponentEmail` or `opponentUserId` — never both, so the server is never left choosing which
+one a client meant.
+
+The two references are not equally trusted. An address is something the inviter had to know
+already, so knowing it is the permission. An id is not: ids travel in responses, so one is accepted
+only from a user the opponent has accepted as a friend. A stranger's id gets the same
+`OPPONENT_NOT_FOUND` as an id that does not exist.
+
+Inviting by email is unchanged and still works for somebody who is not a friend, which is what
+keeps an opponent reachable before a friendship exists.
+
+Verified against the running server as well as by the test suite, since sign-up with a handle goes
+through Better Auth's own endpoint and no unit test covers that wiring: two accounts created, an
+illegal handle refused as `INVALID_HANDLE`, a handle already taken in different case refused, a
+request sent to `@E2EAnna` and matched to `e2eanna`, an unknown handle answered `USER_NOT_FOUND`,
+the requester's own accept refused, the addressee's accepted, a match started from the friend list,
+and the same call with a non-friend's id refused. The test accounts were deleted afterwards.
 
 ---
 

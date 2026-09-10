@@ -20,6 +20,14 @@ export function describeFailure(failure: ApiFailure): string {
       return "Ingen spelare med den e-postadressen.";
     case "CANNOT_PLAY_ALONE":
       return "Du kan inte spela mot dig själv.";
+    case "USER_NOT_FOUND":
+      return "Ingen spelare med den vänkoden.";
+    case "CANNOT_FRIEND_SELF":
+      return "Det är din egen vänkod.";
+    case "ALREADY_FRIENDS":
+      return "Ni är redan vänner.";
+    case "ALREADY_REQUESTED":
+      return "Förfrågan är redan skickad. Väntar på svar.";
     case "WRONG_MATCH_STATUS":
       return "Matchen är inte i det läget längre.";
     case "STALE_REVISION":

@@ -64,6 +64,8 @@ describe.skipIf(!configured)("match persistence", () => {
         name: id,
         email: `${id}@example.invalid`,
         emailVerified: false,
+        // Unique per run, and a legal handle: letters first, then hex (DEC-027).
+        handle: `t${id.replaceAll("-", "").slice(-12)}`,
       })),
     );
 

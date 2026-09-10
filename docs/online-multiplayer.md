@@ -255,6 +255,12 @@ The game only needs enough identity to:
 - Display match ownership
 - Send invitations
 
+As built (T24.4, T28.1): `user.name` is the display name, `user.image` the optional avatar, and
+`user.handle` — added by DEC-027 — the unique name a user is *found* by. The list above never said
+what finding somebody works on; the handle is that answer, and it is the only one. An email address
+identifies an account when signing in and lets a non-friend be invited, but it is never returned to
+a client.
+
 ---
 
 # 11. Friends
@@ -286,6 +292,23 @@ BLOCKED
 ```
 
 The exact social model should be designed when this phase begins.
+
+As built (T28.1-T28.3, DEC-027 and DEC-028). The design this section deferred is:
+
+- A user is found by **handle** — unique, chosen at sign-up, `@anna` — and by nothing else. There
+  is no user search endpoint and no way to list users; a handle is resolved by sending a request to
+  it (DEC-027).
+- One `friendship` row per pair, in whichever direction the first request went, with
+  `requesterUserId`, `addresseeUserId` and a status. A unique index over the *unordered* pair is
+  what guarantees a single row, and a check constraint forbids befriending oneself.
+- Only the addressee of a `PENDING` row may answer it. A request crossing one coming the other way
+  is treated as an acceptance, since both people have asked for the same thing.
+- `DECLINED` is kept, so the request stops being pending for both sides without the requester being
+  told which of "refused" and "unanswered" happened; a later request reuses the row.
+- **`BLOCKED` is not implemented.** Blocking has rules of its own that Milestone 7 does not
+  specify, and the enum value is deliberately absent rather than present and unhonoured (DEC-028).
+- Removing a friend is not implemented either. A friendship's only effect is that it permits an
+  invitation by user id.
 
 ---
 
@@ -817,9 +840,10 @@ The exact normalized schema should be designed in the online implementation phas
 
 Do not prematurely create database tables during Version 1.
 
-As built (T24.4): `user`, `session`, `account` and `verification` belong to Better Auth; `match`
-and `match_player` are the application's own. Friendships, invitations, chat and notifications
-are still to come, in their own phases.
+As built (T24.4, T28.2): `user`, `session`, `account` and `verification` belong to Better Auth;
+`match`, `match_player` and `friendship` are the application's own. An invitation is a `match` with
+status `INVITED` rather than a table of its own (section 13). Chat and notifications are still to
+come, in their own phases.
 
 ---
 
@@ -912,6 +936,20 @@ POST   /api/matches/:id/actions        one turn action:
                                          CONFIRM_PROPOSAL, CANCEL_PROPOSAL,
                                          ACCEPT_PROPOSED_MOVE, REJECT_PROPOSED_MOVE
 ```
+
+And the friends endpoints (T28.1-T28.3, DEC-028):
+
+```text
+GET    /api/friends                       friends, requests to answer, requests sent
+POST   /api/friends/requests              send a request to a handle
+POST   /api/friends/requests/:id/accept   accept one addressed to you
+POST   /api/friends/requests/:id/decline  decline one addressed to you
+```
+
+`POST /api/matches` now names an opponent either by `opponentEmail` or by `opponentUserId`, and
+never both. An id is accepted only from an accepted friend, so it is not a way to invite an
+arbitrary account; a stranger's id gets the same `OPPONENT_NOT_FOUND` as an id that does not
+exist (section 38).
 
 No request carries a `playerId`: which player the caller is comes from the session and the match's
 seats, and which of the four proposal actions a given player may send is the engine's judgment
