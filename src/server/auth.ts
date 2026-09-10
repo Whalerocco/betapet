@@ -22,6 +22,17 @@ import * as schema from "./db/schema";
  */
 export function createAuth() {
   return betterAuth({
+    /*
+     * Better Auth needs to know its own origin to build callbacks and set cookies. In production
+     * that is `BETTER_AUTH_URL`; on a Vercel preview deployment, whose URL is generated per
+     * deployment and cannot be known in advance, `VERCEL_URL` is the only thing that knows it.
+     * Locally both are absent and Better Auth falls back to the request's own origin.
+     */
+    baseURL:
+      process.env.BETTER_AUTH_URL ??
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : undefined),
     database: drizzleAdapter(db, {
       provider: "pg",
       schema,

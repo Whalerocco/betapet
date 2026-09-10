@@ -1910,6 +1910,31 @@ chat.
 
 ---
 
+## T27.3 Deployment
+
+Requested on 2026-09-10, which is the "separately requested" that T0.5 left open.
+
+- [x] Deploy to Vercel, Frankfurt (DEC-021): `vercel.json` sets `regions: ["fra1"]`.
+- [x] Set `DATABASE_URL`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` on the project.
+- [x] Apply the migrations in `drizzle/` to the Neon database.
+- [x] Verify the live deployment.
+
+Live at **https://betapet.vercel.app**. `tech-stack.md` section 31 records the configuration, and
+DEC-021 carries a dated note on how it turned out.
+
+Two things had to be built rather than merely switched on. `.vercelignore`, because the Vercel CLI
+reads it *instead of* `.gitignore` and so tried to upload the 1.6 GB of raw dictionary sources on
+the first attempt. And a `baseURL` in `createAuth()`, because Better Auth has to know its own
+origin to build callbacks and set cookies: `BETTER_AUTH_URL` in production, `VERCEL_URL` on a
+preview deployment whose URL cannot be known in advance, and the request's own origin locally.
+
+Verified against the live site, not only the build: the home page and `/online` serve, an
+unauthenticated `GET /api/matches` is `401 UNAUTHENTICATED`, and a sign-in attempt for an unknown
+address is refused with `INVALID_EMAIL_OR_PASSWORD` — which is the answer that proves the function
+reached the database. No account or match was created, so nothing had to be cleaned up afterwards.
+
+---
+
 # 32. Phase 7 — Friends
 
 ## T28.1 User discovery

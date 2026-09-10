@@ -38,3 +38,5 @@ next-env.d.ts
 # Raw dictionary source data (hundreds of MB; regenerate via scripts/preprocess-dictionary.ts)
 scripts/dictionary-raw-sources/*
 !scripts/dictionary-raw-sources/README.md
+# Vercel CLI project link and its OIDC token (the .env rules above already cover .env.local).
+.vercel

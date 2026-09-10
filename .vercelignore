@@ -1,0 +1,20 @@
+# What not to upload when deploying. Vercel reads this instead of .gitignore, so
+# the local-only build output has to be named here as well.
+
+# Vercel installs dependencies and runs the build itself.
+node_modules
+.next
+tsconfig.tsbuildinfo
+
+# Raw dictionary source data: ~1.6 GB, and only ever read by
+# scripts/preprocess-dictionary.ts. The generated dictionaries in src/data are
+# what the application loads, and those are uploaded.
+scripts/dictionary-raw-sources
+
+# Local test and tooling output.
+test-results
+playwright-report
+
+# Local secrets and the CLI's own project link.
+.env*.local
+.vercel

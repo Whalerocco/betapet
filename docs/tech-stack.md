@@ -793,6 +793,27 @@ The deployment should support:
 - Client-side game execution
 - Future server routes if needed
 
+### As deployed
+
+Live at **https://betapet.vercel.app** since 2026-09-10 (Vercel project `betapet`), production
+built from the local working tree with `vercel deploy --prod`. There is no Git integration, so a
+deployment happens when it is asked for, not on every push.
+
+Two files in the repository root are the whole hosting-specific configuration:
+
+- `vercel.json` sets `regions: ["fra1"]`, which is DEC-021's one hard requirement. Response
+  headers confirm it: `x-vercel-id: arn1::fra1::…` — the request enters at the Stockholm edge and
+  the function runs in Frankfurt, beside the database.
+- `.vercelignore` keeps `scripts/dictionary-raw-sources` (~1.6 GB) and the local build output out
+  of the upload. Vercel reads this file *instead of* `.gitignore`, so the local-only directories
+  have to be named in both. The generated dictionaries in `src/data` are uploaded — the
+  application loads those at runtime.
+
+Three environment variables are set on the project, none of them in the repository:
+`DATABASE_URL` and `BETTER_AUTH_SECRET` for both Production and Preview, and `BETTER_AUTH_URL` for
+Production, pinned to the alias above. A preview deployment has no predictable URL to pin, so
+`createAuth()` falls back to `VERCEL_URL` there and to the request's own origin locally.
+
 ---
 
 ## 32. Repository

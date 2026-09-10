@@ -2076,6 +2076,20 @@ money" from a technical question into a billing one.
 - The region for functions must be set explicitly; Vercel's default is not Frankfurt.
 - If Betapet is ever monetised, the hosting plan must be revisited before that happens.
 
+**Update, as deployed (2026-09-10):** the configuration this entry deferred now exists, and the
+application is live at `https://betapet.vercel.app`. It came to two files — `vercel.json` pinning
+`regions: ["fra1"]`, and `.vercelignore` — plus three project environment variables; the facts
+above were re-checked and still held. Details in `tech-stack.md` section 31.
+
+The Frankfurt pinning is confirmed rather than assumed: production responses carry
+`x-vercel-id: arn1::fra1::…`, so the function executes in Frankfurt even though the request is
+accepted at the Stockholm edge.
+
+One thing this entry did not anticipate: Vercel's CLI reads `.vercelignore` instead of
+`.gitignore`, so the first deploy tried to upload the 1.6 GB of raw dictionary sources that
+`.gitignore` already excludes, and failed. Ignore rules for large local-only data now have to be
+maintained in both files.
+
 ### Revisit when
 
 Betapet acquires any commercial aspect; a free-tier limit is reached repeatedly; or realtime push
