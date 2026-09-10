@@ -8,7 +8,10 @@ import {
   signUp,
   useSession,
 } from "../../application/auth/authClient";
-import { describeFailure } from "../../application/online/failureMessages";
+import {
+  describeAuthFailure,
+  describeFailure,
+} from "../../application/online/failureMessages";
 import {
   acceptFriendRequest,
   declineFriendRequest,
@@ -36,26 +39,6 @@ import { SignInScreen } from "../../components/online/SignInScreen";
 
 /** How often an open match asks the server whether anything happened (DEC-020: polling). */
 const POLL_INTERVAL_MS = 15_000;
-
-/**
- * Why signing in or creating an account failed, in Swedish.
- *
- * A handle that breaks the rules and a handle somebody already has are different mistakes with
- * different fixes, and the server distinguishes them (`INVALID_HANDLE` against a refused write),
- * so the message does too. Beyond that, Better Auth reports a taken email and a taken handle the
- * same way, so that message names both rather than guessing which it was.
- */
-function describeSignUpFailure(
-  mode: "SIGN_IN" | "SIGN_UP",
-  code: string | undefined,
-): string {
-  if (mode === "SIGN_IN") return "Fel e-post eller lösenord.";
-  if (code === "INVALID_HANDLE") {
-    return "Vänkoden fungerar inte. 3-20 tecken: a-z, 0-9 och _, och den måste börja med en bokstav.";
-  }
-  return "Kontot kunde inte skapas. Är e-postadressen eller vänkoden redan tagen?";
-}
-
 export default function OnlinePage() {
   const { data: session, isPending: sessionPending } = useSession();
 
@@ -151,7 +134,7 @@ export default function OnlinePage() {
 
     setBusy(false);
     if (result.error) {
-      setError(describeSignUpFailure(values.mode, result.error.code));
+      setError(describeAuthFailure(values.mode, result.error.code));
     }
   }
 
