@@ -2132,6 +2132,38 @@ them: the configuration was always stored, only never sent.
 
 ---
 
+## T28.7 Taking an online placement back
+
+Added on 2026-09-13, from a play report: answering "Ändra" to the unknown-word question lost the
+tiles — not on the board, not in the hand, and unrecoverable (`known-bugs.md` item 15).
+
+- [x] A tile taken back off the board returns to the hand.
+- [x] `Rensa` returns the whole placement, including one the server is holding.
+- [x] Do not offer a pass or an exchange while a move is in progress.
+
+Two faults produced one symptom, and fixing either alone would have left it. The hand was the
+server's rack less whatever this client had placed — but while the server holds a pending move,
+those tiles are *on the board* rather than in `ownRack`, so a tile taken back was subtracted from a
+rack that never contained it. The hand is now everything the player holds: the rack, plus any tile
+in a pending move of their own, less what they are currently placing.
+
+And `Rensa` only cleared the client's copy. The server went on holding the pending move, so the
+tiles could not come back, the engine would have refused a pass or an exchange afterwards, and
+reopening the match brought the placement back. There is now a `CLEAR_PENDING_MOVE` action, which
+is the engine's own `clearPendingMove` — the same one "Rensa" uses in a hot-seat game, returning
+the tiles and undoing any Replace-mode displacement. It is not a turn and consumes none.
+
+`Passa` and `Byt brickor` are disabled while a move is in progress, as they already were in the
+hot-seat screen: the engine refuses both while a pending move exists, so offering them could only
+produce a rule error.
+
+Reproduced in the real application before the fix — the hand stuck at four of seven tiles, the
+other three in neither place — and confirmed after it: `Ändra` leaves the tiles on the board to
+edit, `Rensa` puts all seven back, and the server's own state then shows an empty pending move and
+a full rack.
+
+---
+
 # 33. Phase 7A — Chat
 
 ## T29.1 Match chat

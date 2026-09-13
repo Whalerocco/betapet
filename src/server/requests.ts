@@ -43,6 +43,8 @@ export function parseTurnAction(body: unknown): TurnAction | undefined {
   switch (body.type) {
     case "PASS":
       return { type: "PASS" };
+    case "CLEAR_PENDING_MOVE":
+      return { type: "CLEAR_PENDING_MOVE" };
 
     // The disputed-word actions carry nothing but their name: which player may send each is the
     // engine's judgment, made against the stored proposal (`online-multiplayer.md` section 24).

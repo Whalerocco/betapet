@@ -18,6 +18,12 @@ describe("parsing a turn action", () => {
     expect(parseTurnAction({ type: "PASS" })).toEqual({ type: "PASS" });
   });
 
+  it("accepts taking a placement back", () => {
+    expect(parseTurnAction({ type: "CLEAR_PENDING_MOVE" })).toEqual({
+      type: "CLEAR_PENDING_MOVE",
+    });
+  });
+
   it("accepts an exchange and a placement", () => {
     expect(
       parseTurnAction({ type: "EXCHANGE_TILES", tileIds: ["a", "b"] }),

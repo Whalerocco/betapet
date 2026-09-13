@@ -194,6 +194,101 @@ describe("OnlineGameScreen", () => {
   });
 
   /*
+   * Reported in play (known-bugs item 15): after "Ändra" on an unknown word, the tiles were lost
+   * — not back in the hand, and gone from the board once taken back. While the server holds a
+   * pending move those tiles are on the board rather than in `ownRack`, so a hand built from the
+   * rack alone left a tile taken off the board in neither place.
+   */
+  describe("a move the server is holding", () => {
+    /** August has proposed a word and is being asked whether to play it anyway. */
+    function awaitingConfirmation(): GameState {
+      const state = onTurn(game(), 0);
+      const proposer = state.players[0].id;
+      const [first, second] = state.players[0].rack.tileIds;
+
+      return {
+        ...state,
+        players: [
+          {
+            ...state.players[0],
+            rack: { tileIds: state.players[0].rack.tileIds.slice(2) },
+          },
+          state.players[1],
+        ] as GameState["players"],
+        pendingMove: {
+          playerId: proposer,
+          placedTiles: [
+            { tileId: first!, coordinate: { row: 7, column: 7 } },
+            { tileId: second!, coordinate: { row: 7, column: 8 } },
+          ],
+          status: "EDITING",
+        },
+        turnState: { type: "PLAYER_TURN", playerId: proposer },
+      };
+    }
+
+    function handSize() {
+      return within(
+        screen.getByRole("group", { name: "Din hand" }),
+      ).getAllByRole("button").length;
+    }
+
+    it("counts the tiles it is holding as part of this player's hand", async () => {
+      renderScreen(snapshotFor(awaitingConfirmation(), 0));
+
+      // Five left in the rack proper, two on the board: the player still holds seven.
+      expect(handSize()).toBe(5);
+
+      await userEvent.click(
+        screen.getAllByRole("button", { name: /^Pending bricka/ })[0]!,
+      );
+
+      expect(handSize()).toBe(6);
+    });
+
+    it("clears through the server, since the tiles it holds are the ones being returned", async () => {
+      const handlers = renderScreen(snapshotFor(awaitingConfirmation(), 0));
+
+      await userEvent.click(screen.getByRole("button", { name: "Rensa" }));
+
+      expect(handlers.onAction).toHaveBeenCalledWith({
+        type: "CLEAR_PENDING_MOVE",
+      });
+    });
+
+    it("clears a placement the server has never seen without asking it to", async () => {
+      const state = onTurn(game(), 0);
+      const snapshot = snapshotFor(state, 0);
+      const handlers = renderScreen(snapshot);
+      const plainTile = snapshot.view.ownRack.tileIds.find(
+        (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+      )!;
+
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      await userEvent.click(
+        rack.querySelector<HTMLElement>(`[data-rack-tile-id="${plainTile}"]`)!,
+      );
+      await userEvent.click(screen.getByTestId("cell-7,7"));
+      await userEvent.click(screen.getByRole("button", { name: "Rensa" }));
+
+      // Nothing for the server to clear: it never saw this placement.
+      expect(handlers.onAction).not.toHaveBeenCalled();
+      expect(handSize()).toBe(7);
+    });
+
+    it("does not offer to pass or exchange while a move is in progress", () => {
+      renderScreen(snapshotFor(awaitingConfirmation(), 0));
+
+      // The engine refuses both while a pending move exists, so offering them would only produce
+      // a rule error — the hot-seat screen gates them the same way.
+      expect(screen.getByRole("button", { name: "Passa" })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: "Byt brickor" }),
+      ).toBeDisabled();
+    });
+  });
+
+  /*
    * The rules a match is played by reach the screen with the match, not with the game view
    * (T28.6). Reported in play: with Replace mode on, tapping a rack tile and then a committed
    * tile did nothing at all, because the board was never told the mode was active.

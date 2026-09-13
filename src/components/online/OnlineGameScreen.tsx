@@ -121,15 +121,34 @@ export function OnlineGameScreen({
   const placedTileIds = new Set(placements.map((placed) => placed.tileId));
 
   /*
-   * The server's rack, in this player's chosen order: the tiles they have arranged, still in that
-   * arrangement, followed by anything they have drawn since. Reconciled rather than stored, so a
-   * poll that brings new tiles cannot leave the rack showing a stale hand.
+   * The tiles this player is holding, which is not the same as the rack the server reports.
+   *
+   * While the server has a pending move of theirs — after "Ändra" on an unknown word, or after
+   * the opponent rejected one — those tiles are *on the board*, not in `ownRack`. Taking one back
+   * off the board is a local act, so a rack built from `ownRack` alone left the tile in neither
+   * place: gone from the board and never arriving in the hand (`known-bugs.md` item 15).
    */
-  const held = new Set(view.ownRack.tileIds);
+  const serverPendingTileIds: readonly TileId[] =
+    view.pendingMove && view.pendingMove.playerId === viewer
+      ? view.pendingMove.placedTiles.map((placed) => placed.tileId)
+      : [];
+
+  const inHand = new Set(view.ownRack.tileIds);
+  const heldTileIds: readonly TileId[] = [
+    ...view.ownRack.tileIds,
+    ...serverPendingTileIds.filter((tileId) => !inHand.has(tileId)),
+  ];
+
+  /*
+   * In this player's chosen order: the tiles they have arranged, still in that arrangement,
+   * followed by anything they have drawn since. Reconciled rather than stored, so a poll that
+   * brings new tiles cannot leave the rack showing a stale hand.
+   */
+  const held = new Set(heldTileIds);
   const arranged = rackOrder.filter((tileId) => held.has(tileId));
   const orderedRackIds: readonly TileId[] = [
     ...arranged,
-    ...view.ownRack.tileIds.filter((tileId) => !arranged.includes(tileId)),
+    ...heldTileIds.filter((tileId) => !arranged.includes(tileId)),
   ];
 
   const rackTiles: readonly RackTileView[] = orderedRackIds
@@ -170,6 +189,10 @@ export function OnlineGameScreen({
           ] as LanguageCode
         ] ?? undefined)
       : undefined;
+
+  /** Tiles are placed, here or on the server, so this turn is in the middle of something. */
+  const hasMoveInProgress =
+    placements.length > 0 || serverPendingTileIds.length > 0;
 
   function handleShuffleRack() {
     const shuffled = [...orderedRackIds];
@@ -228,6 +251,23 @@ export function OnlineGameScreen({
     setPlacements((current) =>
       current.filter((placed) => placed.tileId !== tileId),
     );
+  }
+
+  /**
+   * "Rensa": take the whole placement back.
+   *
+   * When the server is holding a pending move of this player's, clearing has to reach it — the
+   * engine's own `clearPendingMove` is what puts those tiles back in the rack and undoes any
+   * Replace-mode displacement. Clearing only the local copy would leave the server still holding
+   * them, so the next pass or exchange would be refused and reopening the match would bring the
+   * placement back.
+   */
+  function handleClear() {
+    setPlacements([]);
+    setSelectedTileId(undefined);
+    if (serverPendingTileIds.length > 0) {
+      onAction({ type: "CLEAR_PENDING_MOVE" });
+    }
   }
 
   function toggleExchangeTile(tileId: TileId) {
@@ -342,13 +382,18 @@ export function OnlineGameScreen({
 
           <TurnActions
             canSubmit={myTurn && placements.length > 0 && !busy}
-            canPass={myTurn && !busy}
-            canClear={placements.length > 0}
+            /*
+             * A move in progress has to be cleared before the turn can be given away: the engine
+             * refuses a pass or an exchange while a pending move exists, so offering them would
+             * only produce a rule error. The hot-seat screen gates them the same way.
+             */
+            canPass={myTurn && !busy && !hasMoveInProgress}
+            canClear={hasMoveInProgress && !busy}
             canEndGame={false}
             showEndGame={false}
             exchangeMode={exchangeMode}
             exchangeSelectionCount={exchangeSelection.size}
-            canStartExchange={myTurn && !busy && placements.length === 0}
+            canStartExchange={myTurn && !busy && !hasMoveInProgress}
             onSubmit={() =>
               onAction({
                 type: "SUBMIT_MOVE",
@@ -359,7 +404,7 @@ export function OnlineGameScreen({
                 })),
               })
             }
-            onClear={() => setPlacements([])}
+            onClear={handleClear}
             onStartExchange={() => setExchangeMode(true)}
             onCancelExchange={() => {
               setExchangeMode(false);

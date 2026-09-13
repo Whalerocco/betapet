@@ -949,9 +949,14 @@ POST   /api/matches/:id/accept         accept an invitation; starts the game
 POST   /api/matches/:id/decline        decline an invitation; cancels the match
 POST   /api/matches/:id/actions        one turn action:
                                          PASS, EXCHANGE_TILES, SUBMIT_MOVE,
+                                         CLEAR_PENDING_MOVE,
                                          CONFIRM_PROPOSAL, CANCEL_PROPOSAL,
                                          ACCEPT_PROPOSED_MOVE, REJECT_PROPOSED_MOVE
 ```
+
+`CLEAR_PENDING_MOVE` is the odd one: it is not a turn and consumes none. It exists because the
+tiles of a placement the server is holding are in its pending move rather than in the player's
+rack, so "Rensa" has to reach the server to get them back (T28.7).
 
 And the friends endpoints (T28.1-T28.3, DEC-028):
 

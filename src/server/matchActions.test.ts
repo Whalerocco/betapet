@@ -397,6 +397,59 @@ describe.skipIf(!configured)("match actions", () => {
   });
 
   /*
+   * Reported in play (known-bugs item 15): a player who changed their mind about an unknown word
+   * lost the tiles. "Rensa" had no way to reach the server, so the tiles it holds in a pending
+   * move stayed there while the interface stopped drawing them.
+   */
+  describe("clearing a pending move", () => {
+    it("returns the tiles to the rack and leaves the turn where it was", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const rackBefore = state.players[0].rack.tileIds.length;
+
+      const proposed = await submitNonsense(record.id, record.revision, state);
+      if (proposed.outcome !== "OK") throw new Error(proposed.outcome);
+      expect(proposed.view.ownRack.tileIds).toHaveLength(rackBefore - 3);
+
+      const cancelled = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: proposed.revision,
+        action: { type: "CANCEL_PROPOSAL" },
+      });
+      if (cancelled.outcome !== "OK") throw new Error(cancelled.outcome);
+
+      const cleared = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: cancelled.revision,
+        action: { type: "CLEAR_PENDING_MOVE" },
+      });
+
+      expect(cleared.outcome).toBe("OK");
+      if (cleared.outcome !== "OK") return;
+      expect(cleared.view.ownRack.tileIds).toHaveLength(rackBefore);
+      expect(cleared.view.pendingMove).toBeUndefined();
+      // Clearing is not a turn and consumes none.
+      expect(cleared.view.turnState.type).toBe("PLAYER_TURN");
+    });
+
+    it("is refused for a player whose turn it is not", async () => {
+      const { record, state } = await matchAwaitingNonsense();
+      const proposed = await submitNonsense(record.id, record.revision, state);
+      if (proposed.outcome !== "OK") throw new Error(proposed.outcome);
+
+      const result = await actions.performTurn({
+        user: anna,
+        matchId: record.id,
+        expectedRevision: proposed.revision,
+        action: { type: "CLEAR_PENDING_MOVE" },
+      });
+
+      expect(result.outcome).toBe("RULE_REJECTED");
+    });
+  });
+
+  /*
    * Reported in play (T28.6): with Replace mode on, an online match ignored every attempt to
    * replace a committed tile. The interface was the half at fault, but the client now sends a
    * placement onto an occupied square and depends on this path accepting it.

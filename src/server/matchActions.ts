@@ -79,6 +79,12 @@ export type MatchViewResult = MatchView | MatchActionFailure;
  */
 export type TurnAction =
   | { readonly type: "PASS" }
+  /*
+   * Taking the whole placement back. Not a turn, and it consumes none: it is the online
+   * equivalent of "Rensa", and it has to reach the server because the tiles it returns to the
+   * rack are ones the server is holding in a pending move (`known-bugs.md` item 15).
+   */
+  | { readonly type: "CLEAR_PENDING_MOVE" }
   | { readonly type: "EXCHANGE_TILES"; readonly tileIds: readonly TileId[] }
   | {
       readonly type: "SUBMIT_MOVE";
@@ -341,6 +347,8 @@ function engineActions(
   switch (action.type) {
     case "PASS":
       return [{ type: "PASS", playerId }];
+    case "CLEAR_PENDING_MOVE":
+      return [{ type: "CLEAR_PENDING_MOVE", playerId }];
     case "EXCHANGE_TILES":
       return [{ type: "EXCHANGE_TILES", playerId, tileIds: action.tileIds }];
     case "CONFIRM_PROPOSAL":

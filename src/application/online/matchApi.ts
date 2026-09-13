@@ -158,6 +158,8 @@ export function fetchMatch(matchId: string): Promise<ApiResult<MatchSnapshot>> {
 /** What a player may ask the server to do; placements are sent whole, never as a diff. */
 export type TurnAction =
   | { readonly type: "PASS" }
+  /** Takes the whole placement back, returning its tiles to the rack (`known-bugs.md` item 15). */
+  | { readonly type: "CLEAR_PENDING_MOVE" }
   | { readonly type: "EXCHANGE_TILES"; readonly tileIds: readonly TileId[] }
   | {
       readonly type: "SUBMIT_MOVE";
