@@ -1,4 +1,7 @@
+import type { LanguageCode } from "../../game/model/language";
 import type { ModifierId } from "../../game/model/modifiers";
+
+import { LANGUAGE_NAMES } from "./languageNames";
 
 /**
  * Swedish setup/display copy for each modifier (game-modifiers.md section 4). Kept here rather
@@ -35,3 +38,45 @@ export const MODIFIER_COPY: Readonly<
       "Vilket språks ordlista som gäller växlar till nästa valda språk efter varje fullständig runda (båda spelarna har spelat en gång). Svenska ingår alltid — välj minst ett språk till.",
   },
 };
+
+/** The rules a match is played by, as the match API carries them. */
+export interface MatchRulesSummaryInput {
+  readonly rackSize: number;
+  readonly modifiers: readonly string[];
+  readonly polyglotLanguages?: readonly string[];
+  readonly wildLanguages?: readonly string[];
+}
+
+/**
+ * One line describing a match's rules, for an invitation that has to be understood before it is
+ * answered (T28.4, DEC-029).
+ *
+ * Polyglot and Wild name their languages, because which languages are in play is the rule, not a
+ * detail of it. An unknown modifier id is shown as itself rather than dropped: a match created by
+ * a newer version should not look like an ordinary game.
+ */
+export function describeMatchRules(rules: MatchRulesSummaryInput): string {
+  const parts = [`${rules.rackSize} brickor`];
+
+  for (const id of rules.modifiers) {
+    const label = MODIFIER_COPY[id as ModifierId]?.label ?? id;
+    const languages =
+      id === "POLYGLOT"
+        ? rules.polyglotLanguages
+        : id === "WILD"
+          ? rules.wildLanguages
+          : undefined;
+
+    parts.push(
+      languages && languages.length > 0
+        ? `${label} (${languages
+            .map((code) => LANGUAGE_NAMES[code as LanguageCode] ?? code)
+            .join(", ")})`
+        : label,
+    );
+  }
+
+  return parts.length === 1
+    ? `${parts[0]} · Standardregler`
+    : parts.join(" · ");
+}

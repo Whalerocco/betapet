@@ -330,6 +330,22 @@ language = Swedish
 
 Future language support can use the configuration architecture already established.
 
+As built (T25.1, T28.4, DEC-029): the inviter chooses the rack size and the modifiers of
+`game-modifiers.md` — including Polyglot and Wild, which bring the other languages in through the
+modifier rather than through a ruleset choice. The ruleset itself is not offered: Swedish Alfapet
+is the only one, and the stored `configurationId` exists to keep a match on the rules it started
+with (section 49), not to let a client pick another.
+
+Who chooses is settled by DEC-029: the inviter does, the invitation states the rules, and the
+invitee answers the whole thing by accepting or declining. There is no counter-offer — declining
+and inviting back is one.
+
+The combination is validated by building the configuration with the engine, and a match is refused
+with `INVALID_CONFIGURATION` if that fails. `game-modifiers.md` section 5 requires that check to be
+made by the engine when a game is created; a client that disables checkboxes is not the same
+program as the server, and before this an impossible selection produced an invitation that could
+never become a game.
+
 ---
 
 # 13. Match invitation

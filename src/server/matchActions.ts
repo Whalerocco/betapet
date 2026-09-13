@@ -4,6 +4,7 @@ import {
   dispatchGameAction,
   type GameAction,
 } from "@/application/game-controller/gameController";
+import { createSwedishGameConfiguration } from "@/game/configuration/swedishConfiguration";
 import { createGame } from "@/game/engine/createGame";
 import type { GameError } from "@/game/engine/gameError";
 import type { Coordinate } from "@/game/model/coordinate";
@@ -120,7 +121,35 @@ export interface CreateMatchRequest {
 export type CreateMatchResult =
   | { readonly outcome: "OK"; readonly matchId: string }
   | { readonly outcome: "OPPONENT_NOT_FOUND" }
-  | { readonly outcome: "CANNOT_PLAY_ALONE" };
+  | { readonly outcome: "CANNOT_PLAY_ALONE" }
+  /** The rules cannot be played together — an incompatible pair of modifiers, or one that needs
+   * a second language and was not given one (`game-modifiers.md` section 5). */
+  | { readonly outcome: "INVALID_CONFIGURATION" };
+
+/**
+ * Whether the engine will accept these rules, asked before a match is created (T28.4).
+ *
+ * `game-modifiers.md` section 5 requires the compatibility check to be made by the engine when a
+ * game is created, not merely by a UI that disables checkboxes — and an online client is not
+ * even the same program as the server. So the configuration is built here, discarded, and the
+ * attempt itself is the check: no rule is restated, and none can drift.
+ *
+ * Without this, an impossible selection was stored happily and only refused when the opponent
+ * accepted, leaving an invitation that could never become a game.
+ */
+function enginePermits(configuration: MatchConfiguration): boolean {
+  try {
+    createSwedishGameConfiguration(
+      configuration.rackSize,
+      new Set(configuration.modifiers),
+      configuration.polyglotLanguages,
+      configuration.wildLanguages,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Resolves the opponent a client named, or nothing.
@@ -161,6 +190,10 @@ async function resolveOpponent(
 export async function createMatch(
   request: CreateMatchRequest,
 ): Promise<CreateMatchResult> {
+  if (!enginePermits(request.configuration)) {
+    return { outcome: "INVALID_CONFIGURATION" };
+  }
+
   const opponent = await resolveOpponent(request);
 
   if (!opponent) return { outcome: "OPPONENT_NOT_FOUND" };

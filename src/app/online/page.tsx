@@ -34,6 +34,11 @@ import {
 } from "../../application/online/matchApi";
 import { FriendsScreen } from "../../components/online/FriendsScreen";
 import { MatchListScreen } from "../../components/online/MatchListScreen";
+import {
+  NewMatchScreen,
+  type NewMatchOpponent,
+  type NewMatchValues,
+} from "../../components/online/NewMatchScreen";
 import { OnlineGameScreen } from "../../components/online/OnlineGameScreen";
 import { SignInScreen } from "../../components/online/SignInScreen";
 
@@ -50,6 +55,9 @@ export default function OnlinePage() {
   /** The friends screen, which the match list is the way back from (T28.2). */
   const [friends, setFriends] = useState<SocialGraph | undefined>();
   const [friendsNotice, setFriendsNotice] = useState<string | undefined>();
+
+  /** Who a new match is being set up against, while the rules are chosen (T28.4). */
+  const [newMatch, setNewMatch] = useState<NewMatchOpponent | undefined>();
 
   /** Unwraps a call, turning a failure into Swedish text rather than throwing. */
   const run = useCallback(async function run<T>(
@@ -185,6 +193,43 @@ export default function OnlinePage() {
     );
   }
 
+  if (newMatch) {
+    return (
+      <NewMatchScreen
+        opponent={newMatch}
+        busy={busy}
+        error={error}
+        onCreate={(values: NewMatchValues) => {
+          void (async () => {
+            const rules = {
+              rackSize: values.rackSize,
+              modifiers: values.modifiers,
+              polyglotLanguages: values.polyglotLanguages,
+              wildLanguages: values.wildLanguages,
+            };
+
+            const created = await run(
+              newMatch.kind === "FRIEND"
+                ? createMatchWithFriend(newMatch.userId, rules)
+                : createMatch(values.opponentEmail ?? "", rules),
+            );
+
+            if (created) {
+              // The invitation now lives in the match list, which is where it is answered.
+              setNewMatch(undefined);
+              setFriends(undefined);
+              await refreshList();
+            }
+          })();
+        }}
+        onCancel={() => {
+          setNewMatch(undefined);
+          setError(undefined);
+        }}
+      />
+    );
+  }
+
   if (friends) {
     return (
       <FriendsScreen
@@ -221,20 +266,19 @@ export default function OnlinePage() {
           })();
         }}
         onStartMatch={(friendUserId) => {
-          void (async () => {
-            setFriendsNotice(undefined);
-            const created = await run(
-              createMatchWithFriend(friendUserId, {
-                rackSize: 7,
-                modifiers: [],
-              }),
-            );
-            if (created) {
-              // The invitation is in the match list, which is where it is answered from.
-              setFriends(undefined);
-              await refreshList();
-            }
-          })();
+          const friend = friends.friends.find(
+            (entry) => entry.userId === friendUserId,
+          );
+          if (!friend) return;
+
+          setFriendsNotice(undefined);
+          setError(undefined);
+          setNewMatch({
+            kind: "FRIEND",
+            userId: friend.userId,
+            name: friend.name,
+            handle: friend.handle,
+          });
         }}
         onBack={() => {
           setFriends(undefined);
@@ -270,11 +314,9 @@ export default function OnlinePage() {
           await refreshList();
         })();
       }}
-      onCreate={(opponentEmail) => {
-        void (async () => {
-          await run(createMatch(opponentEmail, { rackSize: 7, modifiers: [] }));
-          await refreshList();
-        })();
+      onNewMatch={() => {
+        setError(undefined);
+        setNewMatch({ kind: "EMAIL" });
       }}
       onShowFriends={() => {
         void (async () => {
@@ -289,6 +331,7 @@ export default function OnlinePage() {
           setMatches([]);
           setOpenMatch(undefined);
           setFriends(undefined);
+          setNewMatch(undefined);
         })();
       }}
     />

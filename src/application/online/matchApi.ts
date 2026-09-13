@@ -24,10 +24,22 @@ export type MatchListCategory =
   | "INVITATION_SENT"
   | "CANCELLED";
 
+/** The rules a match is played by, as the API carries them. */
+export interface MatchRules {
+  readonly rackSize: number;
+  readonly modifiers: readonly string[];
+  /** Only meaningful when `modifiers` contains "POLYGLOT". */
+  readonly polyglotLanguages?: readonly string[];
+  /** Ordered rotation; only meaningful when `modifiers` contains "WILD". */
+  readonly wildLanguages?: readonly string[];
+}
+
 export interface MatchListEntry {
   readonly id: string;
   readonly category: MatchListCategory;
   readonly opponentName: string;
+  /** What the match is played by, so an invitation can be read before it is answered (T28.4). */
+  readonly configuration: MatchRules;
   readonly revision: number;
   readonly updatedAt: string;
 }
@@ -45,6 +57,7 @@ export type ApiFailure =
   | { readonly error: "NOT_FOUND" }
   | { readonly error: "OPPONENT_NOT_FOUND" }
   | { readonly error: "CANNOT_PLAY_ALONE" }
+  | { readonly error: "INVALID_CONFIGURATION" }
   // The friends endpoints (T28.1-T28.2).
   | { readonly error: "USER_NOT_FOUND" }
   | { readonly error: "CANNOT_FRIEND_SELF" }
@@ -95,11 +108,6 @@ export function listMatches(): Promise<
   ApiResult<{ matches: readonly MatchListEntry[] }>
 > {
   return request("/api/matches");
-}
-
-export interface MatchRules {
-  readonly rackSize: number;
-  readonly modifiers: readonly string[];
 }
 
 /** Invites somebody who is not a friend; knowing their address is what makes it possible. */

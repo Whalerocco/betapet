@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-
 import type {
   MatchListCategory,
   MatchListEntry,
 } from "../../application/online/matchApi";
+import { describeMatchRules } from "../game/modifierCopy";
 
 import styles from "./MatchListScreen.module.css";
 
@@ -35,7 +34,8 @@ export interface MatchListScreenProps {
   readonly onOpen: (matchId: string) => void;
   readonly onAccept: (matchId: string) => void;
   readonly onDecline: (matchId: string) => void;
-  readonly onCreate: (opponentEmail: string) => void;
+  /** Opens the setup screen, where the rules are chosen before inviting (T28.4). */
+  readonly onNewMatch: () => void;
   /** Opens the friends screen, which is the other way to start a match (T28.3). */
   readonly onShowFriends: () => void;
   readonly onSignOut: () => void;
@@ -49,20 +49,12 @@ export function MatchListScreen({
   onOpen,
   onAccept,
   onDecline,
-  onCreate,
+  onNewMatch,
   onShowFriends,
   onSignOut,
   busy,
   error,
 }: MatchListScreenProps) {
-  const [opponentEmail, setOpponentEmail] = useState("");
-
-  function create(event: FormEvent) {
-    event.preventDefault();
-    onCreate(opponentEmail);
-    setOpponentEmail("");
-  }
-
   const sections = SECTIONS.map((section) => ({
     ...section,
     entries: matches.filter((match) => match.category === section.category),
@@ -87,26 +79,14 @@ export function MatchListScreen({
       </div>
       <p className={styles.empty}>Inloggad som {playerName}</p>
 
-      <form className={styles.newMatch} onSubmit={create}>
-        <h2 className={styles.sectionTitle}>Ny match</h2>
-        <label className={styles.field}>
-          Motståndarens e-post
-          <input
-            className={styles.input}
-            type="email"
-            value={opponentEmail}
-            onChange={(event) => setOpponentEmail(event.target.value)}
-            required
-          />
-        </label>
-        <button
-          type="submit"
-          className={`${styles.button} ${styles.primary}`}
-          disabled={busy}
-        >
-          Bjud in
-        </button>
-      </form>
+      <button
+        type="button"
+        className={`${styles.button} ${styles.primary}`}
+        onClick={onNewMatch}
+        disabled={busy}
+      >
+        Ny match
+      </button>
 
       {error && (
         <p className={styles.error} role="alert">
@@ -124,7 +104,12 @@ export function MatchListScreen({
           {section.entries.map((match) =>
             match.category === "INVITATION_RECEIVED" ? (
               <div key={match.id} className={styles.match}>
-                <span className={styles.opponent}>{match.opponentName}</span>
+                <span>
+                  <span className={styles.opponent}>{match.opponentName}</span>
+                  <span className={styles.rules}>
+                    {describeMatchRules(match.configuration)}
+                  </span>
+                </span>
                 <span className={styles.invitationActions}>
                   <button
                     type="button"
@@ -159,7 +144,12 @@ export function MatchListScreen({
                   match.category === "CANCELLED"
                 }
               >
-                <span className={styles.opponent}>{match.opponentName}</span>
+                <span>
+                  <span className={styles.opponent}>{match.opponentName}</span>
+                  <span className={styles.rules}>
+                    {describeMatchRules(match.configuration)}
+                  </span>
+                </span>
               </button>
             ),
           )}

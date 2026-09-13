@@ -1,0 +1,74 @@
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.opponent {
+  margin: 0;
+}
+
+.handle {
+  color: var(--color-muted, #666);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: none;
+  padding: 0;
+  font-weight: 600;
+}
+
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: normal;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.radioOption:has(input:checked) {
+  border-color: var(--color-accent, #2b6cb0);
+}
+
+.input {
+  padding: 0.6rem;
+  font: inherit;
+  font-weight: normal;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 0.4rem;
+}
+
+.button {
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 0.4rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.primary {
+  border-color: transparent;
+  background: var(--color-accent, #2b6cb0);
+  color: #fff;
+}
+
+.error {
+  color: var(--color-error, #b02a2a);
+}

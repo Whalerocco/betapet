@@ -2028,6 +2028,46 @@ and the same call with a non-friend's id refused. The test accounts were deleted
 
 ---
 
+## T28.4 Online game setup
+
+Added on 2026-09-13. The project owner found in play that an online match offered no choice of game
+mode. This was a gap rather than a deferral: `POST /api/matches` has accepted a rack size and
+modifiers since T25.1, `online-multiplayer.md` section 12 never mentioned modifiers at all, and
+T27.2's interface always sent `{ rackSize: 7, modifiers: [] }`. **DEC-029** records the model.
+
+- [x] Choose rack size and modifiers when inviting an opponent.
+- [x] Same choice from the friend list as from the match list.
+- [x] Show a match's rules on the invitation, before it is answered.
+- [x] Validate the combination server-side, with the engine.
+
+`ModifierPicker` is extracted from `GameSetup` and used by both setups — same copy, same
+compatibility table, same language pickers for Polyglot and Wild — so the hot-seat and online
+games cannot end up offering different modes. `GameSetup`'s own tests passed unchanged through the
+extraction, which is what says it was a move rather than a rewrite.
+
+`NewMatchScreen` serves both ways in: an opponent named by email from the match list, or a friend
+already chosen from the friend list, where `Ny match` now opens the setup screen instead of
+inviting on the spot with defaults. Two entry points, one set of rules on offer.
+
+The invitation says what it is for: `MatchListEntry` carries the configuration — a column, so the
+list still deserializes no game state — and every match shows a line like
+`8 brickor · Kryssläge · Flerspråksläge (Svenska, Engelska)`.
+
+**A real defect fixed on the way.** The server took the modifier list as given and never asked
+whether it could be played, so `POLYGLOT` with `WILD` (UNDECIDED, DEC-010) or a multi-language mode
+with one language was stored happily and refused only when the opponent accepted — leaving an
+invitation that could never become a game. `createMatch` now builds the configuration with the
+engine and returns `INVALID_CONFIGURATION` (422) if that fails, which is what `game-modifiers.md`
+section 5 means by "the engine, when a game is actually created".
+
+Verified over HTTP against the real database, since choosing rules online is exactly the path no
+unit test runs whole: an invitation with Crisscross + Polyglot (Swedish and English) on a rack of 8
+was created, showed up in the opponent's list with those rules, was accepted, and started a game
+with eight tiles in hand; `POLYGLOT` with `WILD` was refused with 422. The test accounts were
+deleted afterwards.
+
+---
+
 # 33. Phase 7A — Chat
 
 ## T29.1 Match chat

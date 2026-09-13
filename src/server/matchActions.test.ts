@@ -285,6 +285,64 @@ describe.skipIf(!configured)("match actions", () => {
         .where(drizzle.eq(schema.friendship.id, incoming[0].requestId));
     });
 
+    /*
+     * `game-modifiers.md` section 5 requires the compatibility check to be made when a game is
+     * created rather than trusted to a UI — and an online client is not even the same program.
+     * Without this the match was stored and only refused when the opponent accepted it, leaving
+     * an invitation that could never become a game (T28.4).
+     */
+    it("refuses rules the engine cannot build a game from", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponent: { kind: "EMAIL", email: anna.email },
+        // Polyglot and Wild are UNDECIDED together (DEC-010).
+        configuration: {
+          ...CONFIGURATION,
+          modifiers: ["POLYGLOT", "WILD"],
+          polyglotLanguages: ["sv", "en"],
+          wildLanguages: ["sv", "en"],
+        },
+      });
+
+      expect(created.outcome).toBe("INVALID_CONFIGURATION");
+    });
+
+    it("refuses a multi-language mode with only one language", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponent: { kind: "EMAIL", email: anna.email },
+        configuration: {
+          ...CONFIGURATION,
+          modifiers: ["POLYGLOT"],
+          polyglotLanguages: ["sv"],
+        },
+      });
+
+      expect(created.outcome).toBe("INVALID_CONFIGURATION");
+    });
+
+    it("keeps the rules a match was created with, for the list to show", async () => {
+      const created = await actions.createMatch({
+        user: august,
+        opponent: { kind: "EMAIL", email: anna.email },
+        configuration: {
+          ...CONFIGURATION,
+          rackSize: 8,
+          modifiers: ["CRISSCROSS"],
+        },
+      });
+      if (created.outcome !== "OK") throw new Error(created.outcome);
+
+      const [invitation] = (await matches.listMatchesForUser(anna.id)).filter(
+        (entry) => entry.id === created.matchId,
+      );
+
+      expect(invitation.configuration).toMatchObject({
+        rackSize: 8,
+        modifiers: ["CRISSCROSS"],
+      });
+    });
+
     it("gives a stranger's id the same answer as an id that does not exist", async () => {
       const created = await actions.createMatch({
         user: august,

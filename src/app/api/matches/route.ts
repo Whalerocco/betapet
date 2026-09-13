@@ -33,5 +33,7 @@ export async function POST(request: Request) {
       return jsonResponse({ error: "OPPONENT_NOT_FOUND" }, 404);
     case "CANNOT_PLAY_ALONE":
       return jsonResponse({ error: "CANNOT_PLAY_ALONE" }, 400);
+    case "INVALID_CONFIGURATION":
+      return jsonResponse({ error: "INVALID_CONFIGURATION" }, 422);
   }
 }

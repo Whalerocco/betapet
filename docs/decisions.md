@@ -2679,3 +2679,84 @@ each of which is a question this entry deliberately left open.
 Relevant files:
 - `src/server/db/schema/friendship.ts`, `src/server/friends.ts`
 - `src/app/api/friends/`, `src/components/online/FriendsScreen.tsx`
+
+---
+
+## DEC-029 — The inviter chooses an online match's rules, and the invitation shows them
+
+**Date:** 2026-09-13
+**Status:** ACCEPTED
+**Area:** Online / UI
+
+### Context
+
+`online-multiplayer.md` section 12 says online match setup "may include" an opponent, a
+language/ruleset and a rack size. It does not mention modifiers, does not say who chooses any of
+it, and no task ever added a setup step: T25.1 built an API that accepts a rack size and modifiers,
+and T27.2 built an interface that always sent `{ rackSize: 7, modifiers: [] }`. The project owner
+found the gap in play — there was no way to choose a game mode online — which is the same shape of
+gap as the one between T27.1 and T27.2.
+
+A match has two players, so "who chooses" is a real question, and one the hot-seat game never had
+to answer: there, one person sets up a game both people are sitting at.
+
+### Decision
+
+**The inviter chooses; the invitation states what was chosen; the invitee answers the whole thing.**
+
+- The setup screen collects rack size and modifiers before the invitation is sent, using the same
+  `ModifierPicker` the hot-seat setup uses.
+- `MatchListEntry` carries the match's configuration, and every match in the list shows a one-line
+  summary of it — so an invitation is read before it is answered rather than accepted blind.
+- Accepting or declining stays the only two answers. There is no counter-offer: declining and
+  inviting back is the counter-offer, and it needs no mechanism.
+- The server validates the rules **by building the configuration with the engine** and treating a
+  failure as a refusal (`INVALID_CONFIGURATION`, 422). No rule is restated server-side.
+
+### Alternatives considered
+
+**Negotiating the rules.** A counter-offer flow, or a per-player veto on individual modifiers.
+Rejected as far more machinery than two friends need: the pair can talk, and declining already
+expresses "not like that".
+
+**Keeping the fixed default and adding modifiers later.** Rejected because the API has accepted
+them since T25.1; what was missing was only the screen, and the absence read as a missing feature
+rather than a deliberate limit.
+
+**Validating the combination in the interface only.** Rejected outright — `game-modifiers.md`
+section 5 requires the compatibility check to be made by the engine when a game is created, not by
+a UI that disables checkboxes, and an online client is not even the same program as the server.
+
+### Rationale
+
+Choosing before inviting matches how an invitation already works: it carries a configuration that
+is fixed for the match's whole life (section 49), so the choice has to happen at creation. Showing
+it on the invitation is what makes that fair rather than arbitrary — the person deciding whether to
+play sees what they would be playing.
+
+Building the configuration and discarding it is a deliberately cheap way to ask the engine whether
+rules are playable. It reuses the authority rather than mirroring it, so a future compatibility
+change lands in one place.
+
+### Consequences
+
+- `ModifierPicker` is extracted from `GameSetup` and shared by both setups, along with the
+  modifier copy, the compatibility notes and the language pickers.
+- `NewMatchScreen` serves both ways in — an opponent named by email from the match list, or a
+  friend already chosen from the friend list — so the two entry points cannot offer different
+  rules.
+- `createMatch` gained `INVALID_CONFIGURATION`. Before this, an impossible selection was stored
+  happily and refused only when the opponent accepted, leaving an invitation that could never
+  become a game.
+- A match created before this change reads as `7 brickor · Standardregler`, which is what it is.
+
+### Revisit when
+
+Somebody wants to propose a rematch with the same rules, or a per-user default. Both are natural
+extensions of the setup screen, and neither is built.
+
+Relevant files:
+- `src/components/game/ModifierPicker.tsx`, `src/components/game/modifierCopy.ts`
+- `src/components/online/NewMatchScreen.tsx`, `src/components/online/MatchListScreen.tsx`
+- `src/server/matchActions.ts`, `src/server/matches.ts`
+

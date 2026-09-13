@@ -246,6 +246,12 @@ export interface MatchListEntry {
   readonly revision: number;
   readonly category: MatchListCategory;
   readonly opponentName: string;
+  /**
+   * The rules the match was created with, so an invitation can be read before it is answered
+   * (T28.4). It is a column rather than part of the game state (DEC-023), so the list still costs
+   * no deserialization.
+   */
+  readonly configuration: MatchConfiguration;
   readonly updatedAt: Date;
   readonly lastActionAt?: Date;
 }
@@ -300,6 +306,7 @@ export async function listMatchesForUser(
       pendingAction: match.pendingAction,
       createdByUserId: match.createdByUserId,
       opponentName: user.name,
+      configuration: match.configuration,
       updatedAt: match.updatedAt,
       lastActionAt: match.lastActionAt,
     })
@@ -318,6 +325,7 @@ export async function listMatchesForUser(
     revision: row.revision,
     category: categorize(row, userId),
     opponentName: row.opponentName,
+    configuration: row.configuration,
     updatedAt: row.updatedAt,
     lastActionAt: row.lastActionAt ?? undefined,
   }));

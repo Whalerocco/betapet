@@ -20,6 +20,10 @@ export function describeFailure(failure: ApiFailure): string {
       return "Ingen spelare med den e-postadressen.";
     case "CANNOT_PLAY_ALONE":
       return "Du kan inte spela mot dig själv.";
+    case "INVALID_CONFIGURATION":
+      // The screen checks the same rules before sending, so reaching this means the two
+      // disagreed — the engine's answer is the one that counts.
+      return "Spellägena kan inte kombineras. Välj andra lägen.";
     case "USER_NOT_FOUND":
       return "Ingen spelare med den vänkoden.";
     case "CANNOT_FRIEND_SELF":

@@ -46,7 +46,14 @@
 }
 
 .opponent {
+  display: block;
   font-weight: 600;
+}
+
+.rules {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--color-muted, #666);
 }
 
 .invitationActions {

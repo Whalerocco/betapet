@@ -11,6 +11,7 @@ function entry(overrides: Partial<MatchListEntry> = {}): MatchListEntry {
     id: "match-1",
     category: "YOUR_TURN",
     opponentName: "Anna",
+    configuration: { rackSize: 7, modifiers: [] },
     revision: 3,
     updatedAt: "2026-09-09T10:00:00.000Z",
     ...overrides,
@@ -22,7 +23,7 @@ function renderList(matches: readonly MatchListEntry[], props = {}) {
     onOpen: vi.fn(),
     onAccept: vi.fn(),
     onDecline: vi.fn(),
-    onCreate: vi.fn(),
+    onNewMatch: vi.fn(),
     onShowFriends: vi.fn(),
     onSignOut: vi.fn(),
   };
@@ -49,8 +50,8 @@ describe("MatchListScreen", () => {
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent);
 
+    // No "Ny match" heading any more: inviting is its own screen since T28.4.
     expect(headings).toEqual([
-      "Ny match",
       "Din tur",
       "Ord att granska",
       "Väntar på motståndaren",
@@ -73,7 +74,7 @@ describe("MatchListScreen", () => {
   it("opens a match that has a game behind it", async () => {
     const handlers = renderList([entry({ id: "live" })]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Anna" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Anna/ }));
 
     expect(handlers.onOpen).toHaveBeenCalledWith("live");
   });
@@ -82,19 +83,41 @@ describe("MatchListScreen", () => {
   it("does not offer to open an invitation it sent", () => {
     renderList([entry({ id: "sent", category: "INVITATION_SENT" })]);
 
-    expect(screen.getByRole("button", { name: "Anna" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Anna/ })).toBeDisabled();
   });
 
-  it("invites an opponent by email", async () => {
+  /* Inviting moved to its own screen when the rules became a choice (T28.4). */
+  it("opens the setup screen for a new match", async () => {
     const handlers = renderList([]);
 
-    await userEvent.type(
-      screen.getByLabelText("Motståndarens e-post"),
-      "anna@example.com",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Bjud in" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ny match" }));
 
-    expect(handlers.onCreate).toHaveBeenCalledWith("anna@example.com");
+    expect(handlers.onNewMatch).toHaveBeenCalled();
+  });
+
+  it("says what each match is played by, so an invitation can be read before answering", () => {
+    renderList([
+      entry({
+        category: "INVITATION_RECEIVED",
+        configuration: {
+          rackSize: 8,
+          modifiers: ["CRISSCROSS", "POLYGLOT"],
+          polyglotLanguages: ["sv", "en"],
+        },
+      }),
+    ]);
+
+    expect(
+      screen.getByText(
+        "8 brickor · Kryssläge · Flerspråksläge (Svenska, Engelska)",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("calls an ordinary match by its rules too", () => {
+    renderList([entry()]);
+
+    expect(screen.getByText("7 brickor · Standardregler")).toBeInTheDocument();
   });
 
   it("says so when there is nothing to play", () => {
