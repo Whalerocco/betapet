@@ -7,12 +7,17 @@ import type { MatchSnapshot } from "../../application/online/matchApi";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
 import type { Coordinate } from "../../game/model/coordinate";
 import { coordinatesEqual } from "../../game/model/coordinate";
+import { activeWildLanguageIndex } from "../../game/engine/wildRotation";
 import type { TileId } from "../../game/model/ids";
+import type { LanguageCode } from "../../game/model/language";
+import type { ModifierId } from "../../game/model/modifiers";
 import type { PendingPlacedTile } from "../../game/model/pendingMove";
 import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
 import { Dialog } from "../common/Dialog";
 import { GameHistory } from "../game/GameHistory";
+import { LANGUAGE_NAMES } from "../game/languageNames";
+import { MODIFIER_COPY } from "../game/modifierCopy";
 import { GameOverScreen } from "../game/GameOverScreen";
 import { BlankLetterPicker } from "../game/BlankLetterPicker";
 import { OpponentReview } from "../game/OpponentReview";
@@ -141,6 +146,31 @@ export function OnlineGameScreen({
 
   const opponent = view.players.find((player) => player.id !== viewer);
 
+  /*
+   * What this match is played by (T28.6). The game view carries a `configurationId` and nothing
+   * more about the rules, so without this the screen could not tell that Replace mode was on and
+   * never offered a committed tile as a target.
+   */
+  const modifiers = snapshot.configuration.modifiers;
+  const replaceModeActive = modifiers.includes("REPLACE");
+  const activeModifierLabels = modifiers.map(
+    (id) => MODIFIER_COPY[id as ModifierId]?.label ?? id,
+  );
+  /*
+   * Wild mode's active language, derived from history exactly as `submitMove` derives it, so the
+   * indicator names the language the next move would actually be validated against
+   * (`game-modifiers.md` section 10).
+   */
+  const wildLanguages = snapshot.configuration.wildLanguages ?? [];
+  const activeLanguageLabel =
+    modifiers.includes("WILD") && wildLanguages.length > 0
+      ? (LANGUAGE_NAMES[
+          wildLanguages[
+            activeWildLanguageIndex(view.history, wildLanguages.length)
+          ] as LanguageCode
+        ] ?? undefined)
+      : undefined;
+
   function handleShuffleRack() {
     const shuffled = [...orderedRackIds];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -150,27 +180,40 @@ export function OnlineGameScreen({
     setRackOrder(shuffled);
   }
 
+  /**
+   * Puts the tile on the square, taking over from whatever this move had put there before.
+   *
+   * Replacing an earlier placement is how a swap works (DEC-017): the tile that was there is no
+   * longer placed, so it is back in the hand by the same rule that put it on the board — the rack
+   * is the tiles the server says you hold, less the ones you have placed.
+   */
   function place(tileId: TileId, coordinate: Coordinate) {
-    setPlacements((current) => [...current, { tileId, coordinate }]);
+    setPlacements((current) => [
+      ...current.filter(
+        (placed) => !coordinatesEqual(placed.coordinate, coordinate),
+      ),
+      { tileId, coordinate },
+    ]);
     setSelectedTileId(undefined);
   }
 
   function handlePlaceAt(coordinate: Coordinate) {
     if (!selectedTileId || !myTurn) return;
-    if (
-      placements.some((placed) =>
-        coordinatesEqual(placed.coordinate, coordinate),
-      )
-    ) {
-      return;
-    }
-    if (
-      view.board.occupiedCells.some((cell) =>
-        coordinatesEqual(cell.coordinate, coordinate),
-      )
-    ) {
-      return;
-    }
+
+    /*
+     * An occupied square is a legitimate target in two cases, and refusing both outright is what
+     * made Replace mode do nothing at all online (T28.6): a committed tile can be replaced when
+     * Replace mode is on (`game-modifiers.md` section 7), and one of this move's own tiles can be
+     * swapped for another in any mode (DEC-017). The board already offers exactly those squares.
+     *
+     * Whether a particular replace is *allowed* — the same letter, or a chain — stays the
+     * engine's judgment, made on the server against the authoritative state. This client has
+     * never decided a rule and does not start here.
+     */
+    const holdsCommittedTile = view.board.occupiedCells.some((cell) =>
+      coordinatesEqual(cell.coordinate, coordinate),
+    );
+    if (holdsCommittedTile && !replaceModeActive) return;
 
     const tile = view.tiles[selectedTileId];
     if (tile.kind === "BLANK") {
@@ -248,6 +291,8 @@ export function OnlineGameScreen({
           isCurrent: player.id === viewer,
         }))}
         tilesRemaining={view.tilesRemainingInBag}
+        activeModifierLabels={activeModifierLabels}
+        activeLanguageLabel={activeLanguageLabel}
       />
 
       {error && (
@@ -262,6 +307,7 @@ export function OnlineGameScreen({
         tiles={view.tiles}
         pendingPlacedTiles={placements}
         canPlaceSelectedTile={Boolean(selectedTileId) && myTurn}
+        replaceModeActive={replaceModeActive}
         onPlaceAt={handlePlaceAt}
         onPendingTileClick={takeBack}
       />

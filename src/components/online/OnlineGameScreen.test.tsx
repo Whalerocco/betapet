@@ -26,11 +26,19 @@ function game(): GameState {
   });
 }
 
-function snapshotFor(state: GameState, playerIndex: 0 | 1): MatchSnapshot {
+function snapshotFor(
+  state: GameState,
+  playerIndex: 0 | 1,
+  configuration: MatchSnapshot["configuration"] = {
+    rackSize: 7,
+    modifiers: [],
+  },
+): MatchSnapshot {
   return {
     matchId: "match-1",
     revision: 4,
     status: "ACTIVE",
+    configuration,
     view: toPlayerGameView(state, state.players[playerIndex].id),
   };
 }
@@ -183,6 +191,134 @@ describe("OnlineGameScreen", () => {
     expect(
       screen.queryByRole("button", { name: "Spela" }),
     ).not.toBeInTheDocument();
+  });
+
+  /*
+   * The rules a match is played by reach the screen with the match, not with the game view
+   * (T28.6). Reported in play: with Replace mode on, tapping a rack tile and then a committed
+   * tile did nothing at all, because the board was never told the mode was active.
+   */
+  describe("the rules the match is played by", () => {
+    /** A committed tile on the centre square, which a replace would target. */
+    function withCommittedTile(): GameState {
+      const state = onTurn(game(), 0);
+      const [tileId] = state.players[1].rack.tileIds;
+      return {
+        ...state,
+        board: {
+          occupiedCells: [
+            ...state.board.occupiedCells,
+            { coordinate: { row: 7, column: 7 }, tileId },
+          ],
+        },
+        players: [
+          state.players[0],
+          {
+            ...state.players[1],
+            rack: { tileIds: state.players[1].rack.tileIds.slice(1) },
+          },
+        ] as GameState["players"],
+      };
+    }
+
+    it("offers a committed tile as a target when Replace mode is on", async () => {
+      renderScreen(
+        snapshotFor(withCommittedTile(), 0, {
+          rackSize: 7,
+          modifiers: ["REPLACE"],
+        }),
+      );
+
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      await userEvent.click(within(rack).getAllByRole("button")[0]!);
+
+      expect(
+        screen.getByRole("button", { name: /^Ersätt bricka/ }),
+      ).toBeInTheDocument();
+    });
+
+    it("leaves a committed tile alone in an ordinary game", async () => {
+      renderScreen(snapshotFor(withCommittedTile(), 0));
+
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      await userEvent.click(within(rack).getAllByRole("button")[0]!);
+
+      expect(
+        screen.queryByRole("button", { name: /^Ersätt bricka/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("places onto a committed tile when Replace mode is on, and submits it", async () => {
+      // The reported bug end to end: select from the hand, tap the committed tile, play.
+      const state = withCommittedTile();
+      const snapshot = snapshotFor(state, 0, {
+        rackSize: 7,
+        modifiers: ["REPLACE"],
+      });
+      const handlers = renderScreen(snapshot);
+      const plainTile = snapshot.view.ownRack.tileIds.find(
+        (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+      )!;
+
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      await userEvent.click(
+        rack.querySelector<HTMLElement>(`[data-rack-tile-id="${plainTile}"]`)!,
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /^Ersätt bricka/ }),
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+
+      expect(handlers.onAction).toHaveBeenCalledWith({
+        type: "SUBMIT_MOVE",
+        placements: [
+          {
+            tileId: plainTile,
+            coordinate: { row: 7, column: 7 },
+            representedLetter: undefined,
+          },
+        ],
+      });
+    });
+
+    it("refuses to stack a tile on a committed one in an ordinary game", async () => {
+      const state = withCommittedTile();
+      const snapshot = snapshotFor(state, 0);
+      const handlers = renderScreen(snapshot);
+
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      await userEvent.click(within(rack).getAllByRole("button")[0]!);
+      await userEvent.click(screen.getByTestId("cell-7,7"));
+
+      expect(screen.getByRole("button", { name: "Spela" })).toBeDisabled();
+      expect(handlers.onAction).not.toHaveBeenCalled();
+    });
+
+    it("names the modes in play, so a player can see which game they are in", () => {
+      renderScreen(
+        snapshotFor(onTurn(game(), 0), 0, {
+          rackSize: 7,
+          modifiers: ["CRISSCROSS", "REPLACE"],
+        }),
+      );
+
+      expect(screen.getByText(/Kryssläge/)).toBeInTheDocument();
+      expect(screen.getByText(/Ersättningsläge/)).toBeInTheDocument();
+    });
+
+    it("names the language Wild mode is currently validating against", () => {
+      // Which language is active decides whether a word is a word, so a player who cannot see it
+      // is guessing (`game-modifiers.md` section 10).
+      renderScreen(
+        snapshotFor(onTurn(game(), 0), 0, {
+          rackSize: 7,
+          modifiers: ["WILD"],
+          wildLanguages: ["sv", "en"],
+        }),
+      );
+
+      expect(screen.getByText(/Svenska/)).toBeInTheDocument();
+    });
   });
 
   /*

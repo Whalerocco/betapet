@@ -55,6 +55,15 @@ export interface MatchView {
   readonly matchId: string;
   readonly revision: number;
   readonly status: MatchRecord["status"];
+  /**
+   * The rules this match is played by.
+   *
+   * The view cannot carry them: a `GameState` holds a `configurationId` and nothing else about
+   * its configuration, which lives beside the state rather than in it. So the client had no way
+   * to know that Replace mode was on, and never offered a committed tile as a target — the
+   * interface silently ignored every attempt to replace one.
+   */
+  readonly configuration: MatchConfiguration;
   readonly view: PlayerGameView;
 }
 
@@ -108,6 +117,7 @@ function viewOf(
     matchId: record.id,
     revision: record.revision,
     status: record.status,
+    configuration: record.configuration,
     view: toPlayerGameView(state, playerId),
   };
 }

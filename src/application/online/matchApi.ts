@@ -48,6 +48,8 @@ export interface MatchSnapshot {
   readonly matchId: string;
   readonly revision: number;
   readonly status: string;
+  /** The rules the match is played by, which the game view itself does not carry. */
+  readonly configuration: MatchRules;
   readonly view: PlayerGameView;
 }
 

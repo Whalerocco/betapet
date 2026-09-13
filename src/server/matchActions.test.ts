@@ -5,6 +5,7 @@ import { createGame } from "@/game/engine/createGame";
 import type { GameState } from "@/game/model/game";
 import { playerTurn } from "@/game/model/turnState";
 import { createPlayerId, type PlayerId, type TileId } from "@/game/model/ids";
+import type { ModifierId } from "@/game/model/modifiers";
 
 import type { SessionUser } from "./session";
 
@@ -192,6 +193,46 @@ describe.skipIf(!configured)("match actions", () => {
     return { record, state, augustPlayerId: seats[0].playerId };
   }
 
+  /**
+   * A started match whose board already holds two committed tiles across the centre, with August
+   * to play and holding letters of his own — the position a replace needs (T28.6).
+   */
+  async function matchWithCommittedWord(modifiers: readonly ModifierId[]) {
+    const seats = [
+      { userId: august.id, playerId: createPlayerId() },
+      { userId: anna.id, playerId: createPlayerId() },
+    ] as const;
+
+    const base = gameWithRack(0, ["A", "B"], seats);
+    const [first, second] = base.players[1].rack.tileIds;
+
+    const state: GameState = {
+      ...base,
+      board: {
+        occupiedCells: [
+          { coordinate: { row: 7, column: 7 }, tileId: first! },
+          { coordinate: { row: 7, column: 8 }, tileId: second! },
+        ],
+      },
+      players: [
+        base.players[0],
+        {
+          ...base.players[1],
+          rack: { tileIds: base.players[1].rack.tileIds.slice(2) },
+        },
+      ] as GameState["players"],
+    };
+
+    const record = await matches.createMatch({
+      createdByUserId: august.id,
+      configuration: { ...CONFIGURATION, modifiers },
+      players: [seats[0], seats[1]],
+      gameState: state,
+    });
+
+    return { record, state };
+  }
+
   /** Submits XZB across the centre — three letters that are not a Swedish word. */
   async function submitNonsense(
     matchId: string,
@@ -352,6 +393,62 @@ describe.skipIf(!configured)("match actions", () => {
 
       // Not a 403: a different answer would confirm the account exists (section 38).
       expect(created.outcome).toBe("OPPONENT_NOT_FOUND");
+    });
+  });
+
+  /*
+   * Reported in play (T28.6): with Replace mode on, an online match ignored every attempt to
+   * replace a committed tile. The interface was the half at fault, but the client now sends a
+   * placement onto an occupied square and depends on this path accepting it.
+   */
+  describe("replacing a committed tile", () => {
+    it("accepts a placement onto a committed tile when the match has Replace mode", async () => {
+      const { record, state } = await matchWithCommittedWord(["REPLACE"]);
+      const [mine] = state.players[0].rack.tileIds;
+
+      const result = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: record.revision,
+        action: {
+          type: "SUBMIT_MOVE",
+          placements: [{ tileId: mine!, coordinate: { row: 7, column: 7 } }],
+        },
+      });
+
+      // The move is taken; whether its word is in the dictionary is the proposal flow's business.
+      expect(result.outcome).toBe("OK");
+    });
+
+    it("refuses the same placement in a match without it", async () => {
+      const { record, state } = await matchWithCommittedWord([]);
+      const [mine] = state.players[0].rack.tileIds;
+
+      const result = await actions.performTurn({
+        user: august,
+        matchId: record.id,
+        expectedRevision: record.revision,
+        action: {
+          type: "SUBMIT_MOVE",
+          placements: [{ tileId: mine!, coordinate: { row: 7, column: 7 } }],
+        },
+      });
+
+      expect(result.outcome).toBe("RULE_REJECTED");
+    });
+
+    it("tells the client which rules the match is played by", async () => {
+      // Which is how the interface knows to offer a committed tile as a target at all.
+      const { record } = await matchWithCommittedWord([
+        "REPLACE",
+        "CRISSCROSS",
+      ]);
+
+      const view = await actions.matchViewFor(august, record.id);
+
+      expect(view.outcome).toBe("OK");
+      if (view.outcome !== "OK") return;
+      expect(view.configuration.modifiers).toEqual(["REPLACE", "CRISSCROSS"]);
     });
   });
 

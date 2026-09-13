@@ -2094,6 +2094,44 @@ would otherwise undo a shuffle a few seconds after each use, which a test now pi
 
 ---
 
+## T28.6 An online match knows its own rules
+
+Added on 2026-09-13, from a play report: a match started with Replace and Crisscross ignored every
+attempt to replace a committed tile, while Crisscross worked. That split is the diagnosis —
+Crisscross is an engine rule that asks nothing of the interface, and Replace is the one modifier
+whose rule the *interface* has to know, because it decides which squares can be tapped.
+
+- [x] The match view carries the match's configuration.
+- [x] The board offers committed tiles as targets under Replace mode.
+- [x] The screen accepts a placement onto an occupied square where the rules allow one.
+- [x] The online scoreboard names the active modes, and Wild's current language.
+
+The cause was a gap nothing had needed until now: a `GameState` holds a `configurationId` and
+nothing else about its configuration — the configuration lives beside the state rather than in it,
+which is why `dependenciesFor` exists — so `PlayerGameView` could not carry the modifiers either.
+`OnlineGameScreen` had no way to know Replace was on, and never told the board.
+
+Two layers were wrong, and fixing one alone would have left the same symptom. The board never
+rendered a committed tile as a target; and `handlePlaceAt` returned early for *any* occupied
+square, so an offered target would still have been swallowed. That second guard now permits the two
+cases the rules allow — a committed tile under Replace mode, and one of this move's own tiles,
+which is a swap (DEC-017) the board was already offering and the screen was already ignoring.
+
+What the client does *not* do is decide whether a particular replace is legal. Replacing a letter
+with the same letter (DEC-015), or chaining a displaced tile into another replace
+(`game-modifiers.md` section 7), stay the engine's judgment, made on the server against the
+authoritative state — which is where they were already being made, and where the server test now
+pins them.
+
+Verified in the real application against the running server, since this was reported in play and
+no unit test covers the interaction end to end: in a Replace + Crisscross match, EN was played and
+committed, the turn came back, T was tapped onto the committed E, the displaced E returned to the
+hand, and the server answered with the unknown-word flow for "TN" at 0 points — which is DEC-016's
+rule for a word the move only re-lettered. Matches created before this fix need nothing done to
+them: the configuration was always stored, only never sent.
+
+---
+
 # 33. Phase 7A — Chat
 
 ## T29.1 Match chat
