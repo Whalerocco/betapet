@@ -233,20 +233,26 @@ blank representing Ö
 
 A committed blank should make its represented letter visible while still indicating that it is a zero-point blank tile.
 
-The letter and the point value should keep the same proportion to each other at every size. Both
-are sized in proportion to the tile, which every browser understands.
+The letter and the point value should keep the same proportion to each other at every size.
 
-That is not quite sufficient, and the reason is worth knowing before anyone tries to improve it.
-A browser applies a *minimum font size* — Chrome for Android exposes one as an accessibility
-setting — which floors a small computed font size. On a zoomed-out board the point value hits that
-floor while the letter does not, so it stops shrinking with the tile and comes out too large.
-A transform is not subject to the floor, so drawing the text at a fixed size and scaling it fixes
-the proportions — but obtaining a unitless scale factor from a length needs `tan(atan2(a, b))` or
-length division, both far newer than they appear. An older WebKit parses the trig form and
-evaluates it to zero, which renders `scale(0)`: every letter, point value and multiplier caption
-disappears, on every iPhone browser, since they all use WebKit. Correct text everywhere beats
-correct proportions on one platform, so this stays proportional and the Android issue is tracked
-in `known-bugs.md` instead.
+How that is achieved is worth knowing before anyone tries to simplify it. A browser applies a
+*minimum font size* — Chrome for Android exposes one as an accessibility setting, on by default —
+which floors a small computed font size but not a transform. A board cell on a phone is about
+22px, which wants a 9px letter and a 4px point value: floored, both came out at the same 12px and
+the point value was as large as the letter. iOS has no such floor, so the same build looked right
+there (`known-bugs.md` item 8).
+
+So tile text is **drawn at a fixed size and scaled to fit**: `--tile-text-base` in `globals.css`,
+times each element's own ratio. The scale needs a unitless factor from a length, which CSS alone
+can only produce with `tan(atan2(a, b))` or length division — both far newer than they appear, and
+the trig form is parsed but evaluated to zero by an older WebKit, rendering `scale(0)` and making
+every glyph on the board disappear. That is a real regression this project shipped once.
+
+The factor therefore comes from JavaScript, which measures the rendered tile and publishes
+`--tile-text-unit` (`useTileTextScale.ts`). The stylesheets only multiply two numbers, which every
+engine has always understood. `e2e/tile-text-size.spec.ts` runs Chromium with the floor turned on,
+the way the bug was reproduced, and asserts both that the proportions hold and that the text has a
+size at all — the second half being what the reverted attempt would have failed.
 
 ---
 

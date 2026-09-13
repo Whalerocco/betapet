@@ -20,6 +20,7 @@ import { ScoreBoard } from "../game/ScoreBoard";
 import { TurnActions } from "../game/TurnActions";
 import { UnknownWordNotice } from "../game/UnknownWordNotice";
 import { Rack, type RackTileView } from "../rack/Rack";
+import { ShuffleButton } from "../rack/ShuffleButton";
 import { SWEDISH_ALPHABET } from "../../game/configuration/swedishAlphabet";
 
 import styles from "./OnlineGameScreen.module.css";
@@ -65,6 +66,16 @@ export function OnlineGameScreen({
     { tileId: TileId; coordinate: Coordinate } | undefined
   >();
   const [exchangeMode, setExchangeMode] = useState(false);
+  /*
+   * The order this player wants their own tiles in (T28.5).
+   *
+   * Shuffling is kept local rather than sent to the server, which is the same division DEC-026
+   * already draws: the client arranges tiles, the server decides rules. Two things follow from
+   * it. The opponent is unaffected — a rack shuffle cannot bump the match revision and so cannot
+   * bounce a move they have in flight as `STALE_REVISION` — and the order is not remembered when
+   * the match is reopened, since the server's rack order is the one that was stored.
+   */
+  const [rackOrder, setRackOrder] = useState<readonly TileId[]>([]);
   const [exchangeSelection, setExchangeSelection] = useState<
     ReadonlySet<TileId>
   >(new Set());
@@ -103,7 +114,20 @@ export function OnlineGameScreen({
     turnState.proposingPlayerId === viewer;
 
   const placedTileIds = new Set(placements.map((placed) => placed.tileId));
-  const rackTiles: readonly RackTileView[] = view.ownRack.tileIds
+
+  /*
+   * The server's rack, in this player's chosen order: the tiles they have arranged, still in that
+   * arrangement, followed by anything they have drawn since. Reconciled rather than stored, so a
+   * poll that brings new tiles cannot leave the rack showing a stale hand.
+   */
+  const held = new Set(view.ownRack.tileIds);
+  const arranged = rackOrder.filter((tileId) => held.has(tileId));
+  const orderedRackIds: readonly TileId[] = [
+    ...arranged,
+    ...view.ownRack.tileIds.filter((tileId) => !arranged.includes(tileId)),
+  ];
+
+  const rackTiles: readonly RackTileView[] = orderedRackIds
     .filter((tileId) => !placedTileIds.has(tileId))
     .map((tileId) => {
       const tile = view.tiles[tileId];
@@ -116,6 +140,15 @@ export function OnlineGameScreen({
     });
 
   const opponent = view.players.find((player) => player.id !== viewer);
+
+  function handleShuffleRack() {
+    const shuffled = [...orderedRackIds];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    setRackOrder(shuffled);
+  }
 
   function place(tileId: TileId, coordinate: Coordinate) {
     setPlacements((current) => [...current, { tileId, coordinate }]);
@@ -245,18 +278,21 @@ export function OnlineGameScreen({
         />
       ) : (
         <>
-          <Rack
-            tiles={rackTiles}
-            selectedTileId={selectedTileId}
-            exchangeSelection={exchangeMode ? exchangeSelection : undefined}
-            onSelectTile={(tileId) =>
-              exchangeMode
-                ? toggleExchangeTile(tileId)
-                : setSelectedTileId(
-                    tileId === selectedTileId ? undefined : tileId,
-                  )
-            }
-          />
+          <div className={styles.rackRow}>
+            <Rack
+              tiles={rackTiles}
+              selectedTileId={selectedTileId}
+              exchangeSelection={exchangeMode ? exchangeSelection : undefined}
+              onSelectTile={(tileId) =>
+                exchangeMode
+                  ? toggleExchangeTile(tileId)
+                  : setSelectedTileId(
+                      tileId === selectedTileId ? undefined : tileId,
+                    )
+              }
+            />
+            <ShuffleButton onClick={handleShuffleRack} />
+          </div>
 
           <TurnActions
             canSubmit={myTurn && placements.length > 0 && !busy}

@@ -4,6 +4,7 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from "react";
+import { useTileTextScale } from "../common/useTileTextScale";
 import { BoardCell } from "./BoardCell";
 import { useBoardZoom } from "./useBoardZoom";
 import styles from "./Board.module.css";
@@ -63,6 +64,12 @@ export function Board({
   scoreBadgeValue,
 }: BoardProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  /*
+   * The grid publishes how big a tile actually came out, so the text on it can be drawn at a
+   * size no browser floors and scaled to fit (`useTileTextScale.ts`, known-bugs.md item 8).
+   */
+  const gridRef = useRef<HTMLDivElement>(null);
+  useTileTextScale(gridRef);
   const zoomState = useBoardZoom();
 
   /*
@@ -125,6 +132,7 @@ export function Board({
 
   const grid = (
     <div
+      ref={gridRef}
       className={styles.board}
       style={
         {

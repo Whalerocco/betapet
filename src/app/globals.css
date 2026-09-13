@@ -66,6 +66,13 @@
    * most (ui-design.md section 41).
    */
   --rack-tile-size: clamp(1.75rem, calc((100vw - 7.5rem) / 8), 2.75rem);
+  /*
+   * Tile text (the letter, the point value, the multiplier captions) is drawn at this size and
+   * scaled to fit its tile, because Chrome for Android floors a small font-size but not a
+   * transform — see `useTileTextScale.ts`, which publishes the factor as `--tile-text-unit` and
+   * whose TILE_TEXT_BASE_PX must stay equal to this.
+   */
+  --tile-text-base: 16px;
   --touch-target: 2.75rem;
   --transition-fast: 120ms ease;
 }

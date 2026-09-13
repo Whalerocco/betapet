@@ -127,10 +127,12 @@
   font-family: inherit;
 }
 
-/* Proportional to the cell, like the tile's own text (see the note in Tile.module.css). */
+/* Drawn at a fixed size and scaled, like the tile's own text (see the note in Tile.module.css). */
 .multiplierLabel {
-  font-size: calc(var(--tile-size) * 0.22);
+  font-size: var(--tile-text-base);
   line-height: 1;
+  display: inline-block;
+  transform: scale(calc(var(--tile-text-unit, 1.4) * 0.22));
 }
 
 /*
@@ -145,7 +147,9 @@
   min-width: 1.1em;
   padding: 0 3px;
   line-height: 1.3;
-  font-size: calc(var(--tile-size) * 0.16);
+  font-size: var(--tile-text-base);
+  transform-origin: top left;
+  transform: scale(calc(var(--tile-text-unit, 1.4) * 0.16));
   font-weight: 700;
   text-align: center;
   color: #1a1a1a;
@@ -203,7 +207,12 @@ button.cell.placeable:hover {
   background: var(--cell-word-x4);
 }
 
+/*
+ * This carried `font-size: calc(var(--tile-size) * 0.34)` until the text scaling of known-bugs
+ * item 8. The rule was inert: it set a size on the cell, while the caption inside is a span that
+ * sets its own, so the centre star has always been drawn at the ordinary caption size. It is
+ * dropped rather than translated, so that the star keeps looking exactly as it does today.
+ */
 .START {
   background: var(--cell-start);
-  font-size: calc(var(--tile-size) * 0.34);
 }

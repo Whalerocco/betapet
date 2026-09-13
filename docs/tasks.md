@@ -2068,6 +2068,32 @@ deleted afterwards.
 
 ---
 
+## T28.5 Online rack shuffle
+
+Added on 2026-09-13, after the project owner found the shuffle button missing from online play. It
+had never been there: T27.2 built the online screen from the shared presentational components, and
+the button was not one of them — it lived in `GameScreen` beside the rack, along with its icon.
+
+- [x] Shuffle the tiles in hand from the online screen.
+- [x] One button, shared with the hot-seat screen.
+
+`ShuffleButton` is extracted from `GameScreen` and used by both, so the two offer the same control
+in the same place with the same Swedish accessible name.
+
+How they shuffle underneath differs, and **DEC-030** records why. The hot-seat game goes through
+the engine, because rack order lives in `GameState`. The online client keeps its own order and
+never tells the server: every write bumps the match revision, which is what guards turn actions
+against staleness, so sending a shuffle would invalidate a move the opponent had in flight and
+tell them "Motståndaren hann före" — a confusing lie caused by a cosmetic act. The cost is that the
+order is not remembered when the match is reopened, which is a fair price for an act whose value is
+immediate.
+
+The order is reconciled on every render rather than stored: the tiles the player has arranged,
+still in that arrangement, followed by anything drawn since. A poll every 15 seconds (DEC-020)
+would otherwise undo a shuffle a few seconds after each use, which a test now pins down.
+
+---
+
 # 33. Phase 7A — Chat
 
 ## T29.1 Match chat

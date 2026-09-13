@@ -130,27 +130,6 @@
   justify-content: center;
 }
 
-/* Icon-only and square, so the rack keeps the width the old text label was taking. */
-.shuffleButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: inherit;
-  font-size: 0.9rem;
-  min-height: var(--touch-target);
-  min-width: var(--touch-target);
-  padding: var(--spacing-xs);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--panel-border);
-  background: var(--panel-background);
-  color: var(--foreground);
-  cursor: pointer;
-}
-
-.shuffleButton:hover {
-  background: var(--tile-background-hover);
-}
-
 /*
  * Follows the pointer during a tile drag (roadmap.md Milestone 4.1). pointer-events: none is
  * required, not just nice-to-have: without it this element would itself be the hit result of

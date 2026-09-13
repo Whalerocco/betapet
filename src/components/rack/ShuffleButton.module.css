@@ -1,0 +1,21 @@
+/* Moved from GameScreen.module.css when the online screen needed the same button (T28.5). */
+/* Icon-only and square, so the rack keeps the width the old text label was taking. */
+.shuffleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-size: 0.9rem;
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  padding: var(--spacing-xs);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.shuffleButton:hover {
+  background: var(--tile-background-hover);
+}

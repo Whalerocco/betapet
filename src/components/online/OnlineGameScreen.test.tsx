@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { MatchSnapshot } from "../../application/online/matchApi";
@@ -183,6 +183,79 @@ describe("OnlineGameScreen", () => {
     expect(
       screen.queryByRole("button", { name: "Spela" }),
     ).not.toBeInTheDocument();
+  });
+
+  /*
+   * Shuffling is local to this client (T28.5): the server holds the authoritative rack, and this
+   * screen decides only the order the player sees it in — the same division DEC-026 draws for
+   * arranging tiles. So these are about what the rack shows, not about what is sent.
+   */
+  describe("shuffling the rack", () => {
+    it("reorders the tiles in hand without telling the server", async () => {
+      const state = onTurn(game(), 0);
+      const snapshot = snapshotFor(state, 0);
+      const handlers = renderScreen(snapshot);
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      const before = within(rack)
+        .getAllByRole("button")
+        .map((tile) => tile.dataset.rackTileId);
+
+      // A reversal: deterministic, and every tile moves.
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      await userEvent.click(
+        screen.getByRole("button", { name: "Blanda brickorna i din hand" }),
+      );
+      vi.restoreAllMocks();
+
+      const after = within(rack)
+        .getAllByRole("button")
+        .map((tile) => tile.dataset.rackTileId);
+
+      expect(after).not.toEqual(before);
+      expect([...after].sort()).toEqual([...before].sort());
+      expect(handlers.onAction).not.toHaveBeenCalled();
+    });
+
+    it("keeps the chosen order when the server sends the same rack again", () => {
+      // An open match polls every 15 seconds (DEC-020). A refresh that re-sent the server's own
+      // order would undo the shuffle a few seconds after every use.
+      const state = onTurn(game(), 0);
+      const snapshot = snapshotFor(state, 0);
+      const { rerender } = render(
+        <OnlineGameScreen
+          snapshot={snapshot}
+          onAction={vi.fn()}
+          onRefresh={vi.fn()}
+          onExit={vi.fn()}
+        />,
+      );
+
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      fireEvent.click(
+        screen.getByRole("button", { name: "Blanda brickorna i din hand" }),
+      );
+      vi.restoreAllMocks();
+
+      const rack = screen.getByRole("group", { name: "Din hand" });
+      const shuffled = within(rack)
+        .getAllByRole("button")
+        .map((tile) => tile.dataset.rackTileId);
+
+      rerender(
+        <OnlineGameScreen
+          snapshot={{ ...snapshot, revision: snapshot.revision + 1 }}
+          onAction={vi.fn()}
+          onRefresh={vi.fn()}
+          onExit={vi.fn()}
+        />,
+      );
+
+      expect(
+        within(screen.getByRole("group", { name: "Din hand" }))
+          .getAllByRole("button")
+          .map((tile) => tile.dataset.rackTileId),
+      ).toEqual(shuffled);
+    });
   });
 
   /*

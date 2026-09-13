@@ -127,21 +127,28 @@ button.tile.displaced:hover:not(:disabled) {
 }
 
 /*
- * Sized in proportion to the tile, which every browser can do.
+ * Drawn at a fixed size and scaled, rather than sized in proportion to the tile.
  *
- * These were briefly drawn at a fixed size and scaled with a transform, to sidestep the browser
- * *minimum font size* that Chrome for Android exposes as an accessibility setting: it floors a
- * small computed font size but not a transform, so the point value stopped shrinking with the
- * tile and came out as large as the letter on a zoomed-out board. That fix needed a unitless
- * factor from a length, which CSS can only produce with `tan(atan2(a, b))` or length division —
- * both far newer than they look. A Safari that parses the trig form but evaluates it to zero
- * renders `scale(0)`, and every letter, point value and multiplier caption vanishes. Correct
- * text everywhere beats correct proportions on one platform, so the arithmetic went back to
- * something universally understood. See known-bugs.md for the outstanding Android issue.
+ * Chrome for Android enforces a minimum font size, which floors a computed font-size but not a
+ * transform: a 22px board tile wants a 9px letter and a 4px point value, and both came out at the
+ * same floored 12px — the point value as large as the letter (`known-bugs.md` item 8). iOS has no
+ * such floor, which is why the same build looked right there.
+ *
+ * The scale needs a unitless factor from a length. An earlier fix computed it in CSS with
+ * `tan(atan2(a, b))`, which a Safari parsed and evaluated to zero — `scale(0)`, and every glyph
+ * on the board disappeared. So the factor is measured in JavaScript and published as
+ * `--tile-text-unit` (`useTileTextScale.ts`); the only arithmetic left here is multiplying two
+ * numbers, which every engine has always done. The ratios below are unchanged, and still the
+ * design's own.
+ *
+ * The fallback keeps a sensible size for the frame before the first measurement.
  */
 .letter {
-  font-size: calc(var(--tile-size) * 0.42);
+  font-size: var(--tile-text-base);
   line-height: 1;
+  /* A transform does not apply to a non-replaced inline element. */
+  display: inline-block;
+  transform: scale(calc(var(--tile-text-unit, 1.4) * 0.42));
 }
 
 .points {
@@ -149,7 +156,10 @@ button.tile.displaced:hover:not(:disabled) {
   /* Proportional insets, so the value sits the same way on a 22px board tile and a 66px one. */
   bottom: calc(var(--tile-size) * 0.06);
   right: calc(var(--tile-size) * 0.1);
-  font-size: calc(var(--tile-size) * 0.2);
+  font-size: var(--tile-text-base);
   line-height: 1;
   font-weight: 400;
+  /* Anchored to the corner it is inset from, so scaling does not walk it away from there. */
+  transform-origin: bottom right;
+  transform: scale(calc(var(--tile-text-unit, 1.4) * 0.2));
 }

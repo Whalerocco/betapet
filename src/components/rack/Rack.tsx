@@ -1,5 +1,6 @@
-import type { PointerEvent } from "react";
+import { useRef, type PointerEvent } from "react";
 import { Tile } from "../common/Tile";
+import { useTileTextScale } from "../common/useTileTextScale";
 import styles from "./Rack.module.css";
 import type { TileId } from "../../game/model/ids";
 
@@ -46,8 +47,13 @@ export function Rack({
   onTilePointerDown,
   draggingTileId,
 }: RackProps) {
+  // Rack tiles have a size of their own, so they publish their own text scale (known-bugs item 8).
+  const rackRef = useRef<HTMLDivElement>(null);
+  useTileTextScale(rackRef);
+
   return (
     <div
+      ref={rackRef}
       className={styles.rack}
       role="group"
       aria-label="Din hand"

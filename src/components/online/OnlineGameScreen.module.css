@@ -37,3 +37,12 @@
   color: var(--color-error, #b02a2a);
   margin: 0;
 }
+
+/* The rack and its shuffle button sit on one line, as they do in the hot-seat screen. */
+.rackRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  justify-content: center;
+}

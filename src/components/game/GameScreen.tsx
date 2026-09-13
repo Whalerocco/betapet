@@ -34,6 +34,7 @@ import type { DragPointerPosition } from "../common/useTileDrag";
 import { useTileDrag } from "../common/useTileDrag";
 import { tilesDisplacedThisMove } from "../../game/engine/placeTile";
 import { Rack, type RackTileView } from "../rack/Rack";
+import { ShuffleButton } from "../rack/ShuffleButton";
 import { BlankLetterPicker } from "./BlankLetterPicker";
 import { GameHistory } from "./GameHistory";
 import { GameOverScreen } from "./GameOverScreen";
@@ -71,11 +72,6 @@ function resolveDropTarget(position: DragPointerPosition): DropTarget {
 }
 
 /**
- * The shuffle action is an icon rather than the words "Blanda brickor": beside the rack the label
- * was wider than several tiles, and that space is what the tiles themselves need on a phone. The
- * button keeps its Swedish accessible name, so nothing is lost to a screen reader.
- */
-/**
  * Which gap in the rack a drop at `pointerX` fell into, counted after the dragged tile has been
  * lifted out of the order. Read from where the tiles actually are on screen rather than from a
  * model of the layout, so it stays correct however the rack wraps or resizes.
@@ -92,29 +88,6 @@ function rackDropIndex(draggedTileId: TileId, pointerX: number): number {
     return pointerX < rect.left + rect.width / 2;
   });
   return index === -1 ? tiles.length : index;
-}
-
-function ShuffleIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      width="1.35em"
-      height="1.35em"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M16 3h5v5" />
-      <path d="M4 20 21 3" />
-      <path d="M21 16v5h-5" />
-      <path d="m15 15 6 6" />
-      <path d="m4 4 5 5" />
-    </svg>
-  );
 }
 
 export interface GameScreenProps {
@@ -758,15 +731,7 @@ export function GameScreen({
                 onTilePointerDown={handleRackTilePointerDown}
                 draggingTileId={dragState?.item}
               />
-              <button
-                type="button"
-                className={styles.shuffleButton}
-                onClick={handleShuffleRack}
-                aria-label="Blanda brickorna i din hand"
-                title="Blanda brickorna i din hand"
-              >
-                <ShuffleIcon />
-              </button>
+              <ShuffleButton onClick={handleShuffleRack} />
             </div>
 
             <TurnActions

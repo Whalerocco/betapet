@@ -2760,3 +2760,67 @@ Relevant files:
 - `src/components/online/NewMatchScreen.tsx`, `src/components/online/MatchListScreen.tsx`
 - `src/server/matchActions.ts`, `src/server/matches.ts`
 
+---
+
+## DEC-030 — An online rack is arranged on the client, not on the server
+
+**Date:** 2026-09-13
+**Status:** ACCEPTED
+**Area:** Online / UI
+
+### Context
+
+The hot-seat game has a shuffle button; the online screen never got one, and the project owner
+found it missing in play. Adding it raises a question the hot-seat game did not have to answer.
+
+Rack order lives in `GameState.player.rack.tileIds`, so the local game shuffles *through the
+engine* — `shuffleRack` says why in its own comment: `architecture.md` section 24 would keep a
+presentation convenience client-side, but the order is in the state, so going through the engine
+keeps one source of truth and makes the order survive a refresh.
+
+Online, the authoritative state is on the server and the client holds a `PlayerGameView`.
+
+### Decision
+
+**The online client keeps its own rack order, and a shuffle never reaches the server.**
+
+The rack is rendered from the view's tile ids reordered locally: the tiles the player has arranged,
+still in that arrangement, followed by anything drawn since. Reconciling on every render means a
+poll that brings new tiles cannot leave a stale hand on screen.
+
+### Alternatives considered
+
+**A `SHUFFLE_RACK` turn action.** Consistent with hot-seat play, and the order would survive
+reopening the match. Rejected for what it would do to the opponent: every write bumps the match
+revision, which is what guards turn actions against staleness (DEC-023, section 31). A player
+shuffling their own tiles would invalidate a move the opponent had in flight, and the opponent
+would be told "Motståndaren hann före" — a confusing lie caused by a cosmetic act.
+
+**A write that skips the revision bump.** A second path into the authoritative state, racing with
+real actions over the same row, for a cosmetic change. The risk is out of all proportion to what is
+being stored.
+
+### Rationale
+
+This is the division DEC-026 already draws, applied to one more thing: the online client arranges
+tiles, the server decides rules. Arranging a placement is already local and unjudged; arranging
+the hand it is drawn from belongs on the same side of the line.
+
+### Consequences
+
+- The shuffle button is shared by both screens (`ShuffleButton`), so they offer the same control in
+  the same place while shuffling differently underneath.
+- **The order is not remembered when a match is reopened** — the server's stored order is what
+  comes back. Acceptable for an act whose value is immediate: shuffling is how a player looks for a
+  word they cannot see, not how they file their tiles.
+- An opponent can never be disturbed by it, and it works with no round trip.
+
+### Revisit when
+
+Rack order is wanted across devices or reopenings. That needs a write path that does not bump the
+revision — the question this entry declined to answer, not one it settled.
+
+Relevant files:
+- `src/components/rack/ShuffleButton.tsx`
+- `src/components/online/OnlineGameScreen.tsx`
+
