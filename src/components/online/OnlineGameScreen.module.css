@@ -7,6 +7,29 @@
   margin: 0 auto;
 }
 
+/*
+ * Pinned to the visible height so the *document* never scrolls, which is the same treatment the
+ * hot-seat screen gets and for the same reason (`known-bugs.md` item 10, `ui-design.md` section
+ * 41): a mobile browser shows and hides its address bar in response to page scrolling, and each
+ * toggle resizes the viewport and shifts the board. There is no way to ask it not to; the answer
+ * is to give it nothing to scroll. Anything that does not fit scrolls inside `.body` instead —
+ * scrolling a nested element leaves the address bar alone.
+ *
+ * 100dvh rather than 100vh: dvh follows the visible height as the bar comes and goes.
+ */
+.screenFixed {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.body {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -20,21 +43,21 @@
 }
 
 .waiting {
-  color: var(--color-muted, #666);
+  color: var(--foreground-muted);
   font-weight: 400;
 }
 
 .button {
   padding: 0.5rem 0.75rem;
   font: inherit;
-  border: 1px solid var(--color-border, #ccc);
+  border: 1px solid var(--panel-border);
   border-radius: 0.4rem;
   background: transparent;
   cursor: pointer;
 }
 
 .error {
-  color: var(--color-error, #b02a2a);
+  color: var(--danger);
   margin: 0;
 }
 

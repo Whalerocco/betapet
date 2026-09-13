@@ -306,7 +306,7 @@ export function OnlineGameScreen({
   }
 
   return (
-    <div className={styles.screen}>
+    <div className={`${styles.screen} ${styles.screenFixed}`}>
       <div className={styles.header}>
         <button type="button" className={styles.button} onClick={onExit}>
           Mina matcher
@@ -341,128 +341,132 @@ export function OnlineGameScreen({
         </p>
       )}
 
-      <Board
-        boardDefinition={SCRABBLE_BOARD_DEFINITION}
-        boardState={view.board}
-        tiles={view.tiles}
-        pendingPlacedTiles={placements}
-        canPlaceSelectedTile={Boolean(selectedTileId) && myTurn}
-        replaceModeActive={replaceModeActive}
-        onPlaceAt={handlePlaceAt}
-        onPendingTileClick={takeBack}
-      />
-
-      {mustReview ? (
-        <OpponentReview
-          proposingPlayerName={opponent?.name ?? "Motståndaren"}
-          words={(view.pendingMove?.wordResults ?? [])
-            .filter((result) => result.status === "UNKNOWN_WORD")
-            .map((result) => result.normalizedWord)}
-          scorePreview={view.pendingMove?.scorePreview?.total ?? 0}
-          onAccept={() => onAction({ type: "ACCEPT_PROPOSED_MOVE" })}
-          onReject={() => onAction({ type: "REJECT_PROPOSED_MOVE" })}
+      {/* The one thing that scrolls, so the document never does — see the note in the
+          stylesheet. */}
+      <div className={styles.body}>
+        <Board
+          boardDefinition={SCRABBLE_BOARD_DEFINITION}
+          boardState={view.board}
+          tiles={view.tiles}
+          pendingPlacedTiles={placements}
+          canPlaceSelectedTile={Boolean(selectedTileId) && myTurn}
+          replaceModeActive={replaceModeActive}
+          onPlaceAt={handlePlaceAt}
+          onPendingTileClick={takeBack}
         />
-      ) : (
-        <>
-          <div className={styles.rackRow}>
-            <Rack
-              tiles={rackTiles}
-              selectedTileId={selectedTileId}
-              exchangeSelection={exchangeMode ? exchangeSelection : undefined}
-              onSelectTile={(tileId) =>
-                exchangeMode
-                  ? toggleExchangeTile(tileId)
-                  : setSelectedTileId(
-                      tileId === selectedTileId ? undefined : tileId,
-                    )
+
+        {mustReview ? (
+          <OpponentReview
+            proposingPlayerName={opponent?.name ?? "Motståndaren"}
+            words={(view.pendingMove?.wordResults ?? [])
+              .filter((result) => result.status === "UNKNOWN_WORD")
+              .map((result) => result.normalizedWord)}
+            scorePreview={view.pendingMove?.scorePreview?.total ?? 0}
+            onAccept={() => onAction({ type: "ACCEPT_PROPOSED_MOVE" })}
+            onReject={() => onAction({ type: "REJECT_PROPOSED_MOVE" })}
+          />
+        ) : (
+          <>
+            <div className={styles.rackRow}>
+              <Rack
+                tiles={rackTiles}
+                selectedTileId={selectedTileId}
+                exchangeSelection={exchangeMode ? exchangeSelection : undefined}
+                onSelectTile={(tileId) =>
+                  exchangeMode
+                    ? toggleExchangeTile(tileId)
+                    : setSelectedTileId(
+                        tileId === selectedTileId ? undefined : tileId,
+                      )
+                }
+              />
+              <ShuffleButton onClick={handleShuffleRack} />
+            </div>
+
+            <TurnActions
+              canSubmit={myTurn && placements.length > 0 && !busy}
+              /*
+               * A move in progress has to be cleared before the turn can be given away: the engine
+               * refuses a pass or an exchange while a pending move exists, so offering them would
+               * only produce a rule error. The hot-seat screen gates them the same way.
+               */
+              canPass={myTurn && !busy && !hasMoveInProgress}
+              canClear={hasMoveInProgress && !busy}
+              canEndGame={false}
+              showEndGame={false}
+              exchangeMode={exchangeMode}
+              exchangeSelectionCount={exchangeSelection.size}
+              canStartExchange={myTurn && !busy && !hasMoveInProgress}
+              onSubmit={() =>
+                onAction({
+                  type: "SUBMIT_MOVE",
+                  placements: placements.map((placed) => ({
+                    tileId: placed.tileId,
+                    coordinate: placed.coordinate,
+                    representedLetter: placed.representedLetter,
+                  })),
+                })
               }
+              onClear={handleClear}
+              onStartExchange={() => setExchangeMode(true)}
+              onCancelExchange={() => {
+                setExchangeMode(false);
+                setExchangeSelection(new Set());
+              }}
+              onConfirmExchange={() =>
+                onAction({
+                  type: "EXCHANGE_TILES",
+                  tileIds: [...exchangeSelection],
+                })
+              }
+              onPass={() => onAction({ type: "PASS" })}
+              onEndGame={() => undefined}
             />
-            <ShuffleButton onClick={handleShuffleRack} />
-          </div>
-
-          <TurnActions
-            canSubmit={myTurn && placements.length > 0 && !busy}
-            /*
-             * A move in progress has to be cleared before the turn can be given away: the engine
-             * refuses a pass or an exchange while a pending move exists, so offering them would
-             * only produce a rule error. The hot-seat screen gates them the same way.
-             */
-            canPass={myTurn && !busy && !hasMoveInProgress}
-            canClear={hasMoveInProgress && !busy}
-            canEndGame={false}
-            showEndGame={false}
-            exchangeMode={exchangeMode}
-            exchangeSelectionCount={exchangeSelection.size}
-            canStartExchange={myTurn && !busy && !hasMoveInProgress}
-            onSubmit={() =>
-              onAction({
-                type: "SUBMIT_MOVE",
-                placements: placements.map((placed) => ({
-                  tileId: placed.tileId,
-                  coordinate: placed.coordinate,
-                  representedLetter: placed.representedLetter,
-                })),
-              })
-            }
-            onClear={handleClear}
-            onStartExchange={() => setExchangeMode(true)}
-            onCancelExchange={() => {
-              setExchangeMode(false);
-              setExchangeSelection(new Set());
-            }}
-            onConfirmExchange={() =>
-              onAction({
-                type: "EXCHANGE_TILES",
-                tileIds: [...exchangeSelection],
-              })
-            }
-            onPass={() => onAction({ type: "PASS" })}
-            onEndGame={() => undefined}
-          />
-        </>
-      )}
-
-      {mustConfirm && (
-        <UnknownWordNotice
-          words={(view.pendingMove?.wordResults ?? [])
-            .filter((result) => result.status === "UNKNOWN_WORD")
-            .map((result) => result.normalizedWord)}
-          scorePreview={view.pendingMove?.scorePreview?.total ?? 0}
-          onEdit={() => onAction({ type: "CANCEL_PROPOSAL" })}
-          onConfirm={() => onAction({ type: "CONFIRM_PROPOSAL" })}
-        />
-      )}
-
-      {blankTarget && (
-        <Dialog
-          titleText="Välj bokstav för den blanka brickan"
-          onClose={() => setBlankTarget(undefined)}
-        >
-          <BlankLetterPicker
-            label="Välj bokstav för den blanka brickan:"
-            alphabet={SWEDISH_ALPHABET}
-            onSelect={(letter) => {
-              setPlacements((current) => [
-                ...current,
-                {
-                  tileId: blankTarget.tileId,
-                  coordinate: blankTarget.coordinate,
-                  representedLetter: letter,
-                },
-              ]);
-              setSelectedTileId(undefined);
-              setBlankTarget(undefined);
-            }}
-          />
-        </Dialog>
-      )}
-
-      <GameHistory
-        history={view.history}
-        playerNames={Object.fromEntries(
-          view.players.map((player) => [player.id, player.name]),
+          </>
         )}
-      />
+
+        {mustConfirm && (
+          <UnknownWordNotice
+            words={(view.pendingMove?.wordResults ?? [])
+              .filter((result) => result.status === "UNKNOWN_WORD")
+              .map((result) => result.normalizedWord)}
+            scorePreview={view.pendingMove?.scorePreview?.total ?? 0}
+            onEdit={() => onAction({ type: "CANCEL_PROPOSAL" })}
+            onConfirm={() => onAction({ type: "CONFIRM_PROPOSAL" })}
+          />
+        )}
+
+        {blankTarget && (
+          <Dialog
+            titleText="Välj bokstav för den blanka brickan"
+            onClose={() => setBlankTarget(undefined)}
+          >
+            <BlankLetterPicker
+              label="Välj bokstav för den blanka brickan:"
+              alphabet={SWEDISH_ALPHABET}
+              onSelect={(letter) => {
+                setPlacements((current) => [
+                  ...current,
+                  {
+                    tileId: blankTarget.tileId,
+                    coordinate: blankTarget.coordinate,
+                    representedLetter: letter,
+                  },
+                ]);
+                setSelectedTileId(undefined);
+                setBlankTarget(undefined);
+              }}
+            />
+          </Dialog>
+        )}
+
+        <GameHistory
+          history={view.history}
+          playerNames={Object.fromEntries(
+            view.players.map((player) => [player.id, player.name]),
+          )}
+        />
+      </div>
     </div>
   );
 }

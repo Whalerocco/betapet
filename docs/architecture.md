@@ -749,6 +749,38 @@ The UI must not independently decide:
 
 Those decisions belong to the engine.
 
+### Hot-seat and online: what is shared, and what is not
+
+The game has two screens — `GameScreen`, which holds a `GameState` and dispatches into the engine,
+and `OnlineGameScreen`, which holds a `PlayerGameView` and sends actions to a server (DEC-026).
+Knowing which of the three layers a change lands in tells you whether the other screen gets it:
+
+| Layer | Shared | A fix here is |
+| --- | --- | --- |
+| Engine — rules, scoring, validation | Yes | inherited by both, automatically |
+| Presentational components — `Board`, `Rack`, `Tile`, `TurnActions`, `ScoreBoard`, `GameHistory`, dialogs | Yes | inherited by both, automatically |
+| The screen that decides what is *possible* — what the hand holds, which squares are targets, which buttons are enabled, what each one does | **No** | **lost**, unless it is made twice |
+
+This is not an accident of the code, it is what DEC-026 chose: an online client cannot run the
+engine, so the middle layer had to be written a second time against a view. The cost is that the
+third row exists at all, and it is where every hot-seat/online divergence has come from. The
+pattern held for each one found in play: Crisscross worked online on the day it shipped (engine),
+the Android tile text was fixed for both at once (component), while Replace mode, the shuffle
+button, the lost tiles and the missing mode selection were all the third row (T28.4-T28.7).
+
+So, when changing `GameScreen` or `GameScreen.module.css`, **say whether the change applies online
+too** — and if it does, make it in both, or extract the part that can be shared, as `ShuffleButton`
+and `ModifierPicker` were.
+
+Two divergences are deliberate and documented rather than pending: online has no drag-and-drop and
+no live score preview (DEC-026), because an online client can answer neither question honestly
+without the engine.
+
+One class of divergence is now caught mechanically. `designTokens.test.ts` fails when a stylesheet
+uses a custom property nothing defines — the fault that let all five online stylesheets be written
+against a `--color-*` palette that never existed, silently rendering hardcoded fallbacks and
+ignoring the theme.
+
 ---
 
 ## 25. Error handling

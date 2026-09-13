@@ -58,6 +58,19 @@ The intended separation is:
 
 This is required because the same engine should eventually support both local and online multiplayer.
 
+### Keep the two screens in step
+
+There are two game screens: `GameScreen` (hot-seat, holding a `GameState`) and `OnlineGameScreen`
+(online, holding a `PlayerGameView`). The engine and the presentational components are shared, so a
+fix in either reaches both automatically. The layer between them is not shared — what the hand
+holds, which squares are targets, which buttons are enabled and what they do exists twice.
+
+So when changing `GameScreen` or `GameScreen.module.css`, **state whether the change applies to the
+online screen as well**, and if it does, either make it in both or extract the shared part
+(`ShuffleButton` and `ModifierPicker` are how that has been done). Every hot-seat/online divergence
+found in play so far has been a change to that middle layer that was only made once —
+`architecture.md` section 24 has the full account.
+
 ### Model the game as state and actions
 
 Prefer explicit game state and well-defined actions over scattered mutable UI state.
