@@ -9,6 +9,11 @@ import {
   useSession,
 } from "../../application/auth/authClient";
 import {
+  fetchMessages,
+  sendMessage,
+  type ChatMessages,
+} from "../../application/online/chatApi";
+import {
   describeAuthFailure,
   describeFailure,
 } from "../../application/online/failureMessages";
@@ -80,6 +85,9 @@ export default function OnlinePage() {
   const [feed, setFeed] = useState<NotificationFeed>(NO_NOTIFICATIONS);
   const [showNotifications, setShowNotifications] = useState(false);
 
+  /** The open match's conversation, fetched beside the match because it is stored beside it. */
+  const [chat, setChat] = useState<ChatMessages | undefined>();
+
   /** Unwraps a call, turning a failure into Swedish text rather than throwing. */
   const run = useCallback(async function run<T>(
     call: Promise<ApiResult<T>>,
@@ -126,6 +134,13 @@ export default function OnlinePage() {
 
       setOpenMatch(snapshot);
       void markMatchSeen(matchId).then(() => refreshFeed());
+
+      // The conversation is fetched separately, and a failure to get it must not stop the match
+      // from being played: chat is beside the game, never a condition of it.
+      setChat(undefined);
+      void fetchMessages(matchId).then((result) => {
+        if (result.ok) setChat(result.value);
+      });
     },
     [run, refreshFeed],
   );
@@ -182,6 +197,11 @@ export default function OnlinePage() {
     const timer = setInterval(() => {
       void fetchMatch(openMatch.matchId).then((result) => {
         if (!cancelled && result.ok) setOpenMatch(result.value);
+      });
+      // The same beat brings the conversation, so a message and a move arrive together rather
+      // than on two timers drifting past each other.
+      void fetchMessages(openMatch.matchId).then((result) => {
+        if (!cancelled && result.ok) setChat(result.value);
       });
     }, POLL_INTERVAL_MS);
 
@@ -257,9 +277,26 @@ export default function OnlinePage() {
         }}
         onExit={() => {
           setOpenMatch(undefined);
+          setChat(undefined);
           setError(undefined);
           void refreshList();
           void refreshFeed();
+        }}
+        chatMessages={chat?.messages}
+        chatMaxLength={chat?.maxLength}
+        viewerUserId={session.user.id}
+        onSendMessage={(text) => {
+          void (async () => {
+            const sent = await run(sendMessage(openMatch.matchId, text));
+            if (!sent) return;
+
+            // Shown at once rather than waiting for the next poll, and reconciled by it: the
+            // server's copy is what the list becomes on the following fetch.
+            setChat((current) => ({
+              maxLength: current?.maxLength ?? text.length,
+              messages: [...(current?.messages ?? []), sent.message],
+            }));
+          })();
         }}
       />
     );
@@ -446,6 +483,7 @@ export default function OnlinePage() {
           setNewMatch(undefined);
           setFeed(NO_NOTIFICATIONS);
           setShowNotifications(false);
+          setChat(undefined);
         })();
       }}
     />

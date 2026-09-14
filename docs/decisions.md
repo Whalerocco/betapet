@@ -2908,3 +2908,64 @@ Relevant files:
 - `src/server/db/schema/match.ts`
 - `src/application/online/notificationCopy.ts`
 - `src/components/online/NotificationsScreen.tsx`
+
+---
+
+## DEC-032 — Chat is open to a match's participants, whatever the match's status
+
+**Date:** 2026-09-14
+**Status:** ACCEPTED
+**Area:** Online
+
+### Context
+
+`online-multiplayer.md` section 40 says a match's chat is "visible only to match participants".
+It says nothing about *when*, and a match is not always a game in progress: it is an invitation
+before anybody accepts (section 13), it can be declined and become `CANCELLED`, and it becomes
+`FINISHED` when the game ends. Implementing T29.1 required deciding whether chat is open in those
+states or only while the game is being played.
+
+### Decision
+
+**Having a seat in the match is the whole test.** `listMessagesForUser` and `sendMessage` check
+that the user appears in `match_player` and check nothing else. A player may write before an
+invitation is answered, and after the game is over.
+
+### Alternatives considered
+
+**Chat only while the match is `ACTIVE`.** Tidier, and it would close a conversation the moment a
+game ends. Rejected because it is a rule the specification does not have: section 40 gives one
+condition, and adding a second would be inventing behaviour rather than implementing it. It also
+takes away the two moments chat is most obviously useful — agreeing the rules before accepting an
+invitation, and saying "bra spelat" afterwards.
+
+**Chat closed on a `CANCELLED` match.** Defensible, since a declined invitation is not a
+relationship. Rejected for the same reason, and because it buys nothing: both people are still
+participants, and neither is being exposed to anybody new.
+
+### Rationale
+
+The specification's condition is about *who*, and answering a question it did not ask would make
+the implementation harder to check against the document it came from. Where the specification is
+silent and the silence is not a gameplay rule, following its words literally is the choice that
+stays reversible.
+
+### Consequences
+
+- A conversation outlives its game, which is what makes a match's chat readable afterwards at all.
+- **The interface does not yet show it everywhere the server allows it.** A finished match renders
+  `GameOverScreen`, which has no chat panel, so the messages on a finished match are reachable
+  through the API but not through the screen. Adding one would mean changing a component the
+  hot-seat game also uses, which `CLAUDE.md` asks to be deliberate about, so it was left alone.
+- Nothing about chat depends on the game's state, so no chat code has to change when a status is
+  added or a lifecycle rule moves.
+
+### Revisit when
+
+Moderation arrives (`online-multiplayer.md` section 47: blocking, reporting, limiting unwanted
+invitations). Blocking is a rule about *who* may write, which is the same question this entry
+answered, and it should be answered in the same place.
+
+Relevant files:
+- `src/server/chat.ts`
+- `src/components/online/MatchChat.tsx`

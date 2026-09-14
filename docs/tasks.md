@@ -2168,11 +2168,49 @@ a full rack.
 
 ## T29.1 Match chat
 
-- [ ] Text-only messages.
-- [ ] Match participants only.
-- [ ] Persist messages separately from `GameState`.
-- [ ] Render user text safely.
-- [ ] Show chronological history.
+- [x] Text-only messages.
+- [x] Match participants only.
+- [x] Persist messages separately from `GameState`.
+- [x] Render user text safely.
+- [x] Show chronological history.
+
+Built on 2026-09-14. One `chat_message` table (migration `0005_chat_messages.sql`), the shape
+`online-multiplayer.md` section 39 gives field for field, and a `MatchChat` panel below the history
+in the online game screen.
+
+**Separate storage is a guarantee, not a filing decision.** Section 39 and `architecture.md`
+section 22 both put chat outside the authoritative state, and the reason is visible in what a
+message does *not* do: it never moves the match's revision. DEC-030 already showed what a stray
+write costs — a cosmetic act that bumps the revision invalidates a move the opponent has in
+flight and tells them "Motståndaren hann före". A server test asserts the revision, the current
+actor and the game state are all untouched by sending a message.
+
+**Participants only** is folded into every query rather than checked beside it, as in `matches.ts`:
+a non-participant gets the same answer a non-existent match gets (section 38), for reading and for
+writing alike. **DEC-032** records the part the specification left open — having a seat is the
+whole test, so a player may write before an invitation is answered and after the game ends.
+
+**Rendering safely** is React's escaping, and the test that pins it renders
+`<img src=x onerror=...>` and asserts no element was created — it is the test that fails the day
+somebody reaches for `dangerouslySetInnerHTML` to make links clickable. Two stylesheet rules do
+what escaping does not: `white-space: pre-wrap` keeps typed line breaks without introducing markup
+to represent them, and `overflow-wrap: anywhere` breaks an unbroken 500-character string instead of
+letting it widen the layout and push the board sideways. Text is stored exactly as typed apart from
+trimming — escaping on the way in would be wrong for every reader that is not HTML.
+
+Verified in the real application as well as by the suite: signed in as one of two accounts, read
+the conversation the other had started, and sent a message with a 120-character unbroken word —
+which wrapped, with the board still at full width and no horizontal overflow anywhere. The stored
+`<script>alert(1)</script>` rendered as its own characters, and the DOM contained no element built
+from it. Over HTTP: a message sent on an unaccepted invitation, both players reading the same
+conversation oldest-first, a non-participant refused 404 for read and write, empty and overlong
+refused 422, a malformed body 400, and the match's revision unchanged by all of it. The test
+accounts were deleted afterwards.
+
+**Not built:** editing or deleting a message, read receipts, and a chat notification — T30.1's six
+types are the ones `online-multiplayer.md` section 41 lists, and chat is not among them, so an
+unread-message badge would be a feature neither task asks for. Section 40's exclusions — uploads,
+voice, reactions — are absent by decision, not by omission.
 
 ---
 

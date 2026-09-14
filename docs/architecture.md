@@ -688,6 +688,12 @@ Chat
 
 Chat must not be part of the authoritative game-state transition system.
 
+**As built (T29.1):** `chat_message` is its own table and `src/server/chat.ts` imports nothing
+from the engine — it does not know what a game is. The requirement is kept by what sending a
+message does not do: it never moves the match's revision, so chat cannot invalidate a move the
+opponent has in flight, and a chat write is never a path into the game. A server test asserts
+exactly that.
+
 ---
 
 ## 23. Language configuration

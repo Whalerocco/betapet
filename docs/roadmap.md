@@ -1287,6 +1287,11 @@ Do not put chat inside `GameState`.
 
 Two players can exchange messages within a match.
 
+**Met (T29.1, DEC-032).** A `chat_message` table, `GET`/`POST /api/matches/:id/messages`, and a
+`MatchChat` panel in the online game screen. Chat is outside `GameState` in the way that matters
+rather than only in the way it is stored: a message never moves the match's revision, so saying
+something cannot disturb a move the opponent has in flight.
+
 ---
 
 # 36. Milestone 7.2 — Notifications and realtime

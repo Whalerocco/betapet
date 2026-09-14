@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import type { ChatMessage } from "../../application/online/chatApi";
 import type { TurnAction } from "../../application/online/matchApi";
 import type { MatchSnapshot } from "../../application/online/matchApi";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
@@ -27,6 +28,7 @@ import { UnknownWordNotice } from "../game/UnknownWordNotice";
 import { Rack, type RackTileView } from "../rack/Rack";
 import { ShuffleButton } from "../rack/ShuffleButton";
 import { SWEDISH_ALPHABET } from "../../game/configuration/swedishAlphabet";
+import { MatchChat } from "./MatchChat";
 
 import styles from "./OnlineGameScreen.module.css";
 
@@ -37,6 +39,17 @@ export interface OnlineGameScreenProps {
   readonly onExit: () => void;
   readonly busy?: boolean;
   readonly error?: string;
+
+  /*
+   * The match's conversation (T29.1). It arrives beside the game rather than inside it, because
+   * it is stored beside the game (`online-multiplayer.md` section 39) — the screen is where the
+   * two are put next to each other, and that is the only place they meet.
+   */
+  readonly chatMessages?: readonly ChatMessage[];
+  readonly chatMaxLength?: number;
+  /** Which messages are the viewer's own; a user id, not the engine's player id. */
+  readonly viewerUserId?: string;
+  readonly onSendMessage?: (text: string) => void;
 }
 
 /**
@@ -59,6 +72,10 @@ export function OnlineGameScreen({
   onExit,
   busy,
   error,
+  chatMessages,
+  chatMaxLength,
+  viewerUserId,
+  onSendMessage,
 }: OnlineGameScreenProps) {
   const { view } = snapshot;
   const viewer = view.viewerPlayerId;
@@ -466,6 +483,16 @@ export function OnlineGameScreen({
             view.players.map((player) => [player.id, player.name]),
           )}
         />
+
+        {onSendMessage && viewerUserId && (
+          <MatchChat
+            messages={chatMessages ?? []}
+            viewerUserId={viewerUserId}
+            maxLength={chatMaxLength ?? 500}
+            onSend={onSendMessage}
+            busy={busy}
+          />
+        )}
       </div>
     </div>
   );

@@ -188,3 +188,19 @@ export function parseFriendRequest(
   const handle = parseHandle(body.handle);
   return handle ? { handle } : undefined;
 }
+
+export interface ChatMessageBody {
+  /** Not trimmed here: `sendMessage` owns what an empty or overlong message is (T29.1). */
+  readonly text: string;
+}
+
+/**
+ * A chat message, checked only for being a string.
+ *
+ * What counts as empty and what counts as too long are decided once, in `chat.ts`, so that a
+ * caller cannot get a different answer depending on which way it reached the server.
+ */
+export function parseChatMessage(body: unknown): ChatMessageBody | undefined {
+  if (!isRecord(body)) return undefined;
+  return typeof body.text === "string" ? { text: body.text } : undefined;
+}

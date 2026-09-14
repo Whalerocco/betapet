@@ -32,6 +32,13 @@ export function describeFailure(failure: ApiFailure): string {
       return "Ni är redan vänner.";
     case "ALREADY_REQUESTED":
       return "Förfrågan är redan skickad. Väntar på svar.";
+    case "EMPTY_MESSAGE":
+      // The form refuses to send an empty message, so this means something else stripped it.
+      return "Skriv något först.";
+    case "MESSAGE_TOO_LONG":
+      return failure.maxLength
+        ? `Meddelandet är för långt. Högst ${failure.maxLength} tecken.`
+        : "Meddelandet är för långt.";
     case "WRONG_MATCH_STATUS":
       return "Matchen är inte i det läget längre.";
     case "STALE_REVISION":

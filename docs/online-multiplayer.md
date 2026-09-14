@@ -857,9 +857,10 @@ The exact normalized schema should be designed in the online implementation phas
 Do not prematurely create database tables during Version 1.
 
 As built (T24.4, T28.2): `user`, `session`, `account` and `verification` belong to Better Auth;
-`match`, `match_player` and `friendship` are the application's own. An invitation is a `match` with
-status `INVITED` rather than a table of its own (section 13). Chat and notifications are still to
-come, in their own phases.
+`match`, `match_player` and `friendship` are the application's own, and `chat_message` joined them
+in T29.1. An invitation is a `match` with status `INVITED` rather than a table of its own
+(section 13), and there is no `notifications` table at all: T30.1 derives them from the tables that
+already exist (DEC-031).
 
 ---
 
@@ -967,6 +968,21 @@ POST   /api/friends/requests/:id/accept   accept one addressed to you
 POST   /api/friends/requests/:id/decline  decline one addressed to you
 ```
 
+Chat (T29.1) and what is waiting (T30.1):
+
+```text
+GET    /api/matches/:id/messages          the match's conversation, oldest first
+POST   /api/matches/:id/messages          send one message
+POST   /api/matches/:id/seen              record that this user has looked at the match
+GET    /api/notifications                 everything waiting on this user, with counts
+```
+
+The chat endpoints are separate from the match's own on purpose: chat is separate storage
+(section 39), and keeping it separate on the wire means a message can never arrive as part of a
+state transition, nor a failure to fetch one stop a game from being played. `/seen` exists rather
+than folding the marker into `GET /api/matches/:id` because that endpoint is polled — a GET that
+wrote would mark a match seen every fifteen seconds, and would be a write nobody asked for.
+
 `POST /api/matches` now names an opponent either by `opponentEmail` or by `opponentUserId`, and
 never both. An id is accepted only from an accepted friend, so it is not a way to invite an
 arbitrary account; a stranger's id gets the same `OPPONENT_NOT_FOUND` as an id that does not
@@ -1039,6 +1055,13 @@ Chat is not part of `GameState`.
 
 It should be stored separately.
 
+**Built 2026-09-14 (T29.1).** `chat_message` is that separate table, with exactly the fields above.
+"Not part of `GameState`" is enforced by what a message does not do rather than only by where it
+lives: sending one never moves the match's revision, so it cannot invalidate a move the opponent
+has in flight the way DEC-030 showed a stray write can. The sender's display name is joined on
+read rather than stored, so renaming an account does not leave a history attributed to a name that
+no longer exists.
+
 ---
 
 # 40. Chat behaviour
@@ -1055,6 +1078,16 @@ Initial chat can be simple:
 Keep chat moderation/security considerations in mind when the feature is implemented.
 
 User-generated text must be safely rendered.
+
+**Built, and "safely rendered" is where it is done.** Text is stored exactly as typed apart from
+trimming — escaping on the way in would be wrong for every reader that is not HTML and would
+double-escape the next one. `MatchChat` places the message as a JSX child so React escapes it;
+there is no `dangerouslySetInnerHTML` and a test asserts none appears. `white-space: pre-wrap`
+keeps typed line breaks without markup, and `overflow-wrap: anywhere` stops an unbroken string
+widening the layout. Nothing is turned into a link.
+
+**Who may write** is decided by DEC-032: having a seat in the match, and nothing about the match's
+status. Moderation beyond that — blocking and reporting — is section 47's, and is not built.
 
 ---
 

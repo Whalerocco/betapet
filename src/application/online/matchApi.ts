@@ -65,6 +65,9 @@ export type ApiFailure =
   | { readonly error: "CANNOT_FRIEND_SELF" }
   | { readonly error: "ALREADY_FRIENDS" }
   | { readonly error: "ALREADY_REQUESTED" }
+  // The chat endpoint (T29.1).
+  | { readonly error: "EMPTY_MESSAGE" }
+  | { readonly error: "MESSAGE_TOO_LONG"; readonly maxLength?: number }
   | { readonly error: "WRONG_MATCH_STATUS"; readonly status?: string }
   | { readonly error: "STALE_REVISION"; readonly currentRevision: number }
   | {
