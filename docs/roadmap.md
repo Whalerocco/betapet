@@ -994,6 +994,18 @@ Implement/check:
 
 Core gameplay is usable without a mouse and important state is not communicated only through color.
 
+**Met 2026-09-14**, and evidenced rather than asserted: `e2e/accessibility.spec.ts` plays a whole
+move using only key presses — nothing in it clicks — and checks that every multiplier square
+announces its meaning in words, not only in its fill. The seven items above were all in place
+before then except the last piece of "semantic buttons": `Tile` put `aria-pressed` on every tile it
+rendered as a button, so a board tile that is an action announced itself as an untoggled two-state
+control (`known-bugs.md` item 12). Passing `selected` now declares a tile a toggle, and only the
+rack does.
+
+Still a later improvement, as `ui-design.md` section 43 anticipates: describing the board as a
+whole to a screen reader. Every control is operable and every square is readable; the shape of the
+board is not yet conveyed.
+
 ---
 
 # 27. Milestone 4.3 — End-to-end coverage

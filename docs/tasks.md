@@ -2629,19 +2629,36 @@ Version 1 is done only when all of the following are true:
 [x] Refresh recovery works
 [x] Game history works
 [x] Responsive UI works
-[ ] Core accessibility requirements work
+[x] Core accessibility requirements work
 [x] Critical automated tests pass
 [x] Production build passes
 [x] Real two-person playtesting completed
 ```
 
-Ticked 2026-08-26, after the hot-seat round the project owner confirmed complete. Every ticked
-line is covered by the automated suites (604 unit tests, 43 end-to-end across Chromium and
-WebKit) as well as by play, apart from the configuration line, which DEC-009 settled.
+Ticked 2026-08-26, after the hot-seat round the project owner confirmed complete, apart from the
+accessibility line. Every ticked line is covered by the automated suites (892 unit tests, 60
+end-to-end across Chromium and WebKit) as well as by play, apart from the configuration line,
+which DEC-009 settled.
 
-One line is deliberately left open: `known-bugs.md` item 12 records that `Tile` puts
-`aria-pressed` on every tile it renders as a button, so a screen reader announces board tiles that
-are not toggles as "not pressed". Nothing is unusable and the fix is small, but the line should
-not be ticked while a known accessibility defect stands.
+**The accessibility line was ticked on 2026-09-14,** once `known-bugs.md` item 12 was fixed. It had
+been left open deliberately — nothing was unusable and the fix was small, but the line should not
+be ticked while a known accessibility defect stands.
+
+It was not ticked on the strength of that one fix. `e2e/accessibility.spec.ts` was written to
+evidence Milestone 4.2's actual exit criterion — "core gameplay is usable without a mouse, and
+important state is not communicated only through colour" — and nothing in it clicks: it plays a
+whole move with the keyboard alone, checks that only the tiles that really toggle announce
+themselves as toggles, and checks that every multiplier square carries its meaning in words rather
+than only in its fill. The rest of `ui-design.md` section 43 was checked against the code at the
+same time and was already in place: semantic buttons, labelled inputs, a visible `:focus-visible`
+style, `prefers-reduced-motion` support, and dialogs with accessible titles.
+
+That test earned its keep immediately by catching a regression in the item-12 fix itself, where an
+unselected rack tile would have lost its pressed state altogether — a wrong announcement replaced
+by a missing one.
+
+What remains a later improvement is the thing section 43 itself allows for: fully describing a
+complex board to a screen reader. A player can operate every control and read every square, but
+cannot yet hear the shape of the board as a whole.
 
 Only after this checklist is satisfied should online multiplayer become the primary development focus.

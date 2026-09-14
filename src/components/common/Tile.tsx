@@ -7,6 +7,14 @@ export interface TileProps {
   readonly letter: string;
   readonly points: number;
   readonly variant?: TileVisualVariant;
+  /**
+   * Whether this tile is currently picked out, for a tile that can be.
+   *
+   * Passing it is what declares the tile a two-state control, and is what puts `aria-pressed` on
+   * the button — so leave it off for a tile whose click is an action rather than a toggle
+   * (`known-bugs.md` item 12). A rack tile toggles between selected and unselected; a pending
+   * tile on the board, and a Replace-mode target, do something and are done.
+   */
   readonly selected?: boolean;
   readonly disabled?: boolean;
   readonly isBlank?: boolean;
@@ -35,7 +43,7 @@ export function Tile({
   letter,
   points,
   variant = "rack",
-  selected = false,
+  selected,
   disabled = false,
   isBlank = false,
   onClick,
@@ -73,6 +81,13 @@ export function Tile({
       onClick={onClick}
       onPointerDown={onPointerDown}
       disabled={disabled}
+      /*
+       * Only a tile that really has a pressed state gets `aria-pressed`, which is exactly the
+       * tiles a caller passes `selected` for. It used to be on every tile rendered as a button,
+       * so a screen reader announced a pending board tile — "Pending bricka B, tryck för att
+       * redigera" — as "not pressed", describing a two-state control that was never there
+       * (`known-bugs.md` item 12). Undefined leaves the attribute off altogether.
+       */
       aria-pressed={selected}
       aria-label={ariaLabel}
       // Marks the tiles that own their own drag gesture, so the board's pan gesture leaves them

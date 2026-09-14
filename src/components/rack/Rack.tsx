@@ -68,8 +68,15 @@ export function Rack({
           points={tile.points}
           variant="rack"
           isBlank={tile.isBlank}
+          /*
+           * Always a boolean, never undefined: passing `selected` is what makes a tile announce
+           * itself as a toggle (`Tile.tsx`), and `exchangeSelection?.has(...)` yields undefined
+           * when there is no exchange under way — which would leave an unselected rack tile with
+           * no pressed state at all rather than an unpressed one.
+           */
           selected={
-            tile.id === selectedTileId || exchangeSelection?.has(tile.id)
+            tile.id === selectedTileId ||
+            Boolean(exchangeSelection?.has(tile.id))
           }
           isDragSource={tile.id === draggingTileId}
           isDisplaced={tile.isDisplaced}
