@@ -2182,12 +2182,58 @@ a full rack.
 
 Support:
 
-- [ ] Match invitation.
-- [ ] Friend request.
-- [ ] Your turn.
-- [ ] Unknown word requires review.
-- [ ] Move rejected.
-- [ ] Game completed.
+- [x] Match invitation.
+- [x] Friend request.
+- [x] Your turn.
+- [x] Unknown word requires review.
+- [x] Move rejected.
+- [x] Game completed.
+
+Built on 2026-09-14. **DEC-031** records the model, which was put to the project owner as two
+options because it decides the data model: a stored `notification` table, or a derived feed. They
+chose derived.
+
+**There is no notification table.** Five of the six are states the database already holds — an
+`INVITED` match addressed to somebody, a `PENDING` friendship row, and the two derived columns
+DEC-025 added for whose turn it is and whether they owe a move or a verdict — and the sixth, a
+rejected move, is an event the engine already writes into the game's own history as
+`UNKNOWN_WORD_REJECTED`, words and proposer included. `listNotificationsForUser` reads those, and
+deserializes a game state only for the matches that need one: a match waiting on this user, and a
+finished one they have not looked at. Every other match is answered from columns alone, as the
+match list is.
+
+The one thing that cannot be derived is whether the user has *seen* something, and only a finished
+match needs it — everything else stops being true the moment the player acts. That is
+`match_player.lastSeenRevision` (migration `0004_match_seen.sql`), advanced by
+`POST /api/matches/:id/seen` when a match is opened.
+
+**A rejected move is why the feed exists at all.** After a rejection the turn returns to the
+proposer, so the match list files it under `Din tur` — a turn the player believed they had already
+taken, with nothing saying what happened to it. The feed says "Anna nekade ditt ord KJ. Det är din
+tur igen." A finished match has the same problem in reverse: it sits in `Avslutade` looking exactly
+like every match that ended weeks ago.
+
+Two surfaces, one derivation. The match list's section headings and its `Notiser` and `Vänner`
+buttons carry counts from the same call that fills the screen, so a badge and the list behind it
+cannot disagree. The count is deliberately not the number of rows in a section: every match in
+`Avslutade` is finished, and only the unseen ones are news.
+
+No Swedish wording is decided on the server. A notification arrives as a type and the facts behind
+it, and `notificationCopy.ts` turns it into a sentence (`architecture.md` section 25).
+
+Verified over HTTP against the real database, since this is a per-viewer derivation no unit test
+exercises whole: two accounts, and each of the six types produced in turn — a friend request, an
+invitation, a turn, a proposal of "KJ" awaiting review, its rejection coming back to the proposer
+*with the word*, and a game ended by consecutive passes telling one side `WON` and the other
+`LOST`. Every check confirmed the other player's feed was empty at the same moment. `POST /seen`
+then cleared the result for the player who opened it and left the opponent's standing; an
+unauthenticated feed was 401 and a `seen` on a match the caller does not play in was 404. The test
+accounts were deleted afterwards.
+
+**Not built:** dismissing a notification individually (they go away by being acted on, which is
+what each is for), and any history of past notifications — the game's own history panel is where
+a match's past lives. Notifications outside the app — email or browser push
+(`online-multiplayer.md` section 42) — are explicitly not a prerequisite and are not built.
 
 ---
 

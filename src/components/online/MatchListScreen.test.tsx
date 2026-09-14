@@ -25,6 +25,7 @@ function renderList(matches: readonly MatchListEntry[], props = {}) {
     onDecline: vi.fn(),
     onNewMatch: vi.fn(),
     onShowFriends: vi.fn(),
+    onShowNotifications: vi.fn(),
     onSignOut: vi.fn(),
   };
   render(
@@ -133,5 +134,55 @@ describe("MatchListScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Vänner" }));
 
     expect(handlers.onShowFriends).toHaveBeenCalled();
+  });
+});
+
+/*
+ * The badges are drawn from the notification feed, not from how many rows a section has (T30.1):
+ * `Avslutade` holds every match that ever finished, and only the unseen ones are news.
+ */
+describe("MatchListScreen notification badges", () => {
+  const counts = {
+    YOUR_TURN: 2,
+    MOVE_REJECTED: 1,
+    AWAITING_YOUR_REVIEW: 0,
+    MATCH_INVITATION: 1,
+    MATCH_FINISHED: 0,
+    FRIEND_REQUEST: 3,
+  };
+
+  it("counts a rejected move among the turns that are owed", () => {
+    renderList([entry({ category: "YOUR_TURN" })], { counts });
+
+    expect(
+      screen.getByRole("heading", { name: /3 matcher väntar på dig/ }),
+    ).toBeVisible();
+  });
+
+  it("puts what is waiting on the way into each screen", () => {
+    renderList([entry()], { counts });
+
+    // Everything actionable, which is deliberately not the finished matches.
+    expect(
+      screen.getByRole("button", { name: /Notiser.*7 nya notiser/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Vänner.*3 vänförfrågningar/ }),
+    ).toBeVisible();
+  });
+
+  it("badges nothing before the feed has been fetched", () => {
+    renderList([entry({ category: "YOUR_TURN" })]);
+
+    expect(screen.getByRole("heading", { name: "Din tur" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Notiser" })).toBeVisible();
+  });
+
+  it("opens the notifications screen", async () => {
+    const handlers = renderList([entry()], { counts });
+
+    await userEvent.click(screen.getByRole("button", { name: /Notiser/ }));
+
+    expect(handlers.onShowNotifications).toHaveBeenCalled();
   });
 });

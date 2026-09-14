@@ -32,6 +32,12 @@ import {
   type MatchSnapshot,
   type TurnAction,
 } from "../../application/online/matchApi";
+import {
+  fetchNotifications,
+  markMatchSeen,
+  NO_NOTIFICATIONS,
+  type NotificationFeed,
+} from "../../application/online/notificationsApi";
 import { FriendsScreen } from "../../components/online/FriendsScreen";
 import { MatchListScreen } from "../../components/online/MatchListScreen";
 import {
@@ -39,11 +45,22 @@ import {
   type NewMatchOpponent,
   type NewMatchValues,
 } from "../../components/online/NewMatchScreen";
+import { NotificationsScreen } from "../../components/online/NotificationsScreen";
 import { OnlineGameScreen } from "../../components/online/OnlineGameScreen";
 import { SignInScreen } from "../../components/online/SignInScreen";
 
 /** How often an open match asks the server whether anything happened (DEC-020: polling). */
 const POLL_INTERVAL_MS = 15_000;
+
+/**
+ * How often the match list asks what is waiting (T30.1).
+ *
+ * Slower than an open match, because the two answer different questions. An open match is being
+ * watched move by move; the list is what somebody has left open in a tab, where a badge arriving
+ * half a minute late costs nothing and a request every fifteen seconds is noise.
+ */
+const NOTIFICATION_POLL_INTERVAL_MS = 60_000;
+
 export default function OnlinePage() {
   const { data: session, isPending: sessionPending } = useSession();
 
@@ -58,6 +75,10 @@ export default function OnlinePage() {
 
   /** Who a new match is being set up against, while the rules are chosen (T28.4). */
   const [newMatch, setNewMatch] = useState<NewMatchOpponent | undefined>();
+
+  /** What is waiting on this player: the badges, and the screen behind them (T30.1). */
+  const [feed, setFeed] = useState<NotificationFeed>(NO_NOTIFICATIONS);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   /** Unwraps a call, turning a failure into Swedish text rather than throwing. */
   const run = useCallback(async function run<T>(
@@ -83,6 +104,32 @@ export default function OnlinePage() {
     if (result.ok) setFriends(result.value);
   }, []);
 
+  const refreshFeed = useCallback(async () => {
+    const result = await fetchNotifications();
+    if (result.ok) setFeed(result.value);
+  }, []);
+
+  /*
+   * Opening a match is the moment "I have seen this" becomes true, so the seat's marker is
+   * advanced here rather than anywhere the player might not reach. Only a finished match needs
+   * it — everything else stops being a notification as soon as the player acts — but it is sent
+   * for every match, because what the match turns out to be waiting for does not change whether
+   * it has been looked at.
+   *
+   * The marking is not awaited before the screen opens: it is bookkeeping, and a game should not
+   * wait on it. The feed is refreshed afterwards so the badge the player just cleared goes away.
+   */
+  const openMatchById = useCallback(
+    async (matchId: string) => {
+      const snapshot = await run(fetchMatch(matchId));
+      if (!snapshot) return;
+
+      setOpenMatch(snapshot);
+      void markMatchSeen(matchId).then(() => refreshFeed());
+    },
+    [run, refreshFeed],
+  );
+
   useEffect(() => {
     if (!session) return;
 
@@ -93,11 +140,35 @@ export default function OnlinePage() {
     void listMatches().then((result) => {
       if (!cancelled && result.ok) setMatches(result.value.matches);
     });
+    void fetchNotifications().then((result) => {
+      if (!cancelled && result.ok) setFeed(result.value);
+    });
 
     return () => {
       cancelled = true;
     };
   }, [session]);
+
+  /*
+   * What is waiting is polled while no match is open (T30.1). An open match is already polling
+   * the one thing its player is looking at, and the badges behind it are not being read, so the
+   * two never run at once.
+   */
+  useEffect(() => {
+    if (!session || openMatch) return;
+
+    let cancelled = false;
+    const timer = setInterval(() => {
+      void fetchNotifications().then((result) => {
+        if (!cancelled && result.ok) setFeed(result.value);
+      });
+    }, NOTIFICATION_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [session, openMatch]);
 
   /*
    * An open match polls, because the opponent may act while it is on screen and nothing pushes
@@ -188,6 +259,7 @@ export default function OnlinePage() {
           setOpenMatch(undefined);
           setError(undefined);
           void refreshList();
+          void refreshFeed();
         }}
       />
     );
@@ -230,6 +302,37 @@ export default function OnlinePage() {
     );
   }
 
+  if (showNotifications) {
+    return (
+      <NotificationsScreen
+        notifications={feed.notifications}
+        busy={busy}
+        error={error}
+        onOpenMatch={(matchId) => {
+          void (async () => {
+            setShowNotifications(false);
+            await openMatchById(matchId);
+          })();
+        }}
+        onShowFriends={() => {
+          void (async () => {
+            setError(undefined);
+            const graph = await run(fetchSocialGraph());
+            if (graph) {
+              setShowNotifications(false);
+              setFriends(graph);
+            }
+          })();
+        }}
+        onBack={() => {
+          setShowNotifications(false);
+          setError(undefined);
+          void refreshList();
+        }}
+      />
+    );
+  }
+
   if (friends) {
     return (
       <FriendsScreen
@@ -256,6 +359,7 @@ export default function OnlinePage() {
             setFriendsNotice(undefined);
             await run(acceptFriendRequest(requestId));
             await refreshFriends();
+            await refreshFeed();
           })();
         }}
         onDecline={(requestId) => {
@@ -263,6 +367,7 @@ export default function OnlinePage() {
             setFriendsNotice(undefined);
             await run(declineFriendRequest(requestId));
             await refreshFriends();
+            await refreshFeed();
           })();
         }}
         onStartMatch={(friendUserId) => {
@@ -293,25 +398,25 @@ export default function OnlinePage() {
     <MatchListScreen
       playerName={session.user.name}
       matches={matches}
+      counts={feed.counts}
       busy={busy}
       error={error}
       onOpen={(matchId) => {
-        void (async () => {
-          const snapshot = await run(fetchMatch(matchId));
-          if (snapshot) setOpenMatch(snapshot);
-        })();
+        void openMatchById(matchId);
       }}
       onAccept={(matchId) => {
         void (async () => {
           const snapshot = await run(acceptInvitation(matchId));
           if (snapshot) setOpenMatch(snapshot);
           await refreshList();
+          await refreshFeed();
         })();
       }}
       onDecline={(matchId) => {
         void (async () => {
           await run(declineInvitation(matchId));
           await refreshList();
+          await refreshFeed();
         })();
       }}
       onNewMatch={() => {
@@ -325,6 +430,13 @@ export default function OnlinePage() {
           if (graph) setFriends(graph);
         })();
       }}
+      onShowNotifications={() => {
+        void (async () => {
+          setError(undefined);
+          setShowNotifications(true);
+          await refreshFeed();
+        })();
+      }}
       onSignOut={() => {
         void (async () => {
           await signOut();
@@ -332,6 +444,8 @@ export default function OnlinePage() {
           setOpenMatch(undefined);
           setFriends(undefined);
           setNewMatch(undefined);
+          setFeed(NO_NOTIFICATIONS);
+          setShowNotifications(false);
         })();
       }}
     />

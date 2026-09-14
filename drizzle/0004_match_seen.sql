@@ -1,0 +1,1 @@
+ALTER TABLE "match_player" ADD COLUMN "last_seen_revision" integer;

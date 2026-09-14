@@ -159,6 +159,21 @@ export const matchPlayer = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     playerId: text("player_id").$type<PlayerId>().notNull(),
+
+    /**
+     * The match revision this user had seen the last time they opened it (T30.1).
+     *
+     * The only piece of a notification that is not derivable from the game itself: everything a
+     * player still owes — their turn, a word to review, an invitation — stops being true the
+     * moment they act, but "your match against Anna has finished" is true forever and would
+     * otherwise be reported forever. Comparing this against `match.revision` is what makes a
+     * finished match stop asking to be looked at, and it uses a column the list already reads
+     * rather than needing the game state deserialized.
+     *
+     * Null for a seat whose user has never opened the match.
+     */
+    lastSeenRevision: integer("last_seen_revision"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

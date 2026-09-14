@@ -2824,3 +2824,87 @@ Relevant files:
 - `src/components/rack/ShuffleButton.tsx`
 - `src/components/online/OnlineGameScreen.tsx`
 
+
+---
+
+## DEC-031 — Notifications are derived, with one stored marker for what has been seen
+
+**Date:** 2026-09-14
+**Status:** ACCEPTED
+**Area:** Online / Persistence
+
+### Context
+
+Milestone 7.2 asks for six in-app notifications (T30.1): a match invitation, a friend request,
+your turn, a word awaiting review, a move rejected, and a game completed.
+`online-multiplayer.md` section 41 says only that notifications "should be derived from
+authoritative events/state changes", which permits two quite different systems.
+
+Five of the six are *states* the database already holds. An invitation is a match with status
+`INVITED` addressed to somebody; a friend request is a `PENDING` friendship row; "your turn" and
+"a word to review" are the two derived columns DEC-025 added, `currentActorUserId` and
+`pendingAction`; a finished game is status `FINISHED`. The sixth, a rejected move, is an *event* —
+but the engine already writes it into the game's own history as `UNKNOWN_WORD_REJECTED`, with the
+words and the proposer in the payload.
+
+What no current state holds is whether the user has *seen* something.
+
+### Decision
+
+**There is no notification table. The feed is derived per viewer, and the only thing stored is a
+seen marker.**
+
+`listNotificationsForUser` reads the match columns and the friendship rows, and deserializes a
+game state only for the matches that need one — a match waiting on this user, so a rejection can
+be named and a proposed word quoted, and a finished match they have not looked at, so the result
+can be given. Every other match is answered from columns alone, exactly as the match list is.
+
+`match_player.lastSeenRevision` is the whole of what is stored, and only a finished match needs
+it: everything else stops being true the moment the player acts. It is advanced by
+`POST /api/matches/:id/seen`, sent when a match is opened.
+
+### Alternatives considered
+
+**A `notification` table with read/unread rows.** The obvious design, and it would give
+dismissible items and a record of events no current state remembers. Rejected on two grounds.
+Every write site — `submitMove`, `rejectProposedMove`, `commitMove`, `createMatch`,
+`sendFriendRequest` — would have to remember to write a row, and a site that forgot would produce
+a player who is never told. And a stored row can disagree with the game it describes, which is the
+duplication `online-multiplayer.md` section 34 warns against; here the same facts already exist in
+a place that cannot be wrong.
+
+**Deriving everything, with nothing stored.** Simpler still, and correct for five of the six. It
+fails on the finished game: a match that is over is over forever, so it would be reported forever.
+
+### Rationale
+
+This is the shape DEC-025 already chose for the match list — derive per viewer from authoritative
+columns rather than store a second answer — extended to the one case that genuinely needs memory,
+and no further. It also means a notification cannot be missing because a code path forgot to emit
+it: if the state says a player owes a move, they are told.
+
+### Consequences
+
+- The notifications endpoint costs one query for the columns, one for the game states it actually
+  needs, and one for friendships. It grows with a player's own matches, not with the table.
+- **A notification cannot be dismissed individually.** It goes away by being acted on, which is
+  what every one of them is for. A finished match is the exception and is cleared by opening it.
+- **History is not kept.** "Anna rejected your word" is readable only while the turn is still
+  owed; once the player moves, the feed moves on. The game's own history panel is where a match's
+  past lives, and it already records every one of these events.
+- A rejection is reported by reading the *last* history event. That is safe because a rejection
+  hands the turn straight back to the proposer with their tiles still on the board, so nothing can
+  have happened in between — but it is an assumption about the engine, not a fact about the feed.
+
+### Revisit when
+
+A notification is wanted that no state remembers — a move being played while you were away, when
+it is no longer your turn — or when notifications need to reach the player outside the app (email
+or push, `online-multiplayer.md` section 42). Either one needs stored events, and this entry
+should be marked SUPERSEDED rather than worked around.
+
+Relevant files:
+- `src/server/notifications.ts`
+- `src/server/db/schema/match.ts`
+- `src/application/online/notificationCopy.ts`
+- `src/components/online/NotificationsScreen.tsx`

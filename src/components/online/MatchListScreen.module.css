@@ -26,6 +26,8 @@
 }
 
 .sectionTitle {
+  display: flex;
+  align-items: center;
   font-size: 1rem;
   margin: 0;
 }
@@ -104,4 +106,39 @@
 
 .empty {
   color: var(--foreground-muted);
+}
+
+/*
+ * A count beside a heading or a button (T30.1). It is an addition to a label that already says
+ * what it counts, never the only thing that says it — the number is meaningless without the word
+ * next to it, which is what keeps it from being a signal carried by colour alone.
+ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 0.7rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* The words behind a badge's number: present for a screen reader, not drawn. */
+.badgeLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

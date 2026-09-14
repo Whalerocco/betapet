@@ -1084,6 +1084,12 @@ Your match against Anna has finished.
 
 Notifications should be derived from authoritative events/state changes.
 
+**Built 2026-09-14 (T30.1, DEC-031), and derived is meant literally:** there is no notification
+table. Five of the five examples above are states the database already holds, and the sixth — a
+rejected move — is read from the `UNKNOWN_WORD_REJECTED` event the engine writes into the game's
+own history. The only thing stored is `match_player.lastSeenRevision`, because "your match against
+Anna has finished" is the one example that stays true after the player has dealt with it.
+
 ---
 
 # 42. Notification channels
@@ -1119,6 +1125,10 @@ Väntar på motståndaren
 ```
 
 A disputed-word review is not exactly a normal turn, so the UI should distinguish it.
+
+**Built.** The sections are T27.1's; the counts beside them are T30.1's, and they come from the
+notification feed rather than from the number of rows in each section — `Avslutade` holds every
+match that ever finished, and only the ones the player has not opened are news.
 
 ---
 
