@@ -10,7 +10,11 @@ import { coordinatesEqual, type Coordinate } from "../model/coordinate";
 import { createGameState, type GameState } from "../model/game";
 import type { PlayerId, TileId } from "../model/ids";
 import { createPendingMove } from "../model/pendingMove";
-import { addTileToRack, removeTileFromRack, type Player } from "../model/player";
+import {
+  addTileToRack,
+  removeTileFromRack,
+  type Player,
+} from "../model/player";
 import { checkEditPreconditions } from "./actionPreconditions";
 import { actionFailure, type ActionResult } from "./gameError";
 import { replacesSameLetter, tilesDisplacedThisMove } from "./placeTile";
@@ -92,16 +96,31 @@ export function movePendingTile(
   }
 
   const displacedTileId = getTileIdAt(board, params.coordinate);
+  if (displacedTileId !== undefined && !options.allowReplace) {
+    return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
+  }
+
+  // The destination inherits whatever displacement it already stood for, so a swap never loses
+  // the link back to the committed tile an earlier placement this move took off the board.
+  const replacedTileId = displacedTileId ?? swappedOutTile?.replacedTileId;
+
+  /*
+   * The same chaining rule `placeTile` applies, and for the same reason: what matters is the
+   * displacement this tile would end up carrying, not whether this particular placement creates
+   * one (DEC-033, `known-bugs.md` item 7). `otherPlacedTiles` excludes the tile being moved, so
+   * its own displacement — reversed just above — correctly does not count against it.
+   */
+  if (
+    replacedTileId !== undefined &&
+    tilesDisplacedThisMove(otherPlacedTiles).has(params.tileId)
+  ) {
+    return actionFailure(
+      "REPLACE_CHAINING_NOT_ALLOWED",
+      "replaceChainingNotAllowed",
+    );
+  }
+
   if (displacedTileId !== undefined) {
-    if (!options.allowReplace) {
-      return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
-    }
-    if (tilesDisplacedThisMove(otherPlacedTiles).has(params.tileId)) {
-      return actionFailure(
-        "REPLACE_CHAINING_NOT_ALLOWED",
-        "replaceChainingNotAllowed",
-      );
-    }
     board = removeCommittedTile(board, params.coordinate);
     players = players.map((p) =>
       p.id === params.playerId
@@ -109,10 +128,6 @@ export function movePendingTile(
         : p,
     ) as [Player, Player];
   }
-
-  // The destination inherits whatever displacement it already stood for, so a swap never loses
-  // the link back to the committed tile an earlier placement this move took off the board.
-  const replacedTileId = displacedTileId ?? swappedOutTile?.replacedTileId;
   if (
     replacedTileId !== undefined &&
     replacesSameLetter(

@@ -460,7 +460,10 @@ describe("placeTile: Replace mode (allowReplace)", () => {
     );
     board = placeCommittedTile(
       board,
-      { row: setup.board.centreCoordinate.row, column: setup.board.centreCoordinate.column + 1 },
+      {
+        row: setup.board.centreCoordinate.row,
+        column: setup.board.centreCoordinate.column + 1,
+      },
       secondTargetTileId,
     );
     const state = { ...setup.state, board };
@@ -548,6 +551,130 @@ describe("placeTile: Replace mode (allowReplace)", () => {
     expect(normalPlacement.success).toBe(true);
   });
 
+  /*
+   * `known-bugs.md` item 7, settled by DEC-033: the restriction is about the *outcome* — a tile
+   * displaced this move may not end up standing in for another tile displaced this move — so it
+   * cannot be reached by the roundabout route either. Placing onto a square whose pending tile is
+   * already standing in for a committed tile is a swap, which creates no displacement of its own
+   * but inherits one, and used to slip past a check that only looked at displacements being
+   * created.
+   */
+  it("refuses a displaced tile that would inherit another displacement by swapping", () => {
+    const setup = buildEngineTestGame();
+    const firstTargetTileId = letterTile(setup.tiles, "S");
+    const secondTargetTileId = letterTile(setup.tiles, "T");
+    const centre = setup.board.centreCoordinate;
+    const right = { row: centre.row, column: centre.column + 1 };
+
+    let board = placeCommittedTile(
+      setup.state.board,
+      centre,
+      firstTargetTileId,
+    );
+    board = placeCommittedTile(board, right, secondTargetTileId);
+    const state = { ...setup.state, board };
+    const [firstTileId, secondTileId] = state.players[0].rack.tileIds;
+
+    // Displace S from the centre; S goes to the hand.
+    const one = placeTile(
+      state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: firstTileId, coordinate: centre },
+      { allowReplace: true },
+    );
+    expect(one.success).toBe(true);
+    if (!one.success) return;
+
+    // Displace T from the square to the right; that square now stands in for T.
+    const two = placeTile(
+      one.state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: secondTileId, coordinate: right },
+      { allowReplace: true },
+    );
+    expect(two.success).toBe(true);
+    if (!two.success) return;
+
+    // Dropping S onto that square would make S the tile replacing T — the end state the direct
+    // route refuses, so this route refuses it too.
+    const three = placeTile(
+      two.state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: firstTargetTileId,
+        coordinate: right,
+      },
+      { allowReplace: true },
+    );
+
+    expect(three).toEqual({
+      success: false,
+      error: {
+        code: "REPLACE_CHAINING_NOT_ALLOWED",
+        messageKey: "replaceChainingNotAllowed",
+      },
+    });
+  });
+
+  /*
+   * The other half of DEC-033: ordinary editing stays free. A swap onto a square that was never
+   * occupied chains nothing, so a displaced tile may still take part in one.
+   */
+  it("still allows a displaced tile to swap onto a square that stands in for nothing", () => {
+    const setup = buildEngineTestGame();
+    const targetTileId = letterTile(setup.tiles, "S");
+    const centre = setup.board.centreCoordinate;
+    const right = { row: centre.row, column: centre.column + 1 };
+
+    const board = placeCommittedTile(setup.state.board, centre, targetTileId);
+    const state = { ...setup.state, board };
+    const [firstTileId, secondTileId] = state.players[0].rack.tileIds;
+
+    // Displace S from the centre.
+    const one = placeTile(
+      state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: firstTileId, coordinate: centre },
+      { allowReplace: true },
+    );
+    expect(one.success).toBe(true);
+    if (!one.success) return;
+
+    // Put another tile on a square that was always empty.
+    const two = placeTile(
+      one.state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: secondTileId, coordinate: right },
+      { allowReplace: true },
+    );
+    expect(two.success).toBe(true);
+    if (!two.success) return;
+
+    // Swapping S onto it displaces nothing and inherits nothing, so it is ordinary editing.
+    const three = placeTile(
+      two.state,
+      setup.board,
+      [],
+      { playerId: setup.playerOneId, tileId: targetTileId, coordinate: right },
+      { allowReplace: true },
+    );
+
+    expect(three.success).toBe(true);
+    if (!three.success) return;
+    const placed = three.state.pendingMove?.placedTiles.find(
+      (p) => p.tileId === targetTileId,
+    );
+    expect(placed?.replacedTileId).toBeUndefined();
+    // The tile it swapped out is back in the hand.
+    expect(three.state.players[0].rack.tileIds).toContain(secondTileId);
+  });
+
   it("swapping onto your own replace placement inherits the displacement (DEC-017)", () => {
     const setup = buildEngineTestGame();
     const existingTileId = letterTile(setup.tiles, "S");
@@ -598,9 +725,8 @@ describe("placeTile: Replace mode (allowReplace)", () => {
       representedLetter: undefined,
       replacedTileId: existingTileId,
     });
-    const rack = second.state.players.find(
-      (p) => p.id === setup.playerOneId,
-    )!.rack.tileIds;
+    const rack = second.state.players.find((p) => p.id === setup.playerOneId)!
+      .rack.tileIds;
     expect(rack).toContain(firstTileId);
     expect(rack).not.toContain(secondTileId);
     // "S" left the board exactly once, however many times the square changed hands.

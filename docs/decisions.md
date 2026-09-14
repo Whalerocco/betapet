@@ -2969,3 +2969,84 @@ answered, and it should be answered in the same place.
 Relevant files:
 - `src/server/chat.ts`
 - `src/components/online/MatchChat.tsx`
+
+---
+
+## DEC-033 — The replace-chaining restriction is about the outcome, not the act
+
+**Date:** 2026-09-14
+**Status:** ACCEPTED
+**Area:** Engine / Rules
+
+### Context
+
+`known-bugs.md` item 7. Under Replace mode a tile displaced this move may not be used to displace
+another tile in the same move, and `placeTile` refuses that directly with
+`REPLACE_CHAINING_NOT_ALLOWED`. But the same end state was reachable by a different route: place a
+tile on committed X (X returns to the hand), place another on committed Y (that square now stands
+in for Y), then drop X onto *that square*. Dropping a tile onto your own not-yet-played tile is a
+swap (DEC-017), which creates no displacement of its own — it inherits the one the square already
+stood for. So X became the tile replacing Y, which the direct route forbids.
+
+**`game-modifiers.md` section 7 contradicted itself on this**, which is why it needed deciding
+rather than fixing. One clause said a displaced tile "may only be placed on an empty cell" — and a
+square holding a pending tile is not empty, so the swap was already forbidden. Another said of
+swaps that "none of this section's restrictions apply to it", while also specifying that the
+incoming tile "becomes the one replacing it". The first forbade the move; the second permitted it
+and then produced exactly the outcome the first's parenthetical names.
+
+### Decision
+
+**The restriction protects the outcome.** A tile displaced earlier in the move may not end up
+standing in for another tile displaced this move, by any route. The chaining check therefore tests
+the displacement a placement would *carry* — created or inherited — rather than only one it
+creates, in `placeTile` and `movePendingTile` alike.
+
+Ordinary editing stays free wherever nothing is chained: a displaced tile may still be placed on
+any empty cell, and may still be swapped onto one of the player's own pending tiles whose square
+stands in for nothing.
+
+### Alternatives considered
+
+**The act, leaving the chain reachable.** Arguable on the letter of the rule: X does not take Y off
+the board — the second placement already did — X only moves onto a square already standing in for
+Y. Rejected because it leaves the two routes reaching different end states, so a player who knows
+the sequence has a reliable two-step workaround, and the rule becomes "you cannot chain directly,
+but you can by swapping" — an artefact of the implementation rather than something anybody would
+write down as a rule. It would also still have required amending the "empty cell" clause, so it
+was not the cheaper option either.
+
+**Taking the "empty cell" clause literally: no swaps at all for a displaced tile.** The simplest
+sentence, and closest to what section 7 already said. Rejected as much harsher than the rule needs
+to be, and as a real override of DEC-017 in a case with nothing to do with replacing: two of your
+own pending tiles on squares that were always empty could no longer be swapped, purely because one
+of them happened to have been displaced earlier in the move.
+
+### Rationale
+
+A rule a player can state in one sentence, with no exception for how they got there, is worth more
+than one whose reach depends on the order of gestures. "A tile you have just taken off the board
+cannot stand in for another tile you have just taken off the board" is that sentence, and it is
+what both routes now enforce.
+
+### Consequences
+
+- The set of end states a move can reach is the same whichever way the player arranges the tiles.
+- A swap that looks like pure editing is sometimes refused, so the message matters: it is
+  `REPLACE_CHAINING_NOT_ALLOWED`, the same one the direct route gives.
+- One case changes which error it reports rather than whether it is allowed. Dropping a displaced
+  tile back onto the square it came from was already refused — as `REPLACE_SAME_LETTER`, since the
+  tile would have been standing in for itself — and is now refused as chaining. It remains refused,
+  and the way to undo a replace is still to take the replacing tile off the board.
+- `game-modifiers.md` section 7 is corrected on both clauses; neither could have stayed as written
+  under any of the three options.
+
+### Revisit when
+
+A future modifier makes displacement something other than a within-turn restriction, or if play
+shows the refused swap to be confusing rather than merely surprising — in which case the answer is
+better wording at the point of refusal, not a different rule.
+
+Relevant files:
+- `src/game/engine/placeTile.ts`
+- `src/game/engine/movePendingTile.ts`

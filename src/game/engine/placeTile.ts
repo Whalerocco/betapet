@@ -8,7 +8,11 @@ import {
 import { coordinatesEqual, type Coordinate } from "../model/coordinate";
 import { createGameState, type GameState } from "../model/game";
 import type { PlayerId, TileId } from "../model/ids";
-import { addTileToRack, removeTileFromRack, type Player } from "../model/player";
+import {
+  addTileToRack,
+  removeTileFromRack,
+  type Player,
+} from "../model/player";
 import {
   createPendingMove,
   type PendingPlacedTile,
@@ -105,20 +109,8 @@ export function placeTile(
   }
 
   const displacedTileId = getTileIdAt(state.board, params.coordinate);
-  if (displacedTileId !== undefined) {
-    if (!options.allowReplace) {
-      return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
-    }
-    if (
-      tilesDisplacedThisMove(state.pendingMove?.placedTiles ?? []).has(
-        params.tileId,
-      )
-    ) {
-      return actionFailure(
-        "REPLACE_CHAINING_NOT_ALLOWED",
-        "replaceChainingNotAllowed",
-      );
-    }
+  if (displacedTileId !== undefined && !options.allowReplace) {
+    return actionFailure("INVALID_PLACEMENT", "invalidPlacement");
   }
 
   const existingPlacedTiles = state.pendingMove?.placedTiles ?? [];
@@ -140,6 +132,30 @@ export function placeTile(
    * would have nothing recording where it came from.
    */
   const replacedTileId = displacedTileId ?? swappedOutTile?.replacedTileId;
+
+  /*
+   * No replace-chaining within one move (game-modifiers.md section 7, DEC-033): a tile displaced
+   * earlier in this move may not end up standing in for another tile displaced this move.
+   *
+   * The test is the displacement the placement would *carry*, not the one it creates. Checking
+   * only the latter left the rule reachable by the back door — placing onto a square whose
+   * pending tile was already standing in for a committed tile is a swap (DEC-017), which creates
+   * no displacement of its own but inherits one, so the same end state the direct route refuses
+   * was allowed by the roundabout one (`known-bugs.md` item 7). Both routes now agree.
+   *
+   * Swapping remains free wherever nothing is being chained: onto an empty square, or onto a
+   * pending tile whose square was never occupied.
+   */
+  if (
+    replacedTileId !== undefined &&
+    tilesDisplacedThisMove(existingPlacedTiles).has(params.tileId)
+  ) {
+    return actionFailure(
+      "REPLACE_CHAINING_NOT_ALLOWED",
+      "replaceChainingNotAllowed",
+    );
+  }
+
   if (
     replacedTileId !== undefined &&
     replacesSameLetter(

@@ -164,9 +164,7 @@ describe("movePendingTile", () => {
     expect(result.state.pendingMove?.placedTiles).toEqual([
       { tileId, coordinate: secondCoordinate, representedLetter: undefined },
     ]);
-    expect(
-      currentPlayer(result.state).rack.tileIds,
-    ).toContain(secondTileId);
+    expect(currentPlayer(result.state).rack.tileIds).toContain(secondTileId);
   });
 
   it("allows moving a tile to its own current coordinate", () => {
@@ -226,9 +224,7 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
     if (!moved.success) return;
     // The displaced tile is back where it was, and out of the rack again.
     expect(isOccupied(moved.state.board, centre)).toBe(true);
-    const player = moved.state.players.find(
-      (p) => p.id === setup.playerOneId,
-    )!;
+    const player = moved.state.players.find((p) => p.id === setup.playerOneId)!;
     expect(player.rack.tileIds).not.toContain(existingTileId);
     // The moving tile is now an ordinary pending placement at the new coordinate.
     const pending = moved.state.pendingMove?.placedTiles.find(
@@ -243,7 +239,11 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
     const existingTileId = letterTile(setup.tiles, "S");
     const centre = setup.board.centreCoordinate;
     const targetCoordinate = { row: centre.row, column: centre.column + 1 };
-    const board = placeCommittedTile(setup.state.board, targetCoordinate, existingTileId);
+    const board = placeCommittedTile(
+      setup.state.board,
+      targetCoordinate,
+      existingTileId,
+    );
     const state = { ...setup.state, board };
     const [tileId] = state.players[0].rack.tileIds;
 
@@ -271,7 +271,11 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
     const existingTileId = letterTile(setup.tiles, "S");
     const centre = setup.board.centreCoordinate;
     const targetCoordinate = { row: centre.row, column: centre.column + 1 };
-    const board = placeCommittedTile(setup.state.board, targetCoordinate, existingTileId);
+    const board = placeCommittedTile(
+      setup.state.board,
+      targetCoordinate,
+      existingTileId,
+    );
     const state = { ...setup.state, board };
     const [tileId] = state.players[0].rack.tileIds;
 
@@ -310,7 +314,11 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
     const centre = setup.board.centreCoordinate;
     const firstCoordinate = centre;
     const secondCoordinate = { row: centre.row, column: centre.column + 1 };
-    let board = placeCommittedTile(setup.state.board, firstCoordinate, firstExisting);
+    let board = placeCommittedTile(
+      setup.state.board,
+      firstCoordinate,
+      firstExisting,
+    );
     board = placeCommittedTile(board, secondCoordinate, secondExisting);
     const state = { ...setup.state, board };
     const [replacingTileId] = state.players[0].rack.tileIds;
@@ -342,6 +350,86 @@ describe("movePendingTile: relocating a Replace-mode placement", () => {
     // Now try to move "S" (the previously-displaced tile, currently pending on an empty cell)
     // onto the second existing committed tile "T": this is the chaining case placeTile.ts
     // already forbids for a fresh placement, and movePendingTile must forbid it too.
+    const result = movePendingTile(
+      placedDisplacedTile.state,
+      setup.board,
+      {
+        playerId: setup.playerOneId,
+        tileId: firstExisting,
+        coordinate: secondCoordinate,
+      },
+      { allowReplace: true },
+    );
+
+    expect(result).toEqual({
+      success: false,
+      error: {
+        code: "REPLACE_CHAINING_NOT_ALLOWED",
+        messageKey: "replaceChainingNotAllowed",
+      },
+    });
+  });
+
+  /*
+   * The same chain by the roundabout route (`known-bugs.md` item 7, DEC-033): instead of moving
+   * the displaced tile onto the committed tile directly, move it onto the *pending* tile that is
+   * already standing in for that committed tile. No displacement is created — one is inherited —
+   * and the end state is the one the test above refuses, so this route refuses it too.
+   */
+  it("rejects the same chain reached by swapping onto a pending replace placement", () => {
+    const setup = buildEngineTestGame();
+    const firstExisting = letterTile(setup.tiles, "S");
+    const secondExisting = letterTile(setup.tiles, "T");
+    const centre = setup.board.centreCoordinate;
+    const secondCoordinate = { row: centre.row, column: centre.column + 1 };
+    let board = placeCommittedTile(setup.state.board, centre, firstExisting);
+    board = placeCommittedTile(board, secondCoordinate, secondExisting);
+    const state = { ...setup.state, board };
+    const [replacingTileId, otherTileId] = state.players[0].rack.tileIds;
+
+    // Displace "S" from the centre; it returns to the hand.
+    const replaced = placeTile(
+      state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: replacingTileId,
+        coordinate: centre,
+      },
+      { allowReplace: true },
+    );
+    if (!replaced.success) throw new Error("setup failed");
+
+    // Displace "T" as well, so its square now stands in for it.
+    const secondReplace = placeTile(
+      replaced.state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: otherTileId,
+        coordinate: secondCoordinate,
+      },
+      { allowReplace: true },
+    );
+    if (!secondReplace.success) throw new Error("setup failed");
+
+    // Play "S" normally on an empty cell — still allowed.
+    const emptyCoordinate = { row: centre.row + 3, column: centre.column };
+    const placedDisplacedTile = placeTile(
+      secondReplace.state,
+      setup.board,
+      [],
+      {
+        playerId: setup.playerOneId,
+        tileId: firstExisting,
+        coordinate: emptyCoordinate,
+      },
+    );
+    if (!placedDisplacedTile.success) throw new Error("setup failed");
+
+    // Moving it onto the square standing in for "T" would make "S" the tile replacing "T".
     const result = movePendingTile(
       placedDisplacedTile.state,
       setup.board,

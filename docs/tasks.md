@@ -1471,8 +1471,15 @@ scenario (two groups bridged only through an existing crossing pair of words).
 - [x] Allow a move to place a new tile on a committed board cell; move the displaced tile to the
       replacing player's rack, per `game-modifiers.md` section 7.
 - [x] Implement the same-turn replace-chaining restriction on a freshly displaced tile, and its
-      expiry after one full turn.
-- [x] Reject a replace placement targeting a cell that is part of the current pending move.
+      expiry after one full turn. **Scope settled 2026-09-14 by DEC-033:** the restriction is about
+      the outcome — a tile displaced this move may not end up standing in for another tile
+      displaced this move — so it is enforced against the displacement a placement would carry,
+      inherited as well as created, and cannot be sidestepped by swapping (`known-bugs.md` item 7).
+- [x] ~~Reject a replace placement targeting a cell that is part of the current pending move.~~
+      Superseded 2026-08-23 by **DEC-017**: dropping a tile onto one of your own not-yet-played
+      tiles is not a replace placement at all but ordinary editing, and it swaps the two in every
+      mode. The square keeps whatever displacement it stood for, which is the carry-over DEC-033
+      later had to qualify.
 - [x] Confirm multiplier squares do not reactivate on a replace placement.
 - [x] Re-derive and validate/score the words affected by the replaced cell through the normal
       pipeline, including the disputed-word flow when applicable.
