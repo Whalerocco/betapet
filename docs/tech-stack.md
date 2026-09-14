@@ -808,6 +808,12 @@ Two files in the repository root are the whole hosting-specific configuration:
   of the upload. Vercel reads this file *instead of* `.gitignore`, so the local-only directories
   have to be named in both. The generated dictionaries in `src/data` are uploaded — the
   application loads those at runtime.
+- Both ignore files carry a `*.env` catch-all, added 2026-09-14 after `vercel env pull
+  --environment=production` wrote a `prod.env` into the repository root that neither file matched:
+  the rules were `.env`, `.env.local`, `.env.*.local` and `.env*.local`, all of which require the
+  name to *start* with `.env`. The production secrets themselves came back as `[SENSITIVE]`
+  placeholders, but the file still carried a live `VERCEL_OIDC_TOKEN`. The `.vercelignore` half is
+  the more important one: a file the upload includes ends up inside the deployment.
 
 Three environment variables are set on the project, none of them in the repository:
 `DATABASE_URL` and `BETTER_AUTH_SECRET` for both Production and Preview, and `BETTER_AUTH_URL` for

@@ -9,10 +9,14 @@ out/
 dist/
 build/
 
-# Environment variables
+# Environment variables. The `*.env` line is the catch-all: the three rules above only match
+# files *starting* with `.env`, so a `prod.env` written by `vercel env pull --environment=production`
+# was not ignored — and that file carries a live VERCEL_OIDC_TOKEN even when the secrets
+# themselves come back as placeholders.
 .env
 .env.local
 .env.*.local
+*.env
 
 # Testing
 coverage/

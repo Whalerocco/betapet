@@ -15,6 +15,11 @@ scripts/dictionary-raw-sources
 test-results
 playwright-report
 
-# Local secrets and the CLI's own project link.
+# Local secrets and the CLI's own project link. `.env*.local` alone is not enough: it misses a
+# plain `.env`, and it misses a file like the `prod.env` that `vercel env pull` writes — which
+# carries a live OIDC token. Uploading either into the deployment would be worse than committing
+# it, so the catch-all is here as well as in .gitignore.
+.env
+*.env
 .env*.local
 .vercel
