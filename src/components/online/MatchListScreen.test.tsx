@@ -25,7 +25,6 @@ function renderList(matches: readonly MatchListEntry[], props = {}) {
     onDecline: vi.fn(),
     onNewMatch: vi.fn(),
     onShowFriends: vi.fn(),
-    onShowNotifications: vi.fn(),
     onSignOut: vi.fn(),
   };
   render(
@@ -150,22 +149,19 @@ describe("MatchListScreen notification badges", () => {
     MATCH_FINISHED: 0,
     FRIEND_REQUEST: 3,
   };
+  const feed = { notifications: [], counts };
 
   it("counts a rejected move among the turns that are owed", () => {
-    renderList([entry({ category: "YOUR_TURN" })], { counts });
+    renderList([entry({ category: "YOUR_TURN" })], { feed });
 
     expect(
       screen.getByRole("heading", { name: /3 matcher väntar på dig/ }),
     ).toBeVisible();
   });
 
-  it("puts what is waiting on the way into each screen", () => {
-    renderList([entry()], { counts });
+  it("puts waiting friend requests on the way into the friends screen", () => {
+    renderList([entry()], { feed });
 
-    // Everything actionable, which is deliberately not the finished matches.
-    expect(
-      screen.getByRole("button", { name: /Notiser.*7 nya notiser/ }),
-    ).toBeVisible();
     expect(
       screen.getByRole("button", { name: /Vänner.*3 vänförfrågningar/ }),
     ).toBeVisible();
@@ -175,14 +171,77 @@ describe("MatchListScreen notification badges", () => {
     renderList([entry({ category: "YOUR_TURN" })]);
 
     expect(screen.getByRole("heading", { name: "Din tur" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Notiser" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Vänner" })).toBeVisible();
+  });
+});
+
+/*
+ * The two notifications with no section of their own (T30.1). They are why the list can replace a
+ * notifications screen rather than merely outrank it: without them a rejected move is an ordinary
+ * `Din tur` row that does not say the opponent refused your word, and a result you have not seen
+ * looks like every match that ended weeks ago.
+ */
+describe("MatchListScreen row reasons", () => {
+  function feedWith(notification: Record<string, unknown>) {
+    return {
+      notifications: [
+        {
+          id: "n-1",
+          otherUserName: "Anna",
+          words: [],
+          occurredAt: "2026-09-15T10:00:00.000Z",
+          ...notification,
+        },
+      ],
+      counts: {
+        YOUR_TURN: 0,
+        MOVE_REJECTED: 0,
+        AWAITING_YOUR_REVIEW: 0,
+        MATCH_INVITATION: 0,
+        MATCH_FINISHED: 0,
+        FRIEND_REQUEST: 0,
+      },
+    };
+  }
+
+  it("says why the turn came back, in place of the rules", () => {
+    renderList([entry({ id: "m-1", category: "YOUR_TURN" })], {
+      feed: feedWith({
+        type: "MOVE_REJECTED",
+        matchId: "m-1",
+        words: ["BLUNK"],
+      }),
+    });
+
+    expect(
+      screen.getByText("Anna nekade ditt ord BLUNK. Det är din tur igen."),
+    ).toBeVisible();
+    expect(screen.queryByText(/7 brickor/)).toBeNull();
   });
 
-  it("opens the notifications screen", async () => {
-    const handlers = renderList([entry()], { counts });
+  it("gives an unseen result on the row rather than a bare opponent name", () => {
+    renderList([entry({ id: "m-1", category: "FINISHED" })], {
+      feed: feedWith({
+        type: "MATCH_FINISHED",
+        matchId: "m-1",
+        outcome: "WON",
+      }),
+    });
 
-    await userEvent.click(screen.getByRole("button", { name: /Notiser/ }));
+    expect(
+      screen.getByText("Matchen mot Anna är slut. Du vann!"),
+    ).toBeVisible();
+  });
 
-    expect(handlers.onShowNotifications).toHaveBeenCalled();
+  /*
+   * A turn that is simply owed needs no explanation — the section it is in already says it — so
+   * the row keeps showing what the match is played by.
+   */
+  it("keeps the rules on a row that needs no explaining", () => {
+    renderList([entry({ id: "m-1", category: "YOUR_TURN" })], {
+      feed: feedWith({ type: "YOUR_TURN", matchId: "m-1" }),
+    });
+
+    expect(screen.getByText(/7 brickor/)).toBeVisible();
   });
 });

@@ -73,18 +73,39 @@ export const NO_NOTIFICATIONS: NotificationFeed = {
 };
 
 /**
- * How many things the user is actually being asked to do.
+ * How many *matches* are waiting on this player, optionally ignoring one.
  *
- * A finished match is deliberately not counted: it is worth telling somebody about once, but it
- * asks nothing of them, and a badge that never clears until they open the match would say the
- * same thing as one that does — while being wrong about what it means.
+ * What the badge on the in-match "Mina matcher" button counts: the button leads elsewhere, so
+ * the match currently on screen must not be part of its number — "3 väntar" while one of the
+ * three is the board in front of you would be a lie about what is behind the button.
+ *
+ * Friend requests are excluded for the same reason they are counted separately on the list: they
+ * are not matches, and the friends screen carries its own badge for them.
  */
-export function actionableCount(counts: NotificationCounts): number {
-  return (
-    counts.YOUR_TURN +
-    counts.MOVE_REJECTED +
-    counts.AWAITING_YOUR_REVIEW +
-    counts.MATCH_INVITATION +
-    counts.FRIEND_REQUEST
-  );
+export function matchesWaitingCount(
+  notifications: readonly Notification[],
+  exceptMatchId?: string,
+): number {
+  return notifications.filter(
+    (notification) =>
+      notification.matchId !== undefined &&
+      notification.matchId !== exceptMatchId &&
+      notification.type !== "MATCH_FINISHED",
+  ).length;
+}
+
+/**
+ * A count as a badge shows it. Anything past 99 is "99+": the exact number stops being
+ * information long before then, and a four-character badge distorts the control it sits on.
+ */
+export function formatBadgeCount(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
+/** The notification about a given match, when there is one — at most one per match (T30.1). */
+export function notificationForMatch(
+  notifications: readonly Notification[],
+  matchId: string,
+): Notification | undefined {
+  return notifications.find((notification) => notification.matchId === matchId);
 }

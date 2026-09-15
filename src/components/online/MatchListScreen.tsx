@@ -4,11 +4,15 @@ import type {
   MatchListCategory,
   MatchListEntry,
 } from "../../application/online/matchApi";
-import { describeBadge } from "../../application/online/notificationCopy";
 import {
-  actionableCount,
+  describeBadge,
+  describeNotification,
+} from "../../application/online/notificationCopy";
+import {
   NO_NOTIFICATIONS,
+  notificationForMatch,
   type NotificationCounts,
+  type NotificationFeed,
 } from "../../application/online/notificationsApi";
 import { describeMatchRules } from "../game/modifierCopy";
 
@@ -106,13 +110,14 @@ export interface MatchListScreenProps {
   readonly onNewMatch: () => void;
   /** Opens the friends screen, which is the other way to start a match (T28.3). */
   readonly onShowFriends: () => void;
-  /** Opens the notifications screen (T30.1). */
-  readonly onShowNotifications: () => void;
   /**
-   * What is waiting on this player, which the badges are drawn from (T30.1). Absent until the
-   * feed has been fetched, and then nothing is badged rather than everything.
+   * What is waiting on this player (T30.1) — the list and its counts together, as the endpoint
+   * returns them, so a badge and the row it sits above cannot be counted two different ways. The
+   * section badges come from the counts; a row whose match needs explaining takes its second line
+   * from the list. Absent until the feed has been fetched, and then nothing is badged rather than
+   * everything.
    */
-  readonly counts?: NotificationCounts;
+  readonly feed?: NotificationFeed;
   readonly onSignOut: () => void;
   readonly busy?: boolean;
   readonly error?: string;
@@ -126,8 +131,7 @@ export function MatchListScreen({
   onDecline,
   onNewMatch,
   onShowFriends,
-  onShowNotifications,
-  counts = NO_NOTIFICATIONS.counts,
+  feed = NO_NOTIFICATIONS,
   onSignOut,
   busy,
   error,
@@ -137,21 +141,32 @@ export function MatchListScreen({
     entries: matches.filter((match) => match.category === section.category),
   })).filter((section) => section.entries.length > 0);
 
-  const waiting = actionableCount(counts);
+  const counts: NotificationCounts = feed.counts;
+
+  /*
+   * What a row says under the opponent's name.
+   *
+   * Normally the rules the match is played by (T28.4). But two of the six notifications have no
+   * section of their own to live in, and this is where they surface instead of on a screen of
+   * their own: a rejected move is an ordinary `Din tur` row that would otherwise not say the
+   * opponent refused your word, and a result you have not seen looks like every match that ended
+   * weeks ago. Everything else the list already says by which section the row is in, so repeating
+   * it here would be noise.
+   */
+  function secondLine(match: MatchListEntry): string {
+    const notification = notificationForMatch(feed.notifications, match.id);
+    return notification &&
+      (notification.type === "MOVE_REJECTED" ||
+        notification.type === "MATCH_FINISHED")
+      ? describeNotification(notification)
+      : describeMatchRules(match.configuration);
+  }
 
   return (
     <div className={styles.screen}>
       <div className={styles.header}>
         <h1>Mina matcher</h1>
         <span className={styles.headerActions}>
-          <button
-            type="button"
-            className={styles.button}
-            onClick={onShowNotifications}
-          >
-            Notiser
-            <Badge count={waiting} singular="ny notis" plural="nya notiser" />
-          </button>
           <button
             type="button"
             className={styles.button}
@@ -212,9 +227,7 @@ export function MatchListScreen({
                     <span className={styles.opponent}>
                       {match.opponentName}
                     </span>
-                    <span className={styles.rules}>
-                      {describeMatchRules(match.configuration)}
-                    </span>
+                    <span className={styles.rules}>{secondLine(match)}</span>
                   </span>
                   <span className={styles.invitationActions}>
                     <button
@@ -254,9 +267,7 @@ export function MatchListScreen({
                     <span className={styles.opponent}>
                       {match.opponentName}
                     </span>
-                    <span className={styles.rules}>
-                      {describeMatchRules(match.configuration)}
-                    </span>
+                    <span className={styles.rules}>{secondLine(match)}</span>
                   </span>
                 </button>
               ),

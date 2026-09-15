@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  describeBadge,
-  describeNotification,
-  describeNotificationAction,
-} from "./notificationCopy";
+import { describeBadge, describeNotification } from "./notificationCopy";
 import type { Notification } from "./notificationsApi";
 
 function notification(overrides: Partial<Notification> = {}): Notification {
@@ -118,23 +114,6 @@ describe("describeNotification", () => {
         }),
       ),
     ).toBe("Anna (@anna) vill bli vän.");
-  });
-});
-
-describe("describeNotificationAction", () => {
-  it("names the button for what it leads to", () => {
-    expect(describeNotificationAction(notification())).toBe("Spela");
-    expect(
-      describeNotificationAction(notification({ type: "MOVE_REJECTED" })),
-    ).toBe("Spela");
-    expect(
-      describeNotificationAction(
-        notification({ type: "AWAITING_YOUR_REVIEW" }),
-      ),
-    ).toBe("Granska");
-    expect(
-      describeNotificationAction(notification({ type: "FRIEND_REQUEST" })),
-    ).toBe("Till vänner");
   });
 });
 

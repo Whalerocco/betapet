@@ -43,13 +43,13 @@ function snapshotFor(
   };
 }
 
-function renderScreen(snapshot: MatchSnapshot) {
+function renderScreen(snapshot: MatchSnapshot, props = {}) {
   const handlers = {
     onAction: vi.fn(),
     onRefresh: vi.fn(),
     onExit: vi.fn(),
   };
-  render(<OnlineGameScreen snapshot={snapshot} {...handlers} />);
+  render(<OnlineGameScreen snapshot={snapshot} {...handlers} {...props} />);
   return handlers;
 }
 
@@ -517,5 +517,68 @@ describe("OnlineGameScreen", () => {
      */
     const rack = screen.getByRole("group", { name: "Din hand" });
     expect(within(rack).getAllByLabelText(/bricka/i)).toHaveLength(6);
+  });
+});
+
+/*
+ * The way back says how much is behind it (T30.1). This replaced a notifications screen of its
+ * own: the match list already shows everything the screen did, so the only thing missing while a
+ * match is open was a count.
+ */
+describe("OnlineGameScreen: what is waiting elsewhere", () => {
+  function waiting(matchId: string, type = "YOUR_TURN") {
+    return {
+      id: `n-${matchId}`,
+      type,
+      otherUserName: "Anna",
+      matchId,
+      words: [],
+      occurredAt: "2026-09-15T10:00:00.000Z",
+    } as const;
+  }
+
+  it("badges the way back with the other matches that need the player", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot, {
+      notifications: [waiting("other-1"), waiting("other-2")],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: /Mina matcher.*2 andra matcher väntar på dig/,
+      }),
+    ).toBeVisible();
+  });
+
+  /* The button leads away from this match, so counting it would misdescribe what is behind it. */
+  it("leaves this match out of the count", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot, {
+      notifications: [waiting(snapshot.matchId), waiting("other-1")],
+    });
+
+    expect(
+      screen.getByRole("button", {
+        name: /Mina matcher.*1 annan match väntar på dig/,
+      }),
+    ).toBeVisible();
+  });
+
+  it("shows no badge when this is the only match waiting", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot, { notifications: [waiting(snapshot.matchId)] });
+
+    expect(screen.getByRole("button", { name: "Mina matcher" })).toBeVisible();
+  });
+
+  it("caps a large count at 99+", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot, {
+      notifications: Array.from({ length: 120 }, (_, i) =>
+        waiting(`other-${i}`),
+      ),
+    });
+
+    expect(screen.getByText("99+")).toBeVisible();
   });
 });

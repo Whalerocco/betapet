@@ -2903,11 +2903,25 @@ it is no longer your turn — or when notifications need to reach the player out
 or push, `online-multiplayer.md` section 42). Either one needs stored events, and this entry
 should be marked SUPERSEDED rather than worked around.
 
+**Surface revised 2026-09-15, data model unchanged.** This entry's decision was the model; the
+surface chosen alongside it was "badges plus a notifications screen". In use the project owner
+found the screen redundant — the match list already sorts matches into the piles the feed was
+reporting — and it is removed. What it existed for is not: the two notifications with no section
+of their own now appear on the match row itself, in place of the rules line, so `Din tur` against
+Anna reads "Anna nekade ditt ord BLUNK. Det är din tur igen." and an unseen result says what it
+was. The in-match `Mina matcher` button carries a count of the other matches waiting (capped at
+`99+`, this match excluded, since the button leads away from it).
+
+Everything above about the derivation stands unchanged — the endpoint, the seen marker, the six
+types and the per-viewer reading are what feed the badges and the row lines. The screen was one
+of two readings of the same data, and the cheaper reading turned out to be enough.
+
 Relevant files:
 - `src/server/notifications.ts`
 - `src/server/db/schema/match.ts`
 - `src/application/online/notificationCopy.ts`
-- `src/components/online/NotificationsScreen.tsx`
+- `src/components/online/MatchListScreen.tsx`
+- `src/components/online/OnlineGameScreen.tsx`
 
 ---
 

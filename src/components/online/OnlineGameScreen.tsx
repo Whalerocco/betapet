@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../../application/online/chatApi";
+import { describeBadge } from "../../application/online/notificationCopy";
+import {
+  formatBadgeCount,
+  matchesWaitingCount,
+  type Notification,
+} from "../../application/online/notificationsApi";
 import type { TurnAction } from "../../application/online/matchApi";
 import type { MatchSnapshot } from "../../application/online/matchApi";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
@@ -45,6 +51,13 @@ export interface OnlineGameScreenProps {
    * it is stored beside the game (`online-multiplayer.md` section 39) — the screen is where the
    * two are put next to each other, and that is the only place they meet.
    */
+  /**
+   * What is waiting elsewhere (T30.1), so the way back says how much. The count is taken here
+   * rather than passed as a number because this screen is the only place that knows which match
+   * to leave out of it — its own.
+   */
+  readonly notifications?: readonly Notification[];
+
   readonly chatMessages?: readonly ChatMessage[];
   readonly chatMaxLength?: number;
   /** Which messages are the viewer's own; a user id, not the engine's player id. */
@@ -72,6 +85,7 @@ export function OnlineGameScreen({
   onExit,
   busy,
   error,
+  notifications = [],
   chatMessages,
   chatMaxLength,
   viewerUserId,
@@ -313,6 +327,12 @@ export function OnlineGameScreen({
     );
   }
 
+  /*
+   * Other matches needing this player — this one excluded, since the button leads away from it
+   * (T30.1). A finished match is not counted: it asks nothing of anybody.
+   */
+  const waitingElsewhere = matchesWaitingCount(notifications, snapshot.matchId);
+
   function statusText(): string {
     if (mustReview)
       return "Motståndaren vill spela ett ord du inte känner igen.";
@@ -327,6 +347,20 @@ export function OnlineGameScreen({
       <div className={styles.header}>
         <button type="button" className={styles.button} onClick={onExit}>
           Mina matcher
+          {waitingElsewhere > 0 && (
+            <>
+              <span className={styles.badge} aria-hidden="true">
+                {formatBadgeCount(waitingElsewhere)}
+              </span>
+              <span className={styles.badgeLabel}>
+                {describeBadge(
+                  waitingElsewhere,
+                  "annan match väntar på dig",
+                  "andra matcher väntar på dig",
+                )}
+              </span>
+            </>
+          )}
         </button>
         <p className={`${styles.status} ${myTurn ? "" : styles.waiting}`}>
           {statusText()}

@@ -59,23 +59,6 @@ export function describeNotification(notification: Notification): string {
   }
 }
 
-/** What the button on the notification does, named for what it leads to. */
-export function describeNotificationAction(notification: Notification): string {
-  switch (notification.type) {
-    case "YOUR_TURN":
-    case "MOVE_REJECTED":
-      return "Spela";
-    case "AWAITING_YOUR_REVIEW":
-      return "Granska";
-    case "MATCH_INVITATION":
-      return "Visa inbjudan";
-    case "MATCH_FINISHED":
-      return "Visa resultat";
-    case "FRIEND_REQUEST":
-      return "Till vänner";
-  }
-}
-
 /**
  * The count a badge carries, phrased for a screen reader.
  *

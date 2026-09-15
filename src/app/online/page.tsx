@@ -50,7 +50,6 @@ import {
   type NewMatchOpponent,
   type NewMatchValues,
 } from "../../components/online/NewMatchScreen";
-import { NotificationsScreen } from "../../components/online/NotificationsScreen";
 import { OnlineGameScreen } from "../../components/online/OnlineGameScreen";
 import { SignInScreen } from "../../components/online/SignInScreen";
 
@@ -81,9 +80,8 @@ export default function OnlinePage() {
   /** Who a new match is being set up against, while the rules are chosen (T28.4). */
   const [newMatch, setNewMatch] = useState<NewMatchOpponent | undefined>();
 
-  /** What is waiting on this player: the badges, and the screen behind them (T30.1). */
+  /** What is waiting on this player: the badges, and the reasons on the rows (T30.1). */
   const [feed, setFeed] = useState<NotificationFeed>(NO_NOTIFICATIONS);
-  const [showNotifications, setShowNotifications] = useState(false);
 
   /** The open match's conversation, fetched beside the match because it is stored beside it. */
   const [chat, setChat] = useState<ChatMessages | undefined>();
@@ -165,9 +163,9 @@ export default function OnlinePage() {
   }, [session]);
 
   /*
-   * What is waiting is polled while no match is open (T30.1). An open match is already polling
-   * the one thing its player is looking at, and the badges behind it are not being read, so the
-   * two never run at once.
+   * What is waiting is polled while no match is open (T30.1) — slowly, because the list is what
+   * somebody leaves open in a tab. An open match refreshes the same feed on its own faster beat
+   * (its "Mina matcher" button is badged with it), so the two never run at once.
    */
   useEffect(() => {
     if (!session || openMatch) return;
@@ -202,6 +200,10 @@ export default function OnlinePage() {
       // than on two timers drifting past each other.
       void fetchMessages(openMatch.matchId).then((result) => {
         if (!cancelled && result.ok) setChat(result.value);
+      });
+      // And what is waiting elsewhere, which the way back is now badged with (T30.1).
+      void fetchNotifications().then((result) => {
+        if (!cancelled && result.ok) setFeed(result.value);
       });
     }, POLL_INTERVAL_MS);
 
@@ -275,6 +277,7 @@ export default function OnlinePage() {
             if (fresh) setOpenMatch(fresh);
           })();
         }}
+        notifications={feed.notifications}
         onExit={() => {
           setOpenMatch(undefined);
           setChat(undefined);
@@ -334,37 +337,6 @@ export default function OnlinePage() {
         onCancel={() => {
           setNewMatch(undefined);
           setError(undefined);
-        }}
-      />
-    );
-  }
-
-  if (showNotifications) {
-    return (
-      <NotificationsScreen
-        notifications={feed.notifications}
-        busy={busy}
-        error={error}
-        onOpenMatch={(matchId) => {
-          void (async () => {
-            setShowNotifications(false);
-            await openMatchById(matchId);
-          })();
-        }}
-        onShowFriends={() => {
-          void (async () => {
-            setError(undefined);
-            const graph = await run(fetchSocialGraph());
-            if (graph) {
-              setShowNotifications(false);
-              setFriends(graph);
-            }
-          })();
-        }}
-        onBack={() => {
-          setShowNotifications(false);
-          setError(undefined);
-          void refreshList();
         }}
       />
     );
@@ -435,7 +407,7 @@ export default function OnlinePage() {
     <MatchListScreen
       playerName={session.user.name}
       matches={matches}
-      counts={feed.counts}
+      feed={feed}
       busy={busy}
       error={error}
       onOpen={(matchId) => {
@@ -467,13 +439,6 @@ export default function OnlinePage() {
           if (graph) setFriends(graph);
         })();
       }}
-      onShowNotifications={() => {
-        void (async () => {
-          setError(undefined);
-          setShowNotifications(true);
-          await refreshFeed();
-        })();
-      }}
       onSignOut={() => {
         void (async () => {
           await signOut();
@@ -482,7 +447,6 @@ export default function OnlinePage() {
           setFriends(undefined);
           setNewMatch(undefined);
           setFeed(NO_NOTIFICATIONS);
-          setShowNotifications(false);
           setChat(undefined);
         })();
       }}

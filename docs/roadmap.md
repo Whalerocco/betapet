@@ -1332,8 +1332,11 @@ Users can tell what requires their attention without repeatedly opening every ma
 **Met for the notifications half (T30.1, DEC-031).** `GET /api/notifications` derives, per viewer,
 everything waiting on them — an invitation, a friend request, a turn, a word to review, a move the
 opponent rejected, a finished game — from the match columns, the friendship rows and the game's own
-history, with no notification table. `NotificationsScreen` lists them as sentences and the match
-list carries the counts as badges. Correctness does not depend on any of it: the feed is a second
+history, with no notification table. The match list carries the counts as badges and gives the two
+notifications with no section of their own — a rejected move, an unseen result — as the row's own
+second line; the in-match `Mina matcher` button is badged with what is waiting elsewhere. A
+separate notifications screen was built first and removed on 2026-09-15 as redundant once the list
+said the same things (DEC-031). Correctness does not depend on any of it: the feed is a second
 reading of authoritative state, never a record that could disagree with it.
 
 Realtime (T30.2) is deliberately not built. The match list polls the feed once a minute and an

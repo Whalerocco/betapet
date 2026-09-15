@@ -2258,10 +2258,25 @@ taken, with nothing saying what happened to it. The feed says "Anna nekade ditt 
 tur igen." A finished match has the same problem in reverse: it sits in `Avslutade` looking exactly
 like every match that ended weeks ago.
 
-Two surfaces, one derivation. The match list's section headings and its `Notiser` and `Vänner`
-buttons carry counts from the same call that fills the screen, so a badge and the list behind it
-cannot disagree. The count is deliberately not the number of rows in a section: every match in
-`Avslutade` is finished, and only the unseen ones are news.
+Two surfaces, one derivation. The match list's section headings and its `Vänner` button carry
+counts from the same call that fills the rows, so a badge and the list behind it cannot disagree.
+The count is deliberately not the number of rows in a section: every match in `Avslutade` is
+finished, and only the unseen ones are news.
+
+**Revised 2026-09-15, after the project owner found the notifications screen redundant in use.**
+It is removed. The judgement was right about four of the six — a turn, a word to review, an
+invitation and a friend request are all visible as sections or badges on the list — so a screen
+repeating them earned nothing. The other two had no home, which is what the screen had been for,
+and they moved onto the match row rather than being lost: a row takes its second line from the
+feed when the match is one whose turn came back from a rejection ("Anna nekade ditt ord BLUNK. Det
+är din tur igen.") or one whose result has not been seen, and otherwise keeps showing the rules.
+The list is now genuinely the same information, which is what makes the screen redundant rather
+than merely outranked.
+
+While a match is open the list is not on screen, so the `Mina matcher` button that leads back to it
+carries a count of the matches waiting elsewhere — capped at `99+`, and excluding the match being
+played, since the button leads away from that one. `matchesWaitingCount` and `formatBadgeCount`
+own both rules and are tested directly.
 
 No Swedish wording is decided on the server. A notification arrives as a type and the facts behind
 it, and `notificationCopy.ts` turns it into a sentence (`architecture.md` section 25).
