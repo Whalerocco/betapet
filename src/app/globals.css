@@ -25,6 +25,10 @@
   --tile-displaced-background: #dceafa;
   --tile-displaced-border: #3a6ea5;
   --tile-displaced-foreground: #16304d;
+  /* A tile in a proposed move awaiting the opponent's answer (Tile.module.css .underReview). */
+  --tile-review-background: #e4e0d6;
+  --tile-review-border: #9c958a;
+  --tile-review-foreground: #5b564d;
   --accent: #3a6ea5;
   --accent-hover: #2f5c8a;
   --accent-foreground: #ffffff;
@@ -104,6 +108,9 @@
     --tile-displaced-background: #1c3a4d;
     --tile-displaced-border: #5a9bd6;
     --tile-displaced-foreground: #d7e8fb;
+    --tile-review-background: #2c2c29;
+    --tile-review-border: #6b665e;
+    --tile-review-foreground: #b6b1a6;
     --accent: #5a9bd6;
     --accent-hover: #78addf;
     --accent-foreground: #0a0a0a;

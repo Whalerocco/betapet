@@ -12,6 +12,11 @@ export interface BoardCellProps {
     readonly isPending: boolean;
     readonly isBlank: boolean;
     readonly isDragSource?: boolean;
+    /**
+     * This tile belongs to a move proposed to the opponent and awaiting their answer
+     * (ui-design.md sections 26-27): greyed out and inert for as long as that wait lasts.
+     */
+    readonly isUnderReview?: boolean;
   };
   readonly isPlaceable: boolean;
   /** The total score the current pending move would receive if submitted now, shown as a small
@@ -77,11 +82,13 @@ export function BoardCell({
      */
     const onClick =
       onReplace ?? (tile.isPending ? onPendingTileClick : undefined);
-    const ariaLabel = onReplace
-      ? `Ersätt bricka ${tile.letter}`
-      : tile.isPending
-        ? `Pending bricka ${tile.letter}, tryck för att redigera`
-        : undefined;
+    const ariaLabel = tile.isUnderReview
+      ? `Föreslagen bricka ${tile.letter}, väntar på svar`
+      : onReplace
+        ? `Ersätt bricka ${tile.letter}`
+        : tile.isPending
+          ? `Pending bricka ${tile.letter}, tryck för att redigera`
+          : undefined;
     return (
       <div
         className={`${styles.cell} ${styles[multiplier]} ${dragOverClass}`}
@@ -97,6 +104,7 @@ export function BoardCell({
           variant={tile.isPending ? "pending" : "committed"}
           isBlank={tile.isBlank}
           isDragSource={tile.isDragSource}
+          isUnderReview={tile.isUnderReview}
           onClick={onClick}
           onPointerDown={tile.isPending ? onPendingTilePointerDown : undefined}
           ariaLabel={ariaLabel}

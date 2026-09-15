@@ -772,7 +772,10 @@ engine, so the middle layer had to be written a second time against a view. The 
 third row exists at all, and it is where every hot-seat/online divergence has come from. The
 pattern held for each one found in play: Crisscross worked online on the day it shipped (engine),
 the Android tile text was fixed for both at once (component), while Replace mode, the shuffle
-button, the lost tiles and the missing mode selection were all the third row (T28.4-T28.7).
+button, the lost tiles and the missing mode selection were all the third row (T28.4-T28.7). So was
+the proposed word being invisible to the reviewer online (`known-bugs.md` item 17): both screens
+render the same `Board`, but *what to hand it as the pending move* is the middle layer, and online
+handed it this client's own arrangement — which for the reviewer is empty.
 
 So, when changing `GameScreen` or `GameScreen.module.css`, **say whether the change applies online
 too** — and if it does, make it in both, or extract the part that can be shared, as `ShuffleButton`

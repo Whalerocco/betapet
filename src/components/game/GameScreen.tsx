@@ -282,6 +282,9 @@ export function GameScreen({
               tiles={state.tiles}
               pendingPlacedTiles={pendingMove?.placedTiles ?? []}
               canPlaceSelectedTile={false}
+              /* The placement stays on the board so the reviewer can inspect it (ui-design.md
+                 section 27), greyed out and inert: it is the decision's, not either player's. */
+              pendingMoveUnderReview
               onPlaceAt={() => {}}
               onPendingTileClick={() => {}}
             />

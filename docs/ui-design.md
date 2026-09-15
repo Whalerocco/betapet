@@ -287,6 +287,10 @@ lasts, and its accessible name gains an `ersatt bricka` suffix so the state does
 colour alone. Once the move is committed the restriction lifts, and the tile is drawn like any
 other by the time that player next sees the rack.
 
+A pending tile has one further state, at the other end of the turn: a move that has been proposed
+to the opponent and is waiting for their answer is greyed out on the board for both players, since
+nobody may edit it while the decision stands. See section 27.
+
 ---
 
 # 11. Tile interaction
@@ -724,6 +728,17 @@ The opponent may see:
 - Score preview
 - Player scores
 - Who proposed the move
+
+The proposed tiles stay on the board, in the placement being decided about, and are **greyed out**
+for the length of the wait: the reviewer has to be able to tell which tiles the question is about,
+and the placement is neither player's to edit until the decision is made. The dashed pending
+outline is kept underneath, so "not committed yet" is still carried by shape as well as by colour,
+and the tiles are inert — a tap does not pick one back up, and they cannot be dragged. The
+accessible name says so too: `Föreslagen bricka <bokstav>, väntar på svar`.
+
+The proposing player's own board is greyed the same way while they wait for the answer, for the
+same reason: the move has left their hands. Once the move is rejected it becomes an ordinary
+editable pending placement again (section 30).
 
 The opponent must not see the proposing player's rack.
 

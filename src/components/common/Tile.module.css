@@ -96,6 +96,27 @@ button.tile.displaced:hover:not(:disabled) {
   );
 }
 
+/*
+ * A tile in a move that has been proposed to the opponent and is waiting for their answer
+ * (ui-design.md sections 26-27). It is greyed out for the length of that wait: the placement
+ * belongs to the decision now, not to either player's hand, and the reviewer has to be able to
+ * see which tiles they are being asked about. The dashed pending border is kept underneath, so
+ * "not committed yet" is still carried by shape as well as by colour.
+ */
+.tile.underReview {
+  background: linear-gradient(
+    155deg,
+    var(--tile-review-background),
+    color-mix(
+      in srgb,
+      var(--tile-review-background) 88%,
+      var(--tile-review-border)
+    )
+  );
+  border-color: var(--tile-review-border);
+  color: var(--tile-review-foreground);
+}
+
 .tile.selected {
   border: 2px solid var(--tile-selected-border);
   box-shadow: var(--shadow-md);

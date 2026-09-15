@@ -27,6 +27,13 @@ export interface BoardProps {
    * still rejects a same-letter or chained replace and the error surfaces as usual.
    */
   readonly replaceModeActive?: boolean;
+  /**
+   * True while the pending move has been proposed to the opponent and is waiting for their answer
+   * (ui-design.md sections 26-27). Its tiles stay on the board — the reviewer has to see the
+   * placement they are deciding about, and so does the proposer while they wait — but are drawn
+   * greyed out and are inert for both players, since nobody may edit a move under review.
+   */
+  readonly pendingMoveUnderReview?: boolean;
   readonly onPlaceAt: (coordinate: Coordinate) => void;
   readonly onPendingTileClick: (tileId: TileId) => void;
   /** Starts a drag gesture for a pending tile already on the board (roadmap.md Milestone 4.1). */
@@ -55,6 +62,7 @@ export function Board({
   pendingPlacedTiles,
   canPlaceSelectedTile,
   replaceModeActive = false,
+  pendingMoveUnderReview = false,
   onPlaceAt,
   onPendingTileClick,
   onPendingTilePointerDown,
@@ -166,6 +174,7 @@ export function Board({
                 isPending: boolean;
                 isBlank: boolean;
                 isDragSource?: boolean;
+                isUnderReview?: boolean;
               }
             | undefined;
           if (committedTileId) {
@@ -185,6 +194,7 @@ export function Board({
               isPending: true,
               isBlank: engineTile.kind === "BLANK",
               isDragSource: pendingTile.tileId === draggingTileId,
+              isUnderReview: pendingMoveUnderReview,
             };
           }
 
@@ -199,6 +209,11 @@ export function Board({
           const isSwapTarget = pendingTile !== undefined;
           const isTapTarget =
             canPlaceSelectedTile && (isReplaceTarget || isSwapTarget);
+          // A move under review belongs to the opponent's decision, so none of its tiles answer
+          // to a tap or a drag until that decision is made.
+          const editablePendingTile = pendingMoveUnderReview
+            ? undefined
+            : pendingTile;
 
           return (
             <BoardCell
@@ -217,14 +232,17 @@ export function Board({
               onPlace={() => onPlaceAt(coordinate)}
               onReplace={isTapTarget ? () => onPlaceAt(coordinate) : undefined}
               onPendingTileClick={
-                pendingTile
-                  ? () => onPendingTileClick(pendingTile.tileId)
+                editablePendingTile
+                  ? () => onPendingTileClick(editablePendingTile.tileId)
                   : undefined
               }
               onPendingTilePointerDown={
-                pendingTile && onPendingTilePointerDown
+                editablePendingTile && onPendingTilePointerDown
                   ? (event) =>
-                      onPendingTilePointerDown(pendingTile.tileId, event)
+                      onPendingTilePointerDown(
+                        editablePendingTile.tileId,
+                        event,
+                      )
                   : undefined
               }
             />

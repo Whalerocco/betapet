@@ -9,6 +9,7 @@ import {
   requiresPlayerConfirmation,
   waitingForOpponentApproval,
 } from "../../game/model/turnState";
+import { tileLetter } from "../../game/model/tile";
 import { toPlayerGameView } from "../../game/view/playerGameView";
 
 import { OnlineGameScreen } from "./OnlineGameScreen";
@@ -580,5 +581,86 @@ describe("OnlineGameScreen: what is waiting elsewhere", () => {
     });
 
     expect(screen.getByText("99+")).toBeVisible();
+  });
+});
+
+/*
+ * Reported in play (known-bugs item 17): the reviewer could not see the word they were being
+ * asked about. The board drew this client's own local arrangement, which for the reviewer is
+ * empty — the server's pending move belongs to the opponent.
+ */
+describe("OnlineGameScreen: the proposed word on the board", () => {
+  /** August has proposed an unknown word with two tiles at the centre; Anna must answer. */
+  function proposed(): GameState {
+    const state = onTurn(game(), 0);
+    const proposer = state.players[0].id;
+    const reviewer = state.players[1].id;
+    /*
+     * Two ordinary letters, not simply the first two in the rack: the bag is shuffled, so a rack
+     * can open with a blank, and a blank placed without a chosen letter draws no letter at all.
+     */
+    const [first, second] = state.players[0].rack.tileIds.filter(
+      (tileId) => state.tiles[tileId]!.kind === "LETTER",
+    );
+    const placedIds = new Set([first, second]);
+
+    return {
+      ...state,
+      players: [
+        {
+          ...state.players[0],
+          rack: {
+            tileIds: state.players[0].rack.tileIds.filter(
+              (tileId) => !placedIds.has(tileId),
+            ),
+          },
+        },
+        state.players[1],
+      ] as GameState["players"],
+      turnState: waitingForOpponentApproval(proposer, reviewer),
+      pendingMove: {
+        playerId: proposer,
+        placedTiles: [
+          { tileId: first!, coordinate: { row: 7, column: 7 } },
+          { tileId: second!, coordinate: { row: 7, column: 8 } },
+        ],
+        status: "WAITING_FOR_OPPONENT",
+        wordResults: [
+          { status: "UNKNOWN_WORD", word: "GRÖMP", normalizedWord: "GRÖMP" },
+        ],
+      },
+    };
+  }
+
+  it("shows the reviewer the proposed tiles, greyed out and inert", () => {
+    const state = proposed();
+    renderScreen(snapshotFor(state, 1));
+
+    const [first, second] = state.pendingMove!.placedTiles;
+    for (const [placed, testId] of [
+      [first!, "cell-7,7"],
+      [second!, "cell-7,8"],
+    ] as const) {
+      const letter = tileLetter(state.tiles[placed.tileId]!) ?? "";
+      const tile = within(screen.getByTestId(testId)).getByLabelText(
+        `Föreslagen bricka ${letter}, väntar på svar`,
+      );
+      expect(tile.className).toContain("underReview");
+      // Not a control: the reviewer answers with Godkänn/Neka, not by editing the placement.
+      expect(tile.tagName).toBe("DIV");
+    }
+  });
+
+  it("greys the proposer's own tiles out too while the answer is pending", () => {
+    const state = proposed();
+    renderScreen(snapshotFor(state, 0));
+
+    expect(screen.getByText("Väntar på motståndarens svar.")).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /^Pending bricka/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getAllByLabelText(/^Föreslagen bricka .*, väntar på svar$/),
+    ).toHaveLength(2);
   });
 });

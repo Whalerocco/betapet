@@ -191,3 +191,69 @@ describe("Board: Replace mode targets", () => {
     expect(onPlaceAt).not.toHaveBeenCalled();
   });
 });
+
+describe("Board: a move under review", () => {
+  /** One pending "B" at the centre, rendered with whatever review state the test wants. */
+  function renderPendingTile(props: Partial<Parameters<typeof Board>[0]> = {}) {
+    const tiles: Record<TileId, Tile> = {};
+    const pendingId = createTileId();
+    tiles[pendingId] = createLetterTile(pendingId, "B", 1);
+
+    const result = render(
+      <Board
+        boardDefinition={testBoard()}
+        boardState={createBoardState()}
+        tiles={tiles}
+        pendingPlacedTiles={[
+          { tileId: pendingId, coordinate: { row: 2, column: 2 } },
+        ]}
+        canPlaceSelectedTile={false}
+        onPlaceAt={() => {}}
+        onPendingTileClick={() => {}}
+        {...props}
+      />,
+    );
+    return { ...result, pendingId };
+  }
+
+  it("keeps the proposed tiles on the board, named as awaiting an answer", () => {
+    renderPendingTile({ pendingMoveUnderReview: true });
+
+    expect(screen.getByTestId("cell-2,2")).toHaveTextContent("B");
+    expect(
+      screen.getByLabelText("Föreslagen bricka B, väntar på svar"),
+    ).toBeInTheDocument();
+  });
+
+  it("makes them inert: no pick-it-back-up tap and no drag", () => {
+    const onPendingTileClick = vi.fn();
+    const onPendingTilePointerDown = vi.fn();
+    renderPendingTile({
+      pendingMoveUnderReview: true,
+      onPendingTileClick,
+      onPendingTilePointerDown,
+    });
+
+    // Not a button at all while the decision is pending.
+    expect(
+      screen.queryByLabelText(/tryck för att redigera/),
+    ).not.toBeInTheDocument();
+    const tile = screen.getByLabelText("Föreslagen bricka B, väntar på svar");
+    fireEvent.click(tile);
+    fireEvent.pointerDown(tile);
+
+    expect(onPendingTileClick).not.toHaveBeenCalled();
+    expect(onPendingTilePointerDown).not.toHaveBeenCalled();
+  });
+
+  it("leaves an ordinary pending move editable", () => {
+    const onPendingTileClick = vi.fn();
+    const { pendingId } = renderPendingTile({ onPendingTileClick });
+
+    fireEvent.click(
+      screen.getByLabelText("Pending bricka B, tryck för att redigera"),
+    );
+
+    expect(onPendingTileClick).toHaveBeenCalledWith(pendingId);
+  });
+});

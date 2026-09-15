@@ -150,6 +150,22 @@ export function OnlineGameScreen({
   const awaitingOpponentReview =
     turnState.type === "WAITING_FOR_OPPONENT_APPROVAL" &&
     turnState.proposingPlayerId === viewer;
+  const moveUnderReview = mustReview || awaitingOpponentReview;
+
+  /*
+   * What the board draws: the pending move itself while one is under review, and otherwise this
+   * client's own local arrangement.
+   *
+   * The distinction matters only for the reviewer, and that is where it was missing (item 17 in
+   * `known-bugs.md`). `placements` is seeded from the server's pending move only when the move is
+   * the viewer's own, so the reviewer's board was empty of exactly the tiles they were being
+   * asked to judge — a decision about a word that was nowhere on screen. The view already carries
+   * the opponent's pending move once it has been proposed to them, and no earlier
+   * (`isPendingMoveVisibleTo`), so this needs nothing new from the server.
+   */
+  const boardPlacements: readonly PendingPlacedTile[] = moveUnderReview
+    ? (view.pendingMove?.placedTiles ?? [])
+    : placements;
 
   const placedTileIds = new Set(placements.map((placed) => placed.tileId));
 
@@ -404,9 +420,11 @@ export function OnlineGameScreen({
           boardDefinition={SCRABBLE_BOARD_DEFINITION}
           boardState={view.board}
           tiles={view.tiles}
-          pendingPlacedTiles={placements}
+          pendingPlacedTiles={boardPlacements}
           canPlaceSelectedTile={Boolean(selectedTileId) && myTurn}
           replaceModeActive={replaceModeActive}
+          /* Greyed out and inert while the decision is pending, for both players. */
+          pendingMoveUnderReview={moveUnderReview}
           onPlaceAt={handlePlaceAt}
           onPendingTileClick={takeBack}
         />

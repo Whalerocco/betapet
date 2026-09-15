@@ -346,6 +346,30 @@ describe("GameScreen", () => {
     expect(await screen.findByText(/August vill spela/)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Bricka /)).not.toBeInTheDocument();
 
+    /*
+     * The reviewer can see the placement they are being asked about (ui-design.md section 27),
+     * greyed out and inert — reported in play as the word being nowhere on screen
+     * (known-bugs item 17).
+     */
+    for (const [letter, offset] of [
+      ["G", 0],
+      ["R", 1],
+      ["Ö", 2],
+      ["M", 3],
+      ["P", 4],
+    ] as const) {
+      const cell = screen.getByTestId(
+        `cell-${centre.row},${centre.column + offset}`,
+      );
+      expect(cell).toHaveTextContent(letter);
+      const tile = within(cell).getByLabelText(
+        `Föreslagen bricka ${letter}, väntar på svar`,
+      );
+      expect(tile.className).toContain("underReview");
+      expect(tile.tagName).toBe("DIV");
+    }
+    expect(screen.queryByLabelText(/^Pending bricka/)).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByRole("button", { name: "Godkänn" }));
 
     // Accepting drops straight into the reviewer's own turn (DEC-019): they are already holding
@@ -406,6 +430,13 @@ describe("GameScreen", () => {
     expect(
       screen.getByTestId(`cell-${centre.row},${centre.column}`),
     ).toHaveTextContent("G");
+    // Editable again, and no longer greyed: the review is over (ui-design.md section 30).
+    expect(
+      screen.getByLabelText("Pending bricka G, tryck för att redigera"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/^Föreslagen bricka/),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spela" })).toBeEnabled();
   });
 

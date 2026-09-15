@@ -30,6 +30,13 @@ export interface TileProps {
    * it is distinguishable from tiles that were already in the hand.
    */
   readonly isDisplaced?: boolean;
+  /**
+   * This tile belongs to a move that has been proposed to the opponent and is waiting for their
+   * answer (`ui-design.md` sections 26-27). It is greyed out for exactly that wait: nobody may
+   * edit it, and the reviewer needs to see *which* tiles the decision is about. The dashed
+   * pending border stays, so the state does not rest on colour alone.
+   */
+  readonly isUnderReview?: boolean;
   /** Identifies this tile's place in the rack for drop-position hit-testing (GameScreen.tsx). */
   readonly dataRackTileId?: string;
 }
@@ -51,6 +58,7 @@ export function Tile({
   onPointerDown,
   isDragSource = false,
   isDisplaced = false,
+  isUnderReview = false,
   dataRackTileId,
 }: TileProps) {
   const classNames = [
@@ -61,6 +69,7 @@ export function Tile({
     onPointerDown ? styles.draggable : "",
     isDragSource ? styles.dragSource : "",
     isDisplaced ? styles.displaced : "",
+    isUnderReview ? styles.underReview : "",
   ]
     .filter(Boolean)
     .join(" ");

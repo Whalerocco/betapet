@@ -32,6 +32,33 @@ test("an unknown word can be proposed, accepted, and commits the move", async ({
   await continueHandoff(page);
 
   await expect(page.getByText(`vill spela "${pick!.word}"`)).toBeVisible();
+
+  /*
+   * The reviewer can see the placement they are deciding about, greyed out (`ui-design.md`
+   * section 27, reported in play as `known-bugs.md` item 17). Checked in a real browser because
+   * the greying is the stylesheet's work: the border is compared against the review token
+   * resolved on the page, so the assertion cannot pass on a tile drawn in the ordinary pending
+   * colours, nor drift if the palette is retuned.
+   */
+  const proposed = page
+    .getByLabel(`Föreslagen bricka ${pick!.word[0]}, väntar på svar`)
+    .first();
+  await expect(proposed).toBeVisible();
+  await expect(proposed).toHaveText(new RegExp(pick!.word[0]!));
+  // Inert: the decision is Godkänn/Neka, not editing the opponent's placement.
+  await expect(
+    page.getByRole("button", { name: /^Föreslagen bricka/ }),
+  ).toHaveCount(0);
+  const reviewBorder = await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.color = "var(--tile-review-border)";
+    document.body.append(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    return resolved;
+  });
+  await expect(proposed).toHaveCSS("border-top-color", reviewBorder);
+
   await page.getByRole("button", { name: "Godkänn" }).click();
 
   // Accepting drops straight into the reviewer's own turn (DEC-019) — they are already holding
