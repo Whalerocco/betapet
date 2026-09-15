@@ -28,6 +28,7 @@ import {
   acceptInvitation,
   createMatch,
   createMatchWithFriend,
+  createMatchWithHandle,
   declineInvitation,
   fetchMatch,
   listMatches,
@@ -309,6 +310,7 @@ export default function OnlinePage() {
     return (
       <NewMatchScreen
         opponent={newMatch}
+        friends={friends?.friends ?? []}
         busy={busy}
         error={error}
         onCreate={(values: NewMatchValues) => {
@@ -320,10 +322,22 @@ export default function OnlinePage() {
               wildLanguages: values.wildLanguages,
             };
 
-            const created = await run(
+            /*
+             * Three ways to name an opponent, and the screen has already decided which (T32.1):
+             * a friend chosen before arriving, a friend picked from the list, a handle, or an
+             * address. The first two are the same call — a friend is named by id.
+             */
+            const named =
               newMatch.kind === "FRIEND"
-                ? createMatchWithFriend(newMatch.userId, rules)
-                : createMatch(values.opponentEmail ?? "", rules),
+                ? ({ kind: "FRIEND", userId: newMatch.userId } as const)
+                : values.opponent;
+
+            const created = await run(
+              named?.kind === "FRIEND"
+                ? createMatchWithFriend(named.userId, rules)
+                : named?.kind === "HANDLE"
+                  ? createMatchWithHandle(named.handle, rules)
+                  : createMatch(named?.email ?? "", rules),
             );
 
             if (created) {
@@ -429,8 +443,13 @@ export default function OnlinePage() {
         })();
       }}
       onNewMatch={() => {
-        setError(undefined);
-        setNewMatch({ kind: "EMAIL" });
+        void (async () => {
+          setError(undefined);
+          setNewMatch({ kind: "CHOOSE" });
+          // The picker offers the player's friends, so the graph has to be here. Fetched rather
+          // than required: a failure leaves the list empty and a handle or address still works.
+          if (!friends) await refreshFriends();
+        })();
       }}
       onShowFriends={() => {
         void (async () => {

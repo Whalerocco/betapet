@@ -2171,6 +2171,38 @@ a full rack.
 
 ---
 
+# 32a. Phase 7 follow-ups
+
+## T32.1 Choosing an opponent by vänkod
+
+Added on 2026-09-15, from a play report: starting a match from the match list could only name an
+opponent by email address, so a friend's `@vänkod` — the thing DEC-027 introduced handles *for* —
+was the one way of naming somebody that did not work there.
+
+- [x] One field for all three ways in: pick a friend, type a vänkod, type an email address.
+- [x] The friends it offers are searchable, by display name as well as by handle.
+- [x] The server accepts `opponentHandle` (**DEC-034**).
+
+`OpponentPicker` is a combobox over the player's own friend list, filtered **in the browser**.
+That is the design rather than a shortcut: there is no user-search endpoint and DEC-027 means
+there not to be one, so the only names that can be searched are ones this player already holds. A
+handle for somebody who is not a friend still works — it is typed rather than found, which is how
+a handle is meant to travel.
+
+A handle and an address are told apart by the `@` left after a leading one is dropped, so `@anna`
+and `anna` are handles and `anna@example.com` is an address. Choosing a friend from the list names
+them by id, which is what the server accepts from a friend (T28.3); anything typed is resolved
+server-side.
+
+**DEC-034** records why a handle invitation does not require friendship: it adds no capability
+DEC-027 withheld, since sending a friend request to a handle already resolved it the same way.
+
+Verified over HTTP and in the browser: a non-friend invited by `@vänkod`, a friend found by typing
+part of their display name and invited by id, an unknown handle answered `OPPONENT_NOT_FOUND`, and
+a body naming two kinds of opponent at once refused. The test accounts were deleted afterwards.
+
+---
+
 # 33. Phase 7A — Chat
 
 ## T29.1 Match chat

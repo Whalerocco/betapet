@@ -115,7 +115,7 @@ export function listMatches(): Promise<
   return request("/api/matches");
 }
 
-/** Invites somebody who is not a friend; knowing their address is what makes it possible. */
+/** Invites somebody by address; knowing it is what makes it possible. */
 export function createMatch(
   opponentEmail: string,
   configuration: MatchRules,
@@ -123,6 +123,23 @@ export function createMatch(
   return request("/api/matches", {
     method: "POST",
     body: JSON.stringify({ opponentEmail, configuration }),
+  });
+}
+
+/**
+ * Invites somebody by handle (T32.1).
+ *
+ * Friendship is not required: a handle is what a player reads out to somebody who wants to play
+ * them, and sending a friend request to one has always resolved it the same way, so this tells a
+ * caller nothing it could not already learn (DEC-027).
+ */
+export function createMatchWithHandle(
+  opponentHandle: string,
+  configuration: MatchRules,
+): Promise<ApiResult<{ matchId: string }>> {
+  return request("/api/matches", {
+    method: "POST",
+    body: JSON.stringify({ opponentHandle, configuration }),
   });
 }
 

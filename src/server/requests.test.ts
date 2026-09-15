@@ -167,13 +167,36 @@ describe("parsing a match creation", () => {
     expect(parsed?.opponent).toEqual({ kind: "USER_ID", userId: "user-123" });
   });
 
-  it("refuses a body naming both an email and an id, or neither", () => {
-    // Accepting both would leave the server choosing which one the client meant.
+  it("accepts an opponent named by handle, normalized (T32.1)", () => {
+    expect(parseCreateMatch({ opponentHandle: " @Anna " })?.opponent).toEqual({
+      kind: "HANDLE",
+      handle: "anna",
+    });
+  });
+
+  it("refuses a handle that is not one", () => {
+    // `parseHandle` owns what a handle is (DEC-027); this only has to defer to it.
+    expect(parseCreateMatch({ opponentHandle: "no" })).toBeUndefined();
+    expect(parseCreateMatch({ opponentHandle: "1anna" })).toBeUndefined();
+    expect(parseCreateMatch({ opponentHandle: "änna" })).toBeUndefined();
+  });
+
+  it("refuses a body naming more than one opponent, or none", () => {
+    // Accepting several would leave the server choosing which one the client meant.
     expect(
       parseCreateMatch({
         opponentEmail: "anna@example.com",
         opponentUserId: "user-123",
       }),
+    ).toBeUndefined();
+    expect(
+      parseCreateMatch({
+        opponentEmail: "anna@example.com",
+        opponentHandle: "anna",
+      }),
+    ).toBeUndefined();
+    expect(
+      parseCreateMatch({ opponentHandle: "anna", opponentUserId: "user-123" }),
     ).toBeUndefined();
     expect(parseCreateMatch({ opponentUserId: "  " })).toBeUndefined();
   });

@@ -170,12 +170,17 @@ function enginePermits(configuration: MatchConfiguration): boolean {
 /**
  * Resolves the opponent a client named, or nothing.
  *
- * The two references are not equally trusted. An email address is a thing the inviter had to know
- * already, so knowing it is the authorization. A user id is not: ids travel in responses and are
- * guessable in a way an address is not, so one is only accepted from somebody the opponent has
- * accepted as a friend (T28.3). A stranger's id therefore resolves to nothing at all — the same
- * answer as an id that does not exist, because a different answer would confirm the account
- * (`online-multiplayer.md` section 38).
+ * The three references are not equally trusted. An email address is a thing the inviter had to
+ * know already, so knowing it is the authorization. A handle is the same kind of thing (DEC-027):
+ * it is what a player reads out to somebody who wants to play them, and sending a friend request
+ * to one has always resolved it the same way — so inviting by handle tells a caller nothing it
+ * could not already learn, and does not need friendship. A user id is different: ids travel in
+ * responses and are guessable in a way neither of the others is, so one is only accepted from
+ * somebody the opponent has accepted as a friend (T28.3).
+ *
+ * A reference that resolves to nobody and one that resolves to somebody who declines to be
+ * findable are the same answer — nothing at all — because a different answer would confirm the
+ * account (`online-multiplayer.md` section 38).
  */
 async function resolveOpponent(
   request: CreateMatchRequest,
@@ -185,6 +190,15 @@ async function resolveOpponent(
       .select({ id: user.id })
       .from(user)
       .where(eq(user.email, request.opponent.email.trim().toLowerCase()))
+      .limit(1);
+    return found;
+  }
+
+  if (request.opponent.kind === "HANDLE") {
+    const [found] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.handle, request.opponent.handle))
       .limit(1);
     return found;
   }
@@ -201,7 +215,7 @@ async function resolveOpponent(
  * Creates a match as an invitation: two seats, the agreed rules, and no game yet. The game begins
  * when the opponent accepts (`online-multiplayer.md` section 13).
  *
- * An opponent is named by email address or, since T28.3, by being a friend.
+ * An opponent is named by email address, by handle (T32.1), or by being a friend (T28.3).
  */
 export async function createMatch(
   request: CreateMatchRequest,

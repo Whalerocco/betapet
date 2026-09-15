@@ -3064,3 +3064,75 @@ better wording at the point of refusal, not a different rule.
 Relevant files:
 - `src/game/engine/placeTile.ts`
 - `src/game/engine/movePendingTile.ts`
+
+---
+
+## DEC-034 — A handle names an opponent, as well as finding a friend
+
+**Date:** 2026-09-15
+**Status:** ACCEPTED
+**Area:** Online
+
+### Context
+
+Inviting somebody to a match accepted an email address or, for a friend, a user id (T28.3). It did
+not accept a handle — so the `@vänkod` DEC-027 introduced as *the* way one player names another
+was the one way that did not work on the screen where you start a game. The project owner found
+this in play: "I can only create a new game with a friend's email, but not with their friend
+code."
+
+DEC-027 is deliberate about exposure: there is no user-search endpoint, and a handle is resolved
+only by sending a friend request to it, so a caller "learns the name behind a handle it already
+had and nothing about one it did not". Accepting a handle on match creation had to be weighed
+against that.
+
+### Decision
+
+**`POST /api/matches` accepts `opponentHandle`, and does not require friendship.**
+
+A handle is resolved to a user the same way a friend request resolves one. An unknown handle and a
+handle belonging to somebody unreachable give the same `OPPONENT_NOT_FOUND` as an unknown address.
+
+### Alternatives considered
+
+**Resolving handles client-side, from the friend list only.** No server change, and no new
+exposure at all. Rejected because it would work only for people already in the friend list —
+where a name can already be picked from a list — and fail for exactly the case a handle exists
+for: somebody who has just read theirs out to you. It would also fail invisibly, since the client
+cannot tell "not a friend" from "no such person".
+
+**Requiring friendship for a handle invitation.** Consistent with how a user id is treated.
+Rejected because the two are not alike: an id travels in responses and is guessable, which is why
+T28.3 fenced it; a handle is chosen by its owner to be given out, and is already a resolvable
+reference through the friend-request endpoint.
+
+### Rationale
+
+This adds no capability that DEC-027 withheld. Sending a friend request to a handle already tells
+the sender the display name behind it; inviting to a match tells them the same thing, and the
+invitation can be declined exactly as a friend request can. What would breach DEC-027 is an
+endpoint that *searches* — one that turns a partial string into a list of users — and nothing here
+does that: the picker's search filters the player's own friend list, in the browser, over data
+they already hold.
+
+### Consequences
+
+- Three ways to name an opponent, and the parser accepts exactly one of them per request so the
+  server is never left choosing which a client meant.
+- The "no such opponent" message can no longer name the address, since the server deliberately
+  does not say which of the three failed.
+- **A handle is now a slightly more useful thing to guess at.** Guessing one still yields only a
+  display name and an invitation the recipient can decline, which is what a friend request already
+  yielded; if unwanted invitations become a problem, that is section 47's territory (blocking and
+  rate-limiting) rather than a reason to withdraw this.
+
+### Revisit when
+
+Moderation is built (`online-multiplayer.md` section 47). Blocking is a rule about who may reach
+whom, and it has to cover invitations by handle alongside friend requests — the same question, and
+it should get one answer.
+
+Relevant files:
+- `src/server/requests.ts`
+- `src/server/matchActions.ts`
+- `src/components/online/OpponentPicker.tsx`

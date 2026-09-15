@@ -17,7 +17,9 @@ export function describeFailure(failure: ApiFailure): string {
     case "NOT_FOUND":
       return "Matchen finns inte, eller så är den inte din.";
     case "OPPONENT_NOT_FOUND":
-      return "Ingen spelare med den e-postadressen.";
+      // An opponent can be named three ways now (T32.1), and the server deliberately does not say
+      // which one failed — that would confirm whether an account exists (section 38).
+      return "Ingen spelare med den vänkoden eller e-postadressen.";
     case "CANNOT_PLAY_ALONE":
       return "Du kan inte spela mot dig själv.";
     case "INVALID_CONFIGURATION":

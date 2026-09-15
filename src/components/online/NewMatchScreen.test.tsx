@@ -16,9 +16,12 @@ const FRIEND: NewMatchOpponent = {
   handle: "anna",
 };
 
-function renderScreen(opponent: NewMatchOpponent = { kind: "EMAIL" }) {
+function renderScreen(
+  opponent: NewMatchOpponent = { kind: "CHOOSE" },
+  props = {},
+) {
   const handlers = { onCreate: vi.fn(), onCancel: vi.fn() };
-  render(<NewMatchScreen opponent={opponent} {...handlers} />);
+  render(<NewMatchScreen opponent={opponent} {...handlers} {...props} />);
   return handlers;
 }
 
@@ -27,13 +30,13 @@ describe("NewMatchScreen", () => {
     const { onCreate } = renderScreen();
 
     await userEvent.type(
-      screen.getByLabelText("Motståndarens e-post"),
+      screen.getByRole("combobox", { name: "Motståndare" }),
       "anna@example.com",
     );
     await userEvent.click(screen.getByRole("button", { name: "Bjud in" }));
 
     expect(onCreate).toHaveBeenCalledWith({
-      opponentEmail: "anna@example.com",
+      opponent: { kind: "EMAIL", email: "anna@example.com" },
       rackSize: 7,
       modifiers: [],
       polyglotLanguages: [],
@@ -45,7 +48,7 @@ describe("NewMatchScreen", () => {
     const { onCreate } = renderScreen();
 
     await userEvent.type(
-      screen.getByLabelText("Motståndarens e-post"),
+      screen.getByRole("combobox", { name: "Motståndare" }),
       "anna@example.com",
     );
     await userEvent.click(screen.getByRole("radio", { name: /^8 brickor/ }));
@@ -102,7 +105,7 @@ describe("NewMatchScreen", () => {
     expect(screen.getByText("Anna")).toBeInTheDocument();
     expect(screen.getByText("@anna")).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Motståndarens e-post"),
+      screen.queryByRole("combobox", { name: "Motståndare" }),
     ).not.toBeInTheDocument();
   });
 
@@ -112,7 +115,7 @@ describe("NewMatchScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Bjud in" }));
 
     expect(onCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ opponentEmail: undefined }),
+      expect.objectContaining({ opponent: undefined }),
     );
   });
 

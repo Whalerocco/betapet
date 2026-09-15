@@ -112,6 +112,8 @@ function asLanguages(value: unknown): readonly LanguageCode[] | undefined {
  */
 export type OpponentReference =
   | { readonly kind: "EMAIL"; readonly email: string }
+  /** Normalized and validated by `parseHandle`: `@Anna` and `anna` arrive as `anna` (DEC-027). */
+  | { readonly kind: "HANDLE"; readonly handle: string }
   | { readonly kind: "USER_ID"; readonly userId: string };
 
 export interface CreateMatchBody {
@@ -122,14 +124,22 @@ export interface CreateMatchBody {
 function asOpponent(
   body: Record<string, unknown>,
 ): OpponentReference | undefined {
-  // Exactly one of the two, so a body naming both cannot leave the server choosing.
-  const hasEmail = typeof body.opponentEmail === "string";
-  const hasUserId = typeof body.opponentUserId === "string";
-  if (hasEmail === hasUserId) return undefined;
+  // Exactly one of the three, so a body naming several cannot leave the server choosing.
+  const given = [
+    typeof body.opponentEmail === "string",
+    typeof body.opponentHandle === "string",
+    typeof body.opponentUserId === "string",
+  ].filter(Boolean);
+  if (given.length !== 1) return undefined;
 
-  if (hasEmail) {
-    const email = (body.opponentEmail as string).trim();
+  if (typeof body.opponentEmail === "string") {
+    const email = body.opponentEmail.trim();
     return email.includes("@") ? { kind: "EMAIL", email } : undefined;
+  }
+
+  if (typeof body.opponentHandle === "string") {
+    const handle = parseHandle(body.opponentHandle);
+    return handle ? { kind: "HANDLE", handle } : undefined;
   }
 
   const userId = (body.opponentUserId as string).trim();

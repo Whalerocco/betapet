@@ -1,0 +1,110 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  position: relative;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--foreground-muted);
+}
+
+.field {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: stretch;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch-target);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font: inherit;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: var(--background);
+  color: inherit;
+}
+
+.toggle {
+  flex: none;
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+  font: inherit;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/*
+ * The friend list. It sits in the flow rather than floating over the form: on a phone an absolute
+ * dropdown would land under the on-screen keyboard as often as not, and the form is short enough
+ * that pushing the rest down costs nothing.
+ */
+.list {
+  display: flex;
+  flex-direction: column;
+  max-height: 14rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-background);
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-sm);
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font: inherit;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: var(--tile-background-hover);
+  color: var(--tile-foreground);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.handle {
+  color: var(--foreground-muted);
+  font-size: 0.9rem;
+}
+
+.option:hover .handle,
+.option:focus-visible .handle {
+  color: inherit;
+}
+
+.empty {
+  padding: var(--spacing-sm);
+  color: var(--foreground-muted);
+  font-size: 0.9rem;
+}
+
+.chosen {
+  margin: 0;
+  font-size: 0.9rem;
+}

@@ -292,6 +292,48 @@ describe.skipIf(!configured)("match actions", () => {
     });
 
     /*
+     * Naming an opponent by handle (T32.1). Deliberately *not* restricted to friends: a handle is
+     * what a player reads out to somebody who wants to play them, and sending a friend request to
+     * one has always resolved it the same way, so this tells a caller nothing it could not
+     * already learn (DEC-027, DEC-034).
+     */
+    describe("by handle", () => {
+      it("invites somebody who is not a friend", async () => {
+        const created = await actions.createMatch({
+          user: august,
+          opponent: { kind: "HANDLE", handle: anna.handle },
+          configuration: CONFIGURATION,
+        });
+
+        expect(created.outcome).toBe("OK");
+        if (created.outcome !== "OK") return;
+        expect(
+          await matches.loadMatchForUser(created.matchId, anna.id),
+        ).toBeDefined();
+      });
+
+      it("reports a handle nobody owns the same way as one that does not exist", async () => {
+        const created = await actions.createMatch({
+          user: august,
+          opponent: { kind: "HANDLE", handle: "nobodyatall" },
+          configuration: CONFIGURATION,
+        });
+
+        expect(created.outcome).toBe("OPPONENT_NOT_FOUND");
+      });
+
+      it("refuses a match against one's own handle", async () => {
+        const created = await actions.createMatch({
+          user: august,
+          opponent: { kind: "HANDLE", handle: august.handle },
+          configuration: CONFIGURATION,
+        });
+
+        expect(created.outcome).toBe("CANNOT_PLAY_ALONE");
+      });
+    });
+
+    /*
      * Naming a friend by id rather than by email (T28.3). The id is only accepted from somebody
      * the opponent has accepted as a friend, so these two tests are the whole of that rule.
      */
