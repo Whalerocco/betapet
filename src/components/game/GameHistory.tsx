@@ -8,7 +8,14 @@ import styles from "./GameHistory.module.css";
 export interface GameHistoryProps {
   readonly history: GameHistoryModel;
   readonly playerNames: Readonly<Record<PlayerId, string>>;
+  /** Initial state when the caller does not control it (the game-over review). */
   readonly defaultOpen?: boolean;
+  /**
+   * The drawer's state, when a caller controls it. The playing screens do, because whether it is
+   * open decides whether the view stays pinned to the viewport (`useHistoryDrawer`).
+   */
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
 }
 
 interface HistoryLine {
@@ -67,7 +74,10 @@ function buildHistoryLines(
       }
 
       case "PASS":
-        lines.push({ key: event.id, primary: `${nameOf(event.playerId)}: passar` });
+        lines.push({
+          key: event.id,
+          primary: `${nameOf(event.playerId)}: passar`,
+        });
         break;
 
       case "TILES_EXCHANGED":
@@ -97,11 +107,22 @@ export function GameHistory({
   history,
   playerNames,
   defaultOpen = true,
+  open,
+  onOpenChange,
 }: GameHistoryProps) {
   const lines = buildHistoryLines(history.events, playerNames);
 
   return (
-    <details className={styles.history} open={defaultOpen}>
+    <details
+      className={styles.history}
+      open={open ?? defaultOpen}
+      /*
+       * `<details>` is opened and closed by the browser rather than by React, so the state has to
+       * be read back out of the element on toggle. A caller that passes `open` is telling this
+       * component what to show and wants to be told when the player changes it.
+       */
+      onToggle={(event) => onOpenChange?.(event.currentTarget.open)}
+    >
       <summary className={styles.summary}>Historik</summary>
       {lines.length === 0 ? (
         <p className={styles.empty}>Inga händelser än.</p>

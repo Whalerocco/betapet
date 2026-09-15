@@ -23,6 +23,7 @@ import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
 import { Dialog } from "../common/Dialog";
 import { GameHistory } from "../game/GameHistory";
+import { useHistoryDrawer } from "../game/useHistoryDrawer";
 import { LANGUAGE_NAMES } from "../game/languageNames";
 import { MODIFIER_COPY } from "../game/modifierCopy";
 import { GameOverScreen } from "../game/GameOverScreen";
@@ -98,6 +99,7 @@ export function OnlineGameScreen({
     [],
   );
   const [selectedTileId, setSelectedTileId] = useState<TileId | undefined>();
+  const historyDrawer = useHistoryDrawer();
   const [blankTarget, setBlankTarget] = useState<
     { tileId: TileId; coordinate: Coordinate } | undefined
   >();
@@ -343,7 +345,10 @@ export function OnlineGameScreen({
   }
 
   return (
-    <div className={`${styles.screen} ${styles.screenFixed}`}>
+    /* Pinned only while the history drawer is closed, exactly as the hot-seat screen is. */
+    <div
+      className={`${styles.screen} ${historyDrawer.open ? "" : styles.screenFixed}`}
+    >
       <div className={styles.header}>
         <button type="button" className={styles.button} onClick={onExit}>
           Mina matcher
@@ -516,6 +521,8 @@ export function OnlineGameScreen({
           playerNames={Object.fromEntries(
             view.players.map((player) => [player.id, player.name]),
           )}
+          open={historyDrawer.open}
+          onOpenChange={historyDrawer.setOpen}
         />
 
         {onSendMessage && viewerUserId && (

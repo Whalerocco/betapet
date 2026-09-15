@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { continueHandoff, startNewGame } from "./helpers";
+import { continueHandoff, passTurn, startNewGame } from "./helpers";
 
 /**
  * A mobile browser shows and hides its address bar in response to *document* scrolling, and each
@@ -40,6 +40,63 @@ test.describe("playing view", () => {
     }
     const rack = (await page.locator('[aria-label="Din hand"]').boundingBox())!;
     expect(rack.y + rack.height).toBeLessThanOrEqual(height);
+  });
+
+  /*
+   * The history drawer is the one thing that lifts the pinning, and the trade is deliberate: the
+   * pinning protects a tile drag from the address bar, and a player reading the history is not
+   * dragging. The game-over screen makes the same trade below, for the same reason.
+   *
+   * On a phone the drawer therefore starts closed, or the view would be un-pinned for most
+   * players most of the time — which would give back the protection entirely.
+   */
+  test("starts closed on a phone, so the view is pinned while playing", async ({
+    page,
+  }) => {
+    await startGame(page);
+
+    await expect(page.locator("details")).not.toHaveAttribute("open", "");
+    expect(await documentScrolls(page)).toBe(false);
+  });
+
+  test("lets the page scroll while the history drawer is open, and pins it again after", async ({
+    page,
+  }) => {
+    await startGame(page);
+    // A few entries, so the open drawer has something to run past the fold with. Three passes,
+    // not more: a fourth would end the game (`game-rules.md`: players * 2 consecutive passes).
+    for (let i = 0; i < 3; i++) {
+      await passTurn(page);
+      await continueHandoff(page);
+    }
+
+    await page.getByText("Historik").click();
+    await expect(page.locator("details")).toHaveAttribute("open", "");
+
+    // The whole drawer can be reached, which is the point of lifting the pinning. Scrolling the
+    // *document* is what does it — the scroller a phone handles most reliably.
+    //
+    // Measured in the page with getBoundingClientRect, which is viewport-relative; Playwright's
+    // own boundingBox is not, once the document has been scrolled.
+    // Polled: the pinning is lifted on React's re-render, so a scroll attempted in the same tick
+    // as the toggle would find a document that still cannot scroll.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight);
+          const details = document.querySelector("details")!;
+          return (
+            details.getBoundingClientRect().bottom <= window.innerHeight + 1
+          );
+        }),
+      )
+      .toBe(true);
+
+    // Closing it puts the protection back.
+    await page.getByText("Historik").click();
+    await expect(page.locator("details")).not.toHaveAttribute("open", "");
+    // Polled rather than read once: the pinning returns on React's re-render, not on the toggle.
+    await expect.poll(() => documentScrolls(page)).toBe(false);
   });
 
   test("still fits on a small phone, with the overflow reachable inside the page", async ({

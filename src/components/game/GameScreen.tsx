@@ -37,6 +37,7 @@ import { Rack, type RackTileView } from "../rack/Rack";
 import { ShuffleButton } from "../rack/ShuffleButton";
 import { BlankLetterPicker } from "./BlankLetterPicker";
 import { GameHistory } from "./GameHistory";
+import { useHistoryDrawer } from "./useHistoryDrawer";
 import { GameOverScreen } from "./GameOverScreen";
 import styles from "./GameScreen.module.css";
 import { HandoffScreen } from "./HandoffScreen";
@@ -112,6 +113,7 @@ export function GameScreen({
       : initialLocalSession(initialState),
   );
   const [selectedTileId, setSelectedTileId] = useState<TileId | undefined>();
+  const historyDrawer = useHistoryDrawer();
   /**
    * Set when a selected blank tile is tapped onto a board cell: the letter is chosen at
    * placement time (ui-design.md), so PLACE_TILE isn't dispatched until this resolves.
@@ -286,7 +288,12 @@ export function GameScreen({
           </div>
 
           <div className={styles.historyColumn}>
-            <GameHistory history={state.history} playerNames={playerNames} />
+            <GameHistory
+              history={state.history}
+              playerNames={playerNames}
+              open={historyDrawer.open}
+              onOpenChange={historyDrawer.setOpen}
+            />
           </div>
         </div>
       </div>
@@ -632,7 +639,14 @@ export function GameScreen({
       : undefined;
 
   return (
-    <div className={`${styles.gameScreen} ${styles.gameScreenFixed}`}>
+    /*
+     * Pinned to the viewport while the history drawer is closed, and not while it is open: the
+     * pinning protects a tile drag from the address bar, and a player reading the history is not
+     * dragging (`useHistoryDrawer`). The online screen does the same.
+     */
+    <div
+      className={`${styles.gameScreen} ${historyDrawer.open ? "" : styles.gameScreenFixed}`}
+    >
       <ScoreBoard
         players={state.players.map((player) => ({
           name: player.name,
@@ -754,7 +768,12 @@ export function GameScreen({
         )}
 
         <div className={styles.historyColumn}>
-          <GameHistory history={state.history} playerNames={playerNames} />
+          <GameHistory
+            history={state.history}
+            playerNames={playerNames}
+            open={historyDrawer.open}
+            onOpenChange={historyDrawer.setOpen}
+          />
         </div>
       </div>
 

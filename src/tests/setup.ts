@@ -23,3 +23,30 @@ if (jsdomGlobal.jsdom) {
     get: () => jsdomGlobal.jsdom!.window.localStorage,
   });
 }
+
+/**
+ * jsdom implements no `matchMedia` at all, so a component that asks about the viewport throws
+ * rather than getting an answer. A stub is the right place to fix that: the hook that asks
+ * (`useHistoryDrawer`) is asking a real question, and making it defensive would hide the absence
+ * instead of filling it.
+ *
+ * Nothing matches, which is the wide-screen answer — jsdom's default window is 1024px, so that is
+ * also the truthful one. A test that cares about the narrow layout overrides it.
+ */
+if (typeof window !== "undefined" && !window.matchMedia) {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string): MediaQueryList =>
+      ({
+        media: query,
+        matches: false,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList,
+  });
+}

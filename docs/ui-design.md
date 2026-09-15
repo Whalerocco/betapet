@@ -1073,6 +1073,13 @@ about 724px of width. The board therefore zooms independently of the page:
   a square still lands on that exact square at any zoom level.
 - Zoom is transient view state: it belongs to neither `GameState` nor the saved local session
   (`content-model.md` section 38), and it resets on reload.
+
+The history drawer starts **closed** on a phone and open on a wide screen, where it is a column
+beside the board rather than a drawer. Whether it is open decides whether the playing view stays
+pinned to the viewport: pinned while closed, so the address bar cannot shift the board mid-drag
+(`known-bugs.md` items 10 and 16), and un-pinned while open, so the whole drawer can be reached by
+scrolling the page. A player reading the history is not dragging a tile, which is the same trade
+the game-over screen already makes.
 - The board must stay under the fingers across a whole gesture, not merely per step. A scroll
   container rounds the offset it is given in some engines, so recomputing each step from the value
   read back discards a fraction of a pixel every time and the board creeps away over a pinch's
