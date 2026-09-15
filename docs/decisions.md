@@ -3198,10 +3198,11 @@ board carries a multiplier, so a player who cannot see the preview cannot see th
 
 - The remaining deliberate hot-seat/online divergence is drag-and-drop alone
   (`architecture.md` section 24, updated).
-- **A Replace-mode placement onto a committed tile shows no preview online.** The client tracks
-  placements without modelling displacement, so it cannot say what the board would look like, and
-  `validatePhysicalPlacement` refuses a placement onto an occupied square. Showing nothing is the
-  honest answer there; the hot-seat game, which has the engine, still previews it.
+- ~~**A Replace-mode placement onto a committed tile shows no preview online.**~~ Withdrawn the
+  same day: the client not modelling displacement turned out to be a bug in its own right, and one
+  the project owner had already hit in play (`known-bugs.md` item 20) — the placed tile appeared to
+  vanish and the displaced tile reached nobody's hand. The screen now derives the board its
+  placements leave behind, so a replace previews like any other placement, DEC-016 included.
 - The rack size comes from the match configuration the server validated at creation
   (`requests.ts` RACK_SIZES), and is narrowed to `RackSize` on the client rather than re-checked.
 - DEC-026's "revisit when" is answered for the score preview and left open for drag-and-drop.

@@ -484,9 +484,10 @@ The interface must not imply that points have been awarded before the move is co
 engine function (DEC-035): everything it needs — the board, the multiplier layout, the point
 values of the tiles being placed, the size of the player's own hand — is public, so no hidden
 information and no round trip is involved. It says nothing about whether the words exist, exactly
-as in the hot-seat game; the dictionary has its say after `Spela`. One case has no preview online:
-a placement that replaces a committed tile under Replace mode, because the online client does not
-model the displacement and so cannot say what the board would look like.
+as in the hot-seat game; the dictionary has its say after `Spela`. A Replace-mode placement is
+previewed like any other, including DEC-016's rule that a word the move only re-lettered scores
+nothing: the online screen models the displacement its placements cause
+(`known-bugs.md` item 20), so the engine sees the same board it would see in a hot-seat game.
 
 If an unknown word requires opponent approval, clearly indicate:
 

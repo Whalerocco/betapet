@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ChatMessage } from "../../application/online/chatApi";
+import { localArrangement } from "../../application/online/localArrangement";
 import { describeBadge } from "../../application/online/notificationCopy";
 import {
   formatBadgeCount,
@@ -168,9 +169,46 @@ export function OnlineGameScreen({
    * the opponent's pending move once it has been proposed to them, and no earlier
    * (`isPendingMoveVisibleTo`), so this needs nothing new from the server.
    */
-  const boardPlacements: readonly PendingPlacedTile[] = moveUnderReview
+  const renderedPlacements: readonly PendingPlacedTile[] = moveUnderReview
     ? (view.pendingMove?.placedTiles ?? [])
     : placements;
+
+  /** The pending move the server is holding for this player, if any (never the opponent's). */
+  const ownServerPending: readonly PendingPlacedTile[] =
+    view.pendingMove && view.pendingMove.playerId === viewer
+      ? view.pendingMove.placedTiles
+      : [];
+
+  /*
+   * Replace mode, worked out locally (`game-modifiers.md` section 7, `known-bugs.md` item 20).
+   *
+   * A placement onto a committed tile displaces it into this player's hand at once, exactly as
+   * the engine does at placement time. The screen used to track placements without modelling
+   * that, and so drew a board contradicting the move it was about to send — the played tile
+   * seemingly vanishing behind the committed one, the displaced tile arriving nowhere, and the
+   * hand a tile short until `Spela` revealed the placement had been real all along.
+   *
+   * `localArrangement` is the whole model, kept out here where it can be tested against the
+   * engine's own `placeTile` rather than through the screen. It judges nothing: whether a
+   * particular replace is allowed stays the server's call, refused after `Spela`.
+   */
+  const arrangement = localArrangement({
+    board: view.board,
+    ownRackTileIds: view.ownRack.tileIds,
+    serverPending: ownServerPending,
+    placements: renderedPlacements,
+    tiles: view.tiles,
+  });
+  const boardPlacements = arrangement.placements;
+  const localBoard = arrangement.board;
+  /*
+   * While the *opponent's* move is the one being drawn, none of it is the viewer's: not the
+   * placements, and not whatever they displaced. The hand is then exactly the rack the server
+   * sent — and is not on screen at all, the review replacing it (ui-design.md section 27).
+   */
+  const displacedTileIds = mustReview
+    ? new Set<TileId>()
+    : arrangement.displacedTileIds;
 
   const placedTileIds = new Set(placements.map((placed) => placed.tileId));
 
@@ -182,16 +220,12 @@ export function OnlineGameScreen({
    * off the board is a local act, so a rack built from `ownRack` alone left the tile in neither
    * place: gone from the board and never arriving in the hand (`known-bugs.md` item 15).
    */
-  const serverPendingTileIds: readonly TileId[] =
-    view.pendingMove && view.pendingMove.playerId === viewer
-      ? view.pendingMove.placedTiles.map((placed) => placed.tileId)
-      : [];
-
-  const inHand = new Set(view.ownRack.tileIds);
-  const heldTileIds: readonly TileId[] = [
-    ...view.ownRack.tileIds,
-    ...serverPendingTileIds.filter((tileId) => !inHand.has(tileId)),
-  ];
+  const serverPendingTileIds: readonly TileId[] = ownServerPending.map(
+    (placed) => placed.tileId,
+  );
+  const heldTileIds = mustReview
+    ? view.ownRack.tileIds
+    : arrangement.heldTileIds;
 
   /*
    * In this player's chosen order: the tiles they have arranged, still in that arrangement,
@@ -213,6 +247,7 @@ export function OnlineGameScreen({
         id: tileId,
         letter: tileLetter(tile) ?? "",
         points: tile.points,
+        isDisplaced: displacedTileIds.has(tileId),
         isBlank: tile.kind === "BLANK",
       };
     });
@@ -265,10 +300,10 @@ export function OnlineGameScreen({
   const preview: ScorePreview = moveUnderReview
     ? {}
     : pendingMoveScorePreview({
-        boardState: view.board,
+        boardState: localBoard,
         boardDefinition: SCRABBLE_BOARD_DEFINITION,
         tiles: view.tiles,
-        placedTiles: placements,
+        placedTiles: boardPlacements,
         rackSize: snapshot.configuration.rackSize as RackSize,
         tilesLeftInRack: rackTiles.length,
         crisscrossMode: modifiers.includes("CRISSCROSS"),
@@ -295,12 +330,16 @@ export function OnlineGameScreen({
    * longer placed, so it is back in the hand by the same rule that put it on the board — the rack
    * is the tiles the server says you hold, less the ones you have placed.
    */
-  function place(tileId: TileId, coordinate: Coordinate) {
+  function place(
+    tileId: TileId,
+    coordinate: Coordinate,
+    representedLetter?: string,
+  ) {
     setPlacements((current) => [
       ...current.filter(
         (placed) => !coordinatesEqual(placed.coordinate, coordinate),
       ),
-      { tileId, coordinate },
+      { tileId, coordinate, representedLetter },
     ]);
     setSelectedTileId(undefined);
   }
@@ -318,7 +357,7 @@ export function OnlineGameScreen({
      * engine's judgment, made on the server against the authoritative state. This client has
      * never decided a rule and does not start here.
      */
-    const holdsCommittedTile = view.board.occupiedCells.some((cell) =>
+    const holdsCommittedTile = localBoard.occupiedCells.some((cell) =>
       coordinatesEqual(cell.coordinate, coordinate),
     );
     if (holdsCommittedTile && !replaceModeActive) return;
@@ -332,9 +371,24 @@ export function OnlineGameScreen({
     place(selectedTileId, coordinate);
   }
 
+  /**
+   * Takes one placed tile back into the hand.
+   *
+   * A replacement takes its consequences back with it: the committed tile it displaced returns to
+   * its square (`boardBeforeMove` above), and if the player had already played that displaced
+   * tile somewhere else this move, that placement is undone too — one tile cannot be in both
+   * places. This is `removePendingTile`'s rule, which the hot-seat game gets from the engine and
+   * this screen has to arrange for itself; without it the tile appeared twice on the board and
+   * the move was refused at `Spela` with a puzzling `TILE_NOT_IN_RACK`.
+   */
   function takeBack(tileId: TileId) {
+    const removed = boardPlacements.find((placed) => placed.tileId === tileId);
+    const returningTileId = removed?.replacedTileId;
     setPlacements((current) =>
-      current.filter((placed) => placed.tileId !== tileId),
+      current.filter(
+        (placed) =>
+          placed.tileId !== tileId && placed.tileId !== returningTileId,
+      ),
     );
   }
 
@@ -454,7 +508,7 @@ export function OnlineGameScreen({
       <div className={styles.body}>
         <Board
           boardDefinition={SCRABBLE_BOARD_DEFINITION}
-          boardState={view.board}
+          boardState={localBoard}
           tiles={view.tiles}
           pendingPlacedTiles={boardPlacements}
           canPlaceSelectedTile={Boolean(selectedTileId) && myTurn}
@@ -557,15 +611,13 @@ export function OnlineGameScreen({
               label="Välj bokstav för den blanka brickan:"
               alphabet={SWEDISH_ALPHABET}
               onSelect={(letter) => {
-                setPlacements((current) => [
-                  ...current,
-                  {
-                    tileId: blankTarget.tileId,
-                    coordinate: blankTarget.coordinate,
-                    representedLetter: letter,
-                  },
-                ]);
-                setSelectedTileId(undefined);
+                /*
+                 * Through `place`, so a blank dropped onto a square this move had already used
+                 * swaps like any other tile (DEC-017). Appending straight to the list left two
+                 * placements on one square, with the tile that was there lost from both the
+                 * board and the hand.
+                 */
+                place(blankTarget.tileId, blankTarget.coordinate, letter);
                 setBlankTarget(undefined);
               }}
             />

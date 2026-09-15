@@ -777,6 +777,19 @@ the proposed word being invisible to the reviewer online (`known-bugs.md` item 1
 render the same `Board`, but *what to hand it as the pending move* is the middle layer, and online
 handed it this client's own arrangement — which for the reviewer is empty.
 
+Replace mode has now been found in this row twice, which says something about where the row is
+widest. T28.6 was "the board never offered a committed tile as a target"; `known-bugs.md` item 20
+was the level below it — a placement that *was* accepted, sent and played, while the screen drew a
+board in which it had not happened, because modelling what a placement displaces is the engine's
+job and the online screen had never been given it. **Where the hot-seat screen gets an answer from
+the engine, the online screen needs that answer derived from the view — and the derivation is the
+thing that gets forgotten.**
+
+Both of the derivations found this way are now modules rather than lines inside a screen —
+`pendingMoveScorePreview` and `localArrangement` — and both are tested against the engine rather
+than through the interface. That is the form the third row should take wherever it is more than a
+prop: something that can be compared with what the engine would have done.
+
 So, when changing `GameScreen` or `GameScreen.module.css`, **say whether the change applies online
 too** — and if it does, make it in both, or extract the part that can be shared, as `ShuffleButton`
 and `ModifierPicker` were.

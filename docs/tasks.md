@@ -2221,8 +2221,9 @@ DEC-026 had recorded "no live score preview online" as deliberate, on the ground
 cannot run the engine. That is true of judging a move and not of scoring one: the board, the
 multipliers, the points on the tiles being placed and the size of your own hand are all public, so
 `previewMoveScore` runs on the client with no synthetic state and no round trip. **DEC-035**
-records the reversal and its one limit — a Replace-mode placement onto a committed tile previews
-nothing online, because this client does not model the displacement.
+records the reversal. Its one stated limit — no preview for a Replace-mode placement — lasted
+hours: the missing displacement model behind it was itself the bug in `known-bugs.md` item 20, and
+fixing that gave the preview too.
 
 ## T34.2 Leaving a finished online match: `Revansch` and `Tillbaka`
 

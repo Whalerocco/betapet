@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import type { MatchSnapshot } from "../../application/online/matchApi";
 import { createGame } from "../../game/engine/createGame";
+import { placeCommittedTile } from "../../game/model/board";
 import type { TileId } from "../../game/model/ids";
 import type { GameState } from "../../game/model/game";
 import {
@@ -730,5 +731,186 @@ describe("OnlineGameScreen: the proposed word on the board", () => {
     expect(
       screen.getAllByLabelText(/^Föreslagen bricka .*, väntar på svar$/),
     ).toHaveLength(2);
+  });
+});
+
+/*
+ * Replace mode online (`known-bugs.md` item 20). Reported in play: a tile played onto a committed
+ * one seemed to disappear, the displaced tile never reached the hand, and only `Spela` revealed
+ * that the placement had been real all along. The client tracked placements without modelling
+ * what they displace, so its board and its hand both disagreed with the move it was about to send.
+ */
+describe("OnlineGameScreen: Replace mode", () => {
+  const REPLACE_RULES = { rackSize: 7, modifiers: ["REPLACE"] } as const;
+  const CENTRE = { row: 7, column: 7 };
+
+  /** August to move, with one committed tile on the centre square for them to replace. */
+  function gameWithCommittedTile() {
+    const base = onTurn(game(), 0);
+    const committedTileId = base.tileBag.tileIds.find(
+      (tileId) => base.tiles[tileId]!.kind === "LETTER",
+    )!;
+    const state: GameState = {
+      ...base,
+      tileBag: {
+        tileIds: base.tileBag.tileIds.filter(
+          (tileId) => tileId !== committedTileId,
+        ),
+      },
+      board: placeCommittedTile(base.board, CENTRE, committedTileId),
+    };
+    return { state, committedTileId };
+  }
+
+  function rackTileIds() {
+    return Array.from(
+      screen
+        .getByRole("group", { name: "Din hand" })
+        .querySelectorAll<HTMLElement>("[data-rack-tile-id]"),
+    ).map((element) => element.dataset.rackTileId!);
+  }
+
+  async function selectAndPlace(tileId: string, testId: string) {
+    const rack = screen.getByRole("group", { name: "Din hand" });
+    await userEvent.click(
+      rack.querySelector<HTMLElement>(`[data-rack-tile-id="${tileId}"]`)!,
+    );
+    /*
+     * An occupied square is a div wrapping the tile's own button, and only the button carries
+     * the click — an empty square is the button itself. Targeting whichever it is keeps this
+     * helper usable for both, which is the point of a Replace-mode test.
+     */
+    const cell = screen.getByTestId(testId);
+    await userEvent.click(cell.querySelector("button") ?? cell);
+  }
+
+  it("puts the played tile on the square and the displaced tile in the hand", async () => {
+    const { state, committedTileId } = gameWithCommittedTile();
+    const snapshot = snapshotFor(state, 0, REPLACE_RULES);
+    renderScreen(snapshot);
+
+    const replacing = snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
+    const replacingLetter = tileLetter(snapshot.view.tiles[replacing]!)!;
+    const displacedLetter = tileLetter(state.tiles[committedTileId]!)!;
+
+    await selectAndPlace(replacing, "cell-7,7");
+
+    // The played tile is on the board, as an editable pending tile.
+    expect(
+      screen.getByLabelText(
+        `Pending bricka ${replacingLetter}, tryck för att redigera`,
+      ),
+    ).toBeInTheDocument();
+    // The displaced tile is in the hand, marked out as restricted for the rest of the turn.
+    expect(rackTileIds()).toContain(committedTileId);
+    expect(
+      screen.getByLabelText(
+        new RegExp(`^Bricka ${displacedLetter}, \\d+ poäng, ersatt bricka$`),
+      ),
+    ).toBeInTheDocument();
+    // One out, one in: the hand is the same size it was.
+    expect(rackTileIds()).toHaveLength(snapshot.view.ownRack.tileIds.length);
+    expect(rackTileIds()).not.toContain(replacing);
+  });
+
+  it("puts the committed tile back when the replacement is taken back", async () => {
+    const { state, committedTileId } = gameWithCommittedTile();
+    const snapshot = snapshotFor(state, 0, REPLACE_RULES);
+    renderScreen(snapshot);
+
+    const replacing = snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
+    const replacingLetter = tileLetter(snapshot.view.tiles[replacing]!)!;
+
+    await selectAndPlace(replacing, "cell-7,7");
+    await userEvent.click(
+      screen.getByLabelText(
+        `Pending bricka ${replacingLetter}, tryck för att redigera`,
+      ),
+    );
+
+    expect(rackTileIds()).toContain(replacing);
+    expect(rackTileIds()).not.toContain(committedTileId);
+    expect(screen.queryByLabelText(/ersatt bricka/)).not.toBeInTheDocument();
+    expect(rackTileIds()).toHaveLength(snapshot.view.ownRack.tileIds.length);
+  });
+
+  it("takes a re-played displaced tile back with the replacement that displaced it", async () => {
+    const { state, committedTileId } = gameWithCommittedTile();
+    const snapshot = snapshotFor(state, 0, REPLACE_RULES);
+    const handlers = renderScreen(snapshot);
+
+    const replacing = snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
+    const replacingLetter = tileLetter(snapshot.view.tiles[replacing]!)!;
+
+    // Replace the committed tile, then play the displaced tile beside it.
+    await selectAndPlace(replacing, "cell-7,7");
+    await selectAndPlace(committedTileId, "cell-7,8");
+    expect(rackTileIds()).not.toContain(committedTileId);
+
+    // Taking the replacement back returns the displaced tile to its square, so its own
+    // placement cannot stand — one tile cannot be in two places (`removePendingTile`).
+    await userEvent.click(
+      screen.getByLabelText(
+        `Pending bricka ${replacingLetter}, tryck för att redigera`,
+      ),
+    );
+
+    // The displaced tile is back where it came from, and no longer beside it.
+    const displacedLetter = tileLetter(state.tiles[committedTileId]!)!;
+    expect(screen.getByTestId("cell-7,7")).toHaveTextContent(displacedLetter);
+    expect(screen.getByTestId("cell-7,8")).not.toHaveTextContent(/[A-ZÅÄÖ]/);
+    // Only the replacing tile returns to the hand: the other one is on the board again.
+    expect(rackTileIds()).toContain(replacing);
+    expect(rackTileIds()).not.toContain(committedTileId);
+    expect(rackTileIds()).toHaveLength(snapshot.view.ownRack.tileIds.length);
+    // Local editing throughout — nothing was sent to the server (DEC-026).
+    expect(handlers.onAction).not.toHaveBeenCalled();
+  });
+
+  it("sends the replacement as an ordinary placement, for the server to judge", async () => {
+    const { state } = gameWithCommittedTile();
+    const snapshot = snapshotFor(state, 0, REPLACE_RULES);
+    const handlers = renderScreen(snapshot);
+
+    const replacing = snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
+
+    await selectAndPlace(replacing, "cell-7,7");
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+
+    expect(handlers.onAction).toHaveBeenCalledWith({
+      type: "SUBMIT_MOVE",
+      placements: [
+        {
+          tileId: replacing,
+          coordinate: CENTRE,
+          representedLetter: undefined,
+        },
+      ],
+    });
+  });
+
+  it("offers no committed tile as a target when Replace mode is off", async () => {
+    const { state, committedTileId } = gameWithCommittedTile();
+    const snapshot = snapshotFor(state, 0);
+    renderScreen(snapshot);
+
+    const tile = snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
+
+    await selectAndPlace(tile, "cell-7,7");
+
+    // Nothing moved: the committed tile is untouched and the hand is unchanged.
+    expect(rackTileIds()).toContain(tile);
+    expect(rackTileIds()).not.toContain(committedTileId);
+    expect(screen.queryByLabelText(/^Pending bricka/)).not.toBeInTheDocument();
   });
 });
