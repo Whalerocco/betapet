@@ -2502,6 +2502,11 @@ Drag-and-drop or a live score preview is wanted online. Both need the client to 
 it currently cannot, and the honest way to get them is a server-side preview endpoint rather than
 a client-side engine.
 
+**Answered for the score preview by DEC-035** (2026-09-15), which found this reasoning to be about
+*judging* a move rather than scoring one: everything a score preview needs is public, so the
+client computes it with the engine's own function and no synthetic state. Drag-and-drop stands as
+written.
+
 Relevant files:
 - `src/components/online/`, `src/app/online/page.tsx`
 - `src/application/online/matchApi.ts`, `src/application/online/failureMessages.ts`
@@ -3136,3 +3141,76 @@ Relevant files:
 - `src/server/requests.ts`
 - `src/server/matchActions.ts`
 - `src/components/online/OpponentPicker.tsx`
+
+---
+
+## DEC-035 — The online score preview is computed on the client, from public data
+
+**Date:** 2026-09-15
+**Status:** ACCEPTED
+**Area:** Online / UI / Scoring
+
+### Context
+
+The hot-seat game has shown a live score preview since the score badge landed (`ui-design.md`
+section 17): once a placement is physically valid and forms a word, a small badge on the move's
+first tile says what it would pay. Online never had it. DEC-026 recorded that as a deliberate
+divergence and said the honest way to get it would be "a server-side preview endpoint rather than
+a client-side engine", the alternative it rejected being *running the engine against a synthetic
+state* — inventing a fake bag and a fake opponent rack for it to chew on.
+
+The project owner reported the gap in play: "It's still not possible to see how many points a word
+would give if played. This was a feature before in the hot seat game. Add it to the online version
+as well."
+
+Re-examined, DEC-026's reasoning turns out to cover *judging* a move, not scoring one. Deciding
+whether a move is legal needs what this client is not allowed to hold; working out what a
+placement pays does not.
+
+### Decision
+
+**The online client computes the score preview itself, by calling the same engine function the
+hot-seat screen calls.** `previewMoveScore` needs the board state, the board definition, the tiles
+being placed, the configured rack size and how many tiles the player still holds. Every one of
+those is either public or the viewer's own, and `PlayerGameView` already carries them all. No fake
+bag, no fake opponent rack, no synthetic state, and no round trip.
+
+**The preview is extracted rather than duplicated.** `pendingMoveScorePreview`
+(`src/application/game-controller/scorePreview.ts`) owns both the call and the badge's anchor
+coordinate, and both screens use it — the middle layer of `architecture.md` section 24 written
+once, which is that section's own advice about exactly this kind of change.
+
+**The preview stays silent about word validity**, online as in hot-seat. A word that does not
+exist previews its score; the dictionary has its say when `Spela` is pressed, and the server is
+still the only thing that judges a move.
+
+### Alternatives considered
+
+**A server-side preview endpoint**, as DEC-026 suggested. Rejected: a request per placed tile, for
+an answer the client can already derive from data it holds, and a preview that lags the tile it
+describes. It would also make the honesty of the number depend on the network, which is a bad
+trade for a hint.
+
+**Leaving it out.** Rejected by the report: the centre square doubles the first word and half the
+board carries a multiplier, so a player who cannot see the preview cannot see the score either.
+
+### Consequences
+
+- The remaining deliberate hot-seat/online divergence is drag-and-drop alone
+  (`architecture.md` section 24, updated).
+- **A Replace-mode placement onto a committed tile shows no preview online.** The client tracks
+  placements without modelling displacement, so it cannot say what the board would look like, and
+  `validatePhysicalPlacement` refuses a placement onto an occupied square. Showing nothing is the
+  honest answer there; the hot-seat game, which has the engine, still previews it.
+- The rack size comes from the match configuration the server validated at creation
+  (`requests.ts` RACK_SIZES), and is narrowed to `RackSize` on the client rather than re-checked.
+- DEC-026's "revisit when" is answered for the score preview and left open for drag-and-drop.
+
+### Revisit when
+
+Drag-and-drop is wanted online, which is a different question: it needs the client to know where a
+tile *may* land, and that really is the engine's judgment.
+
+Relevant files:
+- `src/application/game-controller/scorePreview.ts`
+- `src/components/online/OnlineGameScreen.tsx`, `src/components/game/GameScreen.tsx`

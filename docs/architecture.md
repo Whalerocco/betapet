@@ -781,9 +781,14 @@ So, when changing `GameScreen` or `GameScreen.module.css`, **say whether the cha
 too** — and if it does, make it in both, or extract the part that can be shared, as `ShuffleButton`
 and `ModifierPicker` were.
 
-Two divergences are deliberate and documented rather than pending: online has no drag-and-drop and
-no live score preview (DEC-026), because an online client can answer neither question honestly
-without the engine.
+One divergence is deliberate and documented rather than pending: online has no drag-and-drop
+(DEC-026), because an online client cannot say where a dragged tile may land without the engine.
+
+The live score preview used to be the second, and is not any more (DEC-035). Scoring a placement
+needs nothing hidden — the board, the multiplier layout, the points on the tiles being placed, and
+the size of the player's own hand — so the client can compute it, and both screens now call
+`pendingMoveScorePreview` in `src/application/game-controller/scorePreview.ts`. That extraction is
+the pattern this section recommends: the middle layer written once instead of twice.
 
 One class of divergence is now caught mechanically. `designTokens.test.ts` fails when a stylesheet
 uses a custom property nothing defines — the fault that let all five online stylesheets be written

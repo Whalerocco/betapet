@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import type { MatchSnapshot } from "../../application/online/matchApi";
 import { createGame } from "../../game/engine/createGame";
+import type { TileId } from "../../game/model/ids";
 import type { GameState } from "../../game/model/game";
 import {
   requiresPlayerConfirmation,
@@ -581,6 +582,73 @@ describe("OnlineGameScreen: what is waiting elsewhere", () => {
     });
 
     expect(screen.getByText("99+")).toBeVisible();
+  });
+});
+
+/*
+ * The live score preview, which online did without until T34.1 (DEC-035): the board, the
+ * multipliers, the tiles being placed and the size of your own hand are all public, so the client
+ * can score a placement without holding the game.
+ */
+describe("OnlineGameScreen: the live score preview", () => {
+  /** The ids of two ordinary (non-blank) tiles in this player's hand. */
+  function plainTiles(snapshot: MatchSnapshot) {
+    return snapshot.view.ownRack.tileIds.filter(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    );
+  }
+
+  /** The score badge's text on one cell, or undefined when that cell shows no badge. */
+  function badgeOn(testId: string): string | undefined {
+    return (
+      screen
+        .getByTestId(testId)
+        .querySelector<HTMLElement>('[class*="scoreBadge"]')?.textContent ??
+      undefined
+    );
+  }
+
+  async function placeFromRack(tileId: string, testId: string) {
+    const rack = screen.getByRole("group", { name: "Din hand" });
+    await userEvent.click(
+      rack.querySelector<HTMLElement>(`[data-rack-tile-id="${tileId}"]`)!,
+    );
+    await userEvent.click(screen.getByTestId(testId));
+  }
+
+  it("shows what the placement would score, on the move's first tile", async () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot);
+    const [first, second] = plainTiles(snapshot);
+    const points = (tileId: TileId) => snapshot.view.tiles[tileId]!.points;
+
+    // A single tile on the centre forms no word yet, so there is nothing to preview.
+    await placeFromRack(first!, "cell-7,7");
+    expect(badgeOn("cell-7,7")).toBeUndefined();
+
+    await placeFromRack(second!, "cell-7,8");
+
+    /*
+     * The centre square doubles the word (`scrabbleBoard.ts`), which is the whole reason to show
+     * this: the score is not the sum of the letters, and a player cannot see it from the tiles.
+     */
+    const expected = (points(first!) + points(second!)) * 2;
+    expect(badgeOn("cell-7,7")).toBe(String(expected));
+    // One badge for the whole move (ui-design.md section 17), not one per tile.
+    expect(badgeOn("cell-7,8")).toBeUndefined();
+  });
+
+  it("shows nothing while the placement cannot be scored", async () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot);
+    const [first, second] = plainTiles(snapshot);
+
+    // A gap between the two tiles: not a placement the engine would accept, so no preview.
+    await placeFromRack(first!, "cell-7,7");
+    await placeFromRack(second!, "cell-7,9");
+
+    expect(badgeOn("cell-7,7")).toBeUndefined();
+    expect(badgeOn("cell-7,9")).toBeUndefined();
   });
 });
 

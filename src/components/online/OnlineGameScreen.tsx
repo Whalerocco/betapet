@@ -11,8 +11,13 @@ import {
 } from "../../application/online/notificationsApi";
 import type { TurnAction } from "../../application/online/matchApi";
 import type { MatchSnapshot } from "../../application/online/matchApi";
+import {
+  pendingMoveScorePreview,
+  type ScorePreview,
+} from "../../application/game-controller/scorePreview";
 import { SCRABBLE_BOARD_DEFINITION } from "../../data/board/scrabbleBoard";
 import type { Coordinate } from "../../game/model/coordinate";
+import type { RackSize } from "../../game/model/gameConfiguration";
 import { coordinatesEqual } from "../../game/model/coordinate";
 import { activeWildLanguageIndex } from "../../game/engine/wildRotation";
 import type { TileId } from "../../game/model/ids";
@@ -239,6 +244,37 @@ export function OnlineGameScreen({
         ] ?? undefined)
       : undefined;
 
+  /*
+   * What the placement in progress would score (T34.1, DEC-035).
+   *
+   * Computed here on the client, from the same engine function the hot-seat screen uses. Nothing
+   * in it is hidden information: the board, the multiplier layout, the point values of the tiles
+   * being placed, and the size of this player's own hand. DEC-026 left this out on the grounds
+   * that an online client cannot run the engine, which is true of *judging* a move — that needs
+   * the bag and the opponent's rack — and not true of scoring one.
+   *
+   * Two limits follow from arranging tiles locally, both of them honest rather than hidden. A
+   * placement that replaces a committed tile (Replace mode) shows no preview, because this client
+   * does not model the displacement and so cannot say what the board would look like; and the
+   * preview is silent about word validity, exactly as it is in the hot-seat game — a word that
+   * does not exist still previews its score, and the dictionary has its say after `Spela`.
+   *
+   * The rack size comes from the match's configuration, which the server validated when the match
+   * was created (`requests.ts` RACK_SIZES), so it is narrowed here rather than re-checked.
+   */
+  const preview: ScorePreview = moveUnderReview
+    ? {}
+    : pendingMoveScorePreview({
+        boardState: view.board,
+        boardDefinition: SCRABBLE_BOARD_DEFINITION,
+        tiles: view.tiles,
+        placedTiles: placements,
+        rackSize: snapshot.configuration.rackSize as RackSize,
+        tilesLeftInRack: rackTiles.length,
+        crisscrossMode: modifiers.includes("CRISSCROSS"),
+        history: view.history,
+      });
+
   /** Tiles are placed, here or on the server, so this turn is in the middle of something. */
   const hasMoveInProgress =
     placements.length > 0 || serverPendingTileIds.length > 0;
@@ -425,6 +461,8 @@ export function OnlineGameScreen({
           replaceModeActive={replaceModeActive}
           /* Greyed out and inert while the decision is pending, for both players. */
           pendingMoveUnderReview={moveUnderReview}
+          scoreBadgeCoordinate={preview.badgeCoordinate}
+          scoreBadgeValue={preview.total}
           onPlaceAt={handlePlaceAt}
           onPendingTileClick={takeBack}
         />

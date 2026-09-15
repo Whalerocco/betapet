@@ -480,6 +480,14 @@ This score is only a preview.
 
 The interface must not imply that points have been awarded before the move is committed.
 
+**Both games show it.** The online screen computes the same preview on the client, from the same
+engine function (DEC-035): everything it needs — the board, the multiplier layout, the point
+values of the tiles being placed, the size of the player's own hand — is public, so no hidden
+information and no round trip is involved. It says nothing about whether the words exist, exactly
+as in the hot-seat game; the dictionary has its say after `Spela`. One case has no preview online:
+a placement that replaces a committed tile under Replace mode, because the online client does not
+model the displacement and so cannot say what the board would look like.
+
 If an unknown word requires opponent approval, clearly indicate:
 
 ```text
@@ -1037,6 +1045,19 @@ The board comes after the result rather than before it: the outcome is what play
 first, and the board is what they then talk over. It is the same board component the game uses, so
 it pans and pinch-zooms here too — useful for reading a crowded final position on a phone — but
 nothing on it can be tapped, since there is no move left to make.
+
+### Leaving a finished online match (not yet built — T34.2)
+
+Online, the single `Nytt spel` action is both too little and misleading: it is the only way off the
+screen, and it leads to the match list rather than to a new game. A finished online match offers
+two actions instead:
+
+- **`Revansch`** — go to match creation with the opponent just played already chosen, so a rematch
+  needs only the rules confirmed. It does not create a match by itself: the rules are the
+  inviter's to choose (DEC-029), and a rematch is a new invitation like any other.
+- **`Tillbaka`** — return to `Mina matcher`, named for where it actually goes.
+
+The hot-seat screen keeps `Nytt spel`, which there means what it says.
 
 ---
 

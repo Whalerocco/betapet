@@ -2203,6 +2203,44 @@ a body naming two kinds of opponent at once refused. The test accounts were dele
 
 ---
 
+# 32b. Post-playtest online follow-ups (2026-09-15)
+
+## T34.1 The live score preview, online
+
+From a play report: "It's still not possible to see how many points a word would give if played.
+This was a feature before in the hot seat game. Add it to the online version as well."
+
+- [x] The online board shows the same score badge the hot-seat board shows (**DEC-035**).
+- [x] The preview is shared, not duplicated: `pendingMoveScorePreview` in
+      `src/application/game-controller/scorePreview.ts`, called by both screens.
+- [x] Tests: the helper directly (valid placement, nothing to preview yet, badge anchoring,
+      Crisscross, the emptied-board first-move case, the all-tiles bonus) and the online screen
+      (a badge appears with the score, one per move, and none while the placement cannot score).
+
+DEC-026 had recorded "no live score preview online" as deliberate, on the grounds that the client
+cannot run the engine. That is true of judging a move and not of scoring one: the board, the
+multipliers, the points on the tiles being placed and the size of your own hand are all public, so
+`previewMoveScore` runs on the client with no synthetic state and no round trip. **DEC-035**
+records the reversal and its one limit — a Replace-mode placement onto a committed tile previews
+nothing online, because this client does not model the displacement.
+
+## T34.2 Leaving a finished online match: `Revansch` and `Tillbaka`
+
+Not started. From the same play report: "the only way out of [the game finished screen] is through
+pressing new game, which by the way only leads back to the Mina matcher screen."
+
+- [ ] `Revansch` opens match creation with the opponent just played pre-chosen (the rules are
+      still the inviter's to confirm, DEC-029 — this creates no match by itself).
+- [ ] `Tillbaka` returns to `Mina matcher`, named for where it goes.
+- [ ] The hot-seat game-over screen keeps `Nytt spel` unchanged.
+- [ ] `GameOverScreen` is shared by both screens, so the actions have to be passed in rather than
+      hardcoded — see `architecture.md` section 24 before changing it.
+
+Specified in `ui-design.md` section 39. The opponent's identity is available where it is needed:
+the match snapshot names both players, and `OpponentPicker` (T32.1) already accepts a user id.
+
+---
+
 # 33. Phase 7A — Chat
 
 ## T29.1 Match chat

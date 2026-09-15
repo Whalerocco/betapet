@@ -15,10 +15,8 @@ import {
 } from "../../application/game-controller/localSession";
 import { useGameController } from "../../application/game-controller/useGameController";
 import { saveLocalGame } from "../../application/persistence/localGameStorage";
-import {
-  activeWildLanguageIndex,
-  hasCommittedMove,
-} from "../../game/engine/wildRotation";
+import { pendingMoveScorePreview } from "../../application/game-controller/scorePreview";
+import { activeWildLanguageIndex } from "../../game/engine/wildRotation";
 import {
   parseCoordinateKey,
   type Coordinate,
@@ -26,7 +24,6 @@ import {
 import type { GameState } from "../../game/model/game";
 import type { PlayerId, TileId } from "../../game/model/ids";
 import { tileLetter } from "../../game/model/tile";
-import { previewMoveScore } from "../../game/scoring/previewMoveScore";
 import { Board } from "../board/Board";
 import { Dialog } from "../common/Dialog";
 import { Tile } from "../common/Tile";
@@ -615,31 +612,18 @@ export function GameScreen({
     : undefined;
 
   const pendingPlacedTiles = state.pendingMove?.placedTiles ?? [];
-  const scorePreview =
-    pendingPlacedTiles.length > 0
-      ? previewMoveScore(
-          state.board,
-          deps.configuration.boardDefinition,
-          state.tiles,
-          pendingPlacedTiles,
-          deps.configuration.rackSize,
-          currentPlayer.rack.tileIds.length,
-          {
-            allowMultiBranch: deps.configuration.modifiers.has("CRISSCROSS"),
-            isFirstMoveOverride: hasCommittedMove(state.history)
-              ? false
-              : undefined,
-          },
-        )
-      : undefined;
-  const scoreBadgeCoordinate =
-    pendingPlacedTiles.length > 0
-      ? [...pendingPlacedTiles].sort(
-          (a, b) =>
-            a.coordinate.row - b.coordinate.row ||
-            a.coordinate.column - b.coordinate.column,
-        )[0].coordinate
-      : undefined;
+  /* Shared with the online screen, which shows the same preview (DEC-035). */
+  const { total: scorePreview, badgeCoordinate: scoreBadgeCoordinate } =
+    pendingMoveScorePreview({
+      boardState: state.board,
+      boardDefinition: deps.configuration.boardDefinition,
+      tiles: state.tiles,
+      placedTiles: pendingPlacedTiles,
+      rackSize: deps.configuration.rackSize,
+      tilesLeftInRack: currentPlayer.rack.tileIds.length,
+      crisscrossMode: deps.configuration.modifiers.has("CRISSCROSS"),
+      history: state.history,
+    });
 
   return (
     /*
