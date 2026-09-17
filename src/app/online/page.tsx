@@ -286,6 +286,17 @@ export default function OnlinePage() {
           void refreshList();
           void refreshFeed();
         }}
+        /*
+         * `Revansch` on a finished match (T34.2): leave the match and open match creation with
+         * the same opponent already chosen. It stops there rather than creating anything — the
+         * rules are the inviter's to choose, and a rematch is an ordinary invitation (DEC-029).
+         */
+        onRematch={(opponent) => {
+          setOpenMatch(undefined);
+          setChat(undefined);
+          setError(undefined);
+          setNewMatch({ kind: "HANDLE", ...opponent });
+        }}
         chatMessages={chat?.messages}
         chatMaxLength={chat?.maxLength}
         viewerUserId={session.user.id}
@@ -323,14 +334,17 @@ export default function OnlinePage() {
             };
 
             /*
-             * Three ways to name an opponent, and the screen has already decided which (T32.1):
-             * a friend chosen before arriving, a friend picked from the list, a handle, or an
-             * address. The first two are the same call — a friend is named by id.
+             * The ways to name an opponent, with the screen having already decided which
+             * (T32.1): a friend chosen before arriving, a friend picked from the list, the
+             * opponent of a finished match offering a rematch (T34.2), a handle, or an address.
+             * A friend is named by id; the rest resolve server-side.
              */
             const named =
               newMatch.kind === "FRIEND"
                 ? ({ kind: "FRIEND", userId: newMatch.userId } as const)
-                : values.opponent;
+                : newMatch.kind === "HANDLE"
+                  ? ({ kind: "HANDLE", handle: newMatch.handle } as const)
+                  : values.opponent;
 
             const created = await run(
               named?.kind === "FRIEND"

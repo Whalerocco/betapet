@@ -37,6 +37,16 @@ export type NewMatchOpponent =
       readonly userId: string;
       readonly name: string;
       readonly handle: string;
+    }
+  /**
+   * The way in from a finished match: the opponent just played, named by the handle the match
+   * carries (DEC-036, T34.2). A handle rather than an id because inviting by handle needs no
+   * friendship (DEC-034) — a rematch must not depend on the two players being friends.
+   */
+  | {
+      readonly kind: "HANDLE";
+      readonly name: string;
+      readonly handle: string;
     };
 
 export interface NewMatchValues {
@@ -65,9 +75,10 @@ export interface NewMatchScreenProps {
 /**
  * Choosing the rules for an online match before inviting somebody to it (T28.4).
  *
- * The same screen serves both ways in: from the match list, where an opponent is named by email
- * address, and from the friend list, where one is already chosen. Having one screen is the point
- * — two would be two places for the rules to be offered differently.
+ * The same screen serves every way in: from the match list, where an opponent is named by handle
+ * or address; from the friend list, where one is already chosen; and from a finished match, as a
+ * rematch against the opponent just played. Having one screen is the point — two would be two
+ * places for the rules to be offered differently.
  *
  * The rules are the inviter's to choose, and the invitation shows them to the person deciding
  * whether to accept (DEC-029). Nothing here decides whether a combination is allowed: that is

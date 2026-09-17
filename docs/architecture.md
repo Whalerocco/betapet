@@ -790,6 +790,14 @@ Both of the derivations found this way are now modules rather than lines inside 
 than through the interface. That is the form the third row should take wherever it is more than a
 prop: something that can be compared with what the engine would have done.
 
+Not every case in this row is a missing derivation, though. `known-bugs.md` item 21 was the plainest
+kind: dragging tiles, and rearranging the hand by dragging or by tapping, are in `Board`, `Rack` and
+`useTileDrag` — all shared, all working — and the online screen simply passed none of the handlers.
+A capability can be present in every shared component and still be absent from a screen, because
+wiring it up is the third row too. The hit-testing behind it (`tileDropTargets.ts`) is now shared;
+what a drop *means* could not be, and is written out once per screen against what each of them can
+actually ask.
+
 So, when changing `GameScreen` or `GameScreen.module.css`, **say whether the change applies online
 too** — and if it does, make it in both, or extract the part that can be shared, as `ShuffleButton`
 and `ModifierPicker` were.

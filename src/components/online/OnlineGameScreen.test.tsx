@@ -914,3 +914,242 @@ describe("OnlineGameScreen: Replace mode", () => {
     expect(screen.queryByLabelText(/^Pending bricka/)).not.toBeInTheDocument();
   });
 });
+
+/*
+ * Leaving a finished match (T34.2, `known-bugs.md` item 19). `Nytt spel` was the only way off
+ * this screen and it led back to the match list — neither what it said, nor a way to play the
+ * same opponent again.
+ */
+describe("OnlineGameScreen: a finished match", () => {
+  function finished(): GameState {
+    const base = onTurn(game(), 0);
+    const [me, them] = base.players;
+    return {
+      ...base,
+      status: "FINISHED",
+      turnState: { type: "FINISHED" },
+      result: {
+        endReason: "CONSECUTIVE_PASSES",
+        finalScores: { [me.id]: 210, [them.id]: 180 },
+        remainingRackDeductions: { [me.id]: 4, [them.id]: 9 },
+        winnerPlayerIds: [me.id],
+      },
+    } as GameState;
+  }
+
+  it("offers a rematch against the same opponent, and a way back to the match list", async () => {
+    const snapshot = {
+      ...snapshotFor(finished(), 0),
+      status: "FINISHED",
+      opponent: { name: "Anna", handle: "anna" },
+    };
+    const onRematch = vi.fn();
+    const handlers = renderScreen(snapshot, { onRematch });
+
+    await userEvent.click(screen.getByRole("button", { name: "Revansch" }));
+    expect(onRematch).toHaveBeenCalledWith({ name: "Anna", handle: "anna" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Tillbaka" }));
+    expect(handlers.onExit).toHaveBeenCalledOnce();
+  });
+
+  it("offers no rematch when the match does not name an opponent to invite", () => {
+    renderScreen({ ...snapshotFor(finished(), 0), status: "FINISHED" });
+
+    expect(
+      screen.queryByRole("button", { name: "Revansch" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Tillbaka" }),
+    ).toBeInTheDocument();
+  });
+});
+
+/*
+ * Dragging, and arranging the hand (`known-bugs.md` item 21).
+ *
+ * Both gestures worked in the hot-seat game from the start and neither existed online — the
+ * third row of `architecture.md` section 24 again. The tests drive the real gesture: only
+ * `document.elementFromPoint` is stubbed, since jsdom has no layout to answer it with, so
+ * `useTileDrag`, the hit-testing and the screen's own drop handling are all the real thing.
+ */
+describe("OnlineGameScreen: dragging and arranging the hand", () => {
+  /** Presses on a tile, moves past useTileDrag's 6px threshold, and releases over `target`. */
+  function dragOnto(tile: HTMLElement, target: HTMLElement, releaseX = 40) {
+    const originalElementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => target;
+    try {
+      fireEvent.pointerDown(tile, {
+        pointerType: "mouse",
+        button: 0,
+        clientX: 0,
+        clientY: 0,
+      });
+      fireEvent.pointerMove(window, { clientX: releaseX, clientY: 40 });
+      fireEvent.pointerUp(window, { clientX: releaseX, clientY: 40 });
+    } finally {
+      document.elementFromPoint = originalElementFromPoint;
+    }
+  }
+
+  function rack() {
+    return screen.getByRole("group", { name: "Din hand" });
+  }
+
+  function rackTileIds() {
+    return Array.from(
+      rack().querySelectorAll<HTMLElement>("[data-rack-tile-id]"),
+    ).map((element) => element.dataset.rackTileId!);
+  }
+
+  function rackTile(tileId: TileId) {
+    return rack().querySelector<HTMLElement>(
+      `[data-rack-tile-id="${tileId}"]`,
+    )!;
+  }
+
+  /** The first tile in the rack that is not blank: a blank asks for a letter before it lands. */
+  function plainTileOf(snapshot: MatchSnapshot) {
+    return snapshot.view.ownRack.tileIds.find(
+      (tileId) => snapshot.view.tiles[tileId]!.kind === "LETTER",
+    )!;
+  }
+
+  it("places a tile dragged from the hand onto a square", async () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    const handlers = renderScreen(snapshot);
+    const tileId = plainTileOf(snapshot);
+
+    dragOnto(rackTile(tileId), screen.getByTestId("cell-7,7"));
+
+    expect(rackTileIds()).not.toContain(tileId);
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+    expect(handlers.onAction).toHaveBeenCalledWith({
+      type: "SUBMIT_MOVE",
+      placements: [
+        {
+          tileId,
+          coordinate: { row: 7, column: 7 },
+          representedLetter: undefined,
+        },
+      ],
+    });
+  });
+
+  it("moves a tile already placed this turn to another square", async () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    const handlers = renderScreen(snapshot);
+    const tileId = plainTileOf(snapshot);
+    const letter = tileLetter(snapshot.view.tiles[tileId]!)!;
+
+    dragOnto(rackTile(tileId), screen.getByTestId("cell-7,7"));
+    const placed = screen.getByLabelText(
+      `Pending bricka ${letter}, tryck för att redigera`,
+    );
+    dragOnto(placed, screen.getByTestId("cell-7,8"));
+
+    expect(
+      within(screen.getByTestId("cell-7,8")).getByLabelText(
+        `Pending bricka ${letter}, tryck för att redigera`,
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+    expect(handlers.onAction).toHaveBeenCalledWith({
+      type: "SUBMIT_MOVE",
+      placements: [
+        {
+          tileId,
+          coordinate: { row: 7, column: 8 },
+          representedLetter: undefined,
+        },
+      ],
+    });
+  });
+
+  it("takes a placed tile back when it is dragged into the hand", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot);
+    const tileId = plainTileOf(snapshot);
+    const letter = tileLetter(snapshot.view.tiles[tileId]!)!;
+
+    dragOnto(rackTile(tileId), screen.getByTestId("cell-7,7"));
+    expect(rackTileIds()).not.toContain(tileId);
+
+    dragOnto(
+      screen.getByLabelText(`Pending bricka ${letter}, tryck för att redigera`),
+      rack(),
+    );
+
+    expect(rackTileIds()).toContain(tileId);
+    expect(
+      screen.queryByLabelText(
+        `Pending bricka ${letter}, tryck för att redigera`,
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("drops a tile into the gap it was dragged to in the hand", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot);
+    const before = rackTileIds();
+
+    /*
+     * jsdom lays nothing out, so the tiles are given the geometry they would have on screen:
+     * seven 40px tiles in a row. Releasing at 110px is past the centre of the tile that ends up
+     * second once the dragged one is lifted out, and short of the next one's.
+     */
+    Array.from(
+      rack().querySelectorAll<HTMLElement>("[data-rack-tile-id]"),
+    ).forEach((element, index) => {
+      element.getBoundingClientRect = () =>
+        ({ left: index * 40, width: 40, right: index * 40 + 40 }) as DOMRect;
+    });
+
+    dragOnto(rackTile(before[0] as TileId), rack(), 110);
+
+    expect(rackTileIds()).toEqual([
+      before[1],
+      before[2],
+      before[0],
+      ...before.slice(3),
+    ]);
+  });
+
+  it("swaps two tiles in the hand when one is tapped while another is picked up", async () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 0);
+    renderScreen(snapshot);
+    const before = rackTileIds();
+
+    await userEvent.click(rackTile(before[0] as TileId));
+    await userEvent.click(rackTile(before[3] as TileId));
+
+    expect(rackTileIds()).toEqual([
+      before[3],
+      before[1],
+      before[2],
+      before[0],
+      ...before.slice(4),
+    ]);
+    // The tile stays picked up, so it can be walked along the hand with repeated taps.
+    expect(rackTile(before[0] as TileId)).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("leaves the board alone when a tile is dragged onto it out of turn", () => {
+    const snapshot = snapshotFor(onTurn(game(), 0), 1);
+    renderScreen(snapshot);
+    const tileId = plainTileOf(snapshot);
+    const letter = tileLetter(snapshot.view.tiles[tileId]!)!;
+
+    dragOnto(rackTile(tileId), screen.getByTestId("cell-7,7"));
+
+    expect(
+      screen.queryByLabelText(
+        `Pending bricka ${letter}, tryck för att redigera`,
+      ),
+    ).not.toBeInTheDocument();
+    expect(rackTileIds()).toContain(tileId);
+  });
+});

@@ -3215,3 +3215,65 @@ tile *may* land, and that really is the engine's judgment.
 Relevant files:
 - `src/application/game-controller/scorePreview.ts`
 - `src/components/online/OnlineGameScreen.tsx`, `src/components/game/GameScreen.tsx`
+
+---
+
+## DEC-036 — A match tells its own players who the opponent is, by handle
+
+**Date:** 2026-09-15
+**Status:** ACCEPTED
+**Area:** Online / Privacy
+
+### Context
+
+`known-bugs.md` item 19 asked for a `Revansch` button on a finished match: match creation, with
+the opponent just played already chosen. The interface could not offer it. A match response named
+its players only by display name, and a display name identifies nobody to the server — inviting
+somebody takes a user id (accepted only from a friend), a handle, or an email address (DEC-034).
+
+DEC-027 is deliberate about what a handle exposes: there is no user-search endpoint, and a handle
+is resolved only by sending a friend request to it. So whether a match may hand a player their
+opponent's handle had to be weighed rather than assumed.
+
+### Decision
+
+**A match response carries the other player's name and handle, to that match's own participants.**
+`MatchView.opponent` is `{ name, handle }`, read from the seats — which now join the user row —
+and the client uses it to pre-choose the opponent for a rematch.
+
+**By handle, not by user id.** Inviting by handle needs no friendship (DEC-034), and a rematch
+must not depend on two opponents being friends. A user id would also be the wrong reference by
+DEC-027's own reasoning: ids travel in responses and are guessable in a way a handle is not.
+
+### Alternatives considered
+
+**Naming the opponent by display name and letting the player type the rest.** That is not a
+rematch, it is the ordinary new-match screen with a hint — and it fails exactly when the two
+players are not friends, which is when a rematch is most useful.
+
+**A dedicated rematch endpoint** that copies the match's players and rules. Rejected for now: it
+would decide the rules on the players' behalf, and DEC-029 makes those the inviter's to choose. A
+rematch is an ordinary invitation, and going through the ordinary screen keeps it one.
+
+### Consequences
+
+- Playing somebody reveals their handle to them — which is what a handle is for (DEC-027 calls it
+  the thing a player reads out to somebody who wants to play them). Both players had to agree to
+  the match before this point: one sent the invitation, the other accepted it.
+- It is only the *opponent's* identity, only to that match's participants, and only for a match
+  the reader plays in — `loadMatchForUser` already refuses everyone else (`online-multiplayer.md`
+  section 38).
+- Seat lookups join the user table. One join on a query that already runs per match request.
+- A rematch works against somebody who is not a friend, which is the common case for an
+  invitation accepted by handle or address.
+
+### Revisit when
+
+Blocking exists (`online-multiplayer.md` section 47). A blocked player should not be offered a
+rematch against the person who blocked them, which is the same question blocking asks of
+invitations generally.
+
+Relevant files:
+- `src/server/matches.ts`, `src/server/matchActions.ts`
+- `src/components/game/GameOverScreen.tsx`, `src/components/online/NewMatchScreen.tsx`
+- `src/app/online/page.tsx`

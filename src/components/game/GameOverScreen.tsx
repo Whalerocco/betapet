@@ -12,6 +12,28 @@ export interface GameOverScreenPlayer {
   readonly name: string;
 }
 
+/**
+ * The way off this screen, which differs between the two games — and is why this is a union
+ * rather than a bag of optional callbacks. A finished match had exactly one action, `Nytt spel`,
+ * which online led back to the match list rather than to a new game: the only way out, and the
+ * wrong one (`known-bugs.md` item 19). Every variant here has to name a way back, so a screen
+ * with no exit cannot be built again.
+ */
+export type GameOverActions =
+  /** Hot-seat: the game was started here, and a new one starts here too. */
+  | { readonly kind: "LOCAL"; readonly onNewGame: () => void }
+  /**
+   * Online: `Revansch` opens match creation against the same opponent (the rules are still the
+   * inviter's to confirm, DEC-029), and `Tillbaka` returns to the match list. A rematch needs an
+   * opponent the server can be given — a handle (DEC-036) — so it is offered only when the match
+   * carried one.
+   */
+  | {
+      readonly kind: "ONLINE";
+      readonly onRematch?: () => void;
+      readonly onBack: () => void;
+    };
+
 export interface GameOverScreenProps {
   readonly players: readonly GameOverScreenPlayer[];
   readonly result: GameResult;
@@ -20,7 +42,7 @@ export interface GameOverScreenProps {
   readonly boardDefinition: BoardDefinition;
   readonly boardState: BoardState;
   readonly tiles: Readonly<Record<TileId, Tile>>;
-  readonly onNewGame: () => void;
+  readonly actions: GameOverActions;
 }
 
 const END_REASON_TEXT: Record<EndReason, string> = {
@@ -33,7 +55,8 @@ const END_REASON_TEXT: Record<EndReason, string> = {
 
 /**
  * The final-result screen (ui-design.md section 39): final scores, winner/tie, remaining-rack
- * deductions, the finished board, and the full move history, followed by a clear new-game action.
+ * deductions, the finished board, and the full move history, followed by the ways off the screen
+ * (`actions`, which differ between the hot-seat game and an online match).
  *
  * The board comes after the result rather than before it: the outcome is what players look for
  * first, and the board is what they then talk over. It is the same component the game itself
@@ -47,7 +70,7 @@ export function GameOverScreen({
   boardDefinition,
   boardState,
   tiles,
-  onNewGame,
+  actions,
 }: GameOverScreenProps) {
   const playerNames = Object.fromEntries(
     players.map((player) => [player.id, player.name]),
@@ -111,11 +134,41 @@ export function GameOverScreen({
         />
       </div>
 
-      <GameHistory history={history} playerNames={playerNames} />
+      {/* Flowing rather than scrolling inside its own box: this page scrolls, and a list with
+          its own scroller swallows the drag that would have scrolled the page
+          (`known-bugs.md` item 18). */}
+      <GameHistory history={history} playerNames={playerNames} flow />
 
-      <button type="button" className={styles.primary} onClick={onNewGame}>
-        Nytt spel
-      </button>
+      <div className={styles.actions}>
+        {actions.kind === "LOCAL" ? (
+          <button
+            type="button"
+            className={styles.primary}
+            onClick={actions.onNewGame}
+          >
+            Nytt spel
+          </button>
+        ) : (
+          <>
+            {actions.onRematch && (
+              <button
+                type="button"
+                className={styles.primary}
+                onClick={actions.onRematch}
+              >
+                Revansch
+              </button>
+            )}
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={actions.onBack}
+            >
+              Tillbaka
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

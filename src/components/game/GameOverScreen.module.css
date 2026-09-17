@@ -76,7 +76,6 @@
 }
 
 .primary {
-  align-self: center;
   font-family: inherit;
   font-size: 1.1rem;
   font-weight: 600;
@@ -106,4 +105,34 @@
 
 .finalBoard h2 {
   font-size: 1.1rem;
+}
+
+/*
+ * The ways off this screen (ui-design.md section 39). Two of them online — a rematch and the way
+ * back to the match list — so they get a row of their own that wraps rather than a single button.
+ */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.secondary {
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  min-height: var(--touch-target);
+  min-width: 9rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-background);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.secondary:hover {
+  background: var(--background);
 }

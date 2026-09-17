@@ -34,6 +34,16 @@ export interface MatchSeat {
   readonly userId: string;
   /** The engine's id for this seat inside the game state. */
   readonly playerId: PlayerId;
+  /**
+   * Who is in this seat, as the other player may be told (DEC-036). Read where the seats are,
+   * so that a match response can name its opponent well enough to invite them again — a rematch
+   * has to name somebody the server will accept, and a display name is not that (T34.2).
+   *
+   * Absent on a seat that was just written rather than read back (`createMatch`), which needs
+   * only the ids.
+   */
+  readonly name?: string;
+  readonly handle?: string;
 }
 
 export interface MatchRecord {
@@ -195,8 +205,11 @@ async function seatsOf(
     .select({
       userId: matchPlayer.userId,
       playerId: matchPlayer.playerId,
+      name: user.name,
+      handle: user.handle,
     })
     .from(matchPlayer)
+    .innerJoin(user, eq(user.id, matchPlayer.userId))
     .where(eq(matchPlayer.matchId, matchId));
 
   return rows;

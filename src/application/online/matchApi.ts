@@ -50,6 +50,12 @@ export interface MatchSnapshot {
   readonly status: string;
   /** The rules the match is played by, which the game view itself does not carry. */
   readonly configuration: MatchRules;
+  /**
+   * The other player, named the way an invitation names somebody: by handle (DEC-036). A display
+   * name identifies nobody to the server, so without this a rematch would have had nothing to
+   * pre-choose (T34.2).
+   */
+  readonly opponent?: { readonly name: string; readonly handle: string };
   readonly view: PlayerGameView;
 }
 

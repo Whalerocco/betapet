@@ -104,3 +104,12 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* The tile being carried, following the finger — the same treatment the hot-seat screen gives it. */
+.dragPreview {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(var(--shadow-lg));
+}

@@ -17,16 +17,14 @@ import { useGameController } from "../../application/game-controller/useGameCont
 import { saveLocalGame } from "../../application/persistence/localGameStorage";
 import { pendingMoveScorePreview } from "../../application/game-controller/scorePreview";
 import { activeWildLanguageIndex } from "../../game/engine/wildRotation";
-import {
-  parseCoordinateKey,
-  type Coordinate,
-} from "../../game/model/coordinate";
+import type { Coordinate } from "../../game/model/coordinate";
 import type { GameState } from "../../game/model/game";
 import type { PlayerId, TileId } from "../../game/model/ids";
 import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
 import { Dialog } from "../common/Dialog";
 import { Tile } from "../common/Tile";
+import { rackDropIndex, resolveDropTarget } from "../common/tileDropTargets";
 import type { DragPointerPosition } from "../common/useTileDrag";
 import { useTileDrag } from "../common/useTileDrag";
 import { tilesDisplacedThisMove } from "../../game/engine/placeTile";
@@ -44,49 +42,6 @@ import { OpponentReview } from "./OpponentReview";
 import { ScoreBoard } from "./ScoreBoard";
 import { TurnActions } from "./TurnActions";
 import { UnknownWordNotice } from "./UnknownWordNotice";
-
-interface DropTarget {
-  readonly coordinate?: Coordinate;
-  readonly overRack: boolean;
-}
-
-/**
- * Resolves what a drag ended over, purely by DOM hit-testing the data attributes Board/Rack
- * already expose (`data-coordinate`, `data-rack-dropzone`). Kept outside the component since it
- * has no dependency on game state — it only answers "what's under this point", not "is that a
- * legal move" (ui-design.md section 52-53 keeps that decision in the engine).
- */
-function resolveDropTarget(position: DragPointerPosition): DropTarget {
-  const element = document.elementFromPoint(position.x, position.y);
-  if (!element) return { overRack: false };
-  const cell = element.closest<HTMLElement>("[data-coordinate]");
-  if (cell?.dataset.coordinate) {
-    return {
-      coordinate: parseCoordinateKey(cell.dataset.coordinate),
-      overRack: false,
-    };
-  }
-  return { overRack: element.closest("[data-rack-dropzone]") !== null };
-}
-
-/**
- * Which gap in the rack a drop at `pointerX` fell into, counted after the dragged tile has been
- * lifted out of the order. Read from where the tiles actually are on screen rather than from a
- * model of the layout, so it stays correct however the rack wraps or resizes.
- */
-function rackDropIndex(draggedTileId: TileId, pointerX: number): number {
-  const tiles = Array.from(
-    document.querySelectorAll<HTMLElement>(
-      "[data-rack-dropzone] [data-rack-tile-id]",
-    ),
-  ).filter((element) => element.dataset.rackTileId !== draggedTileId);
-
-  const index = tiles.findIndex((element) => {
-    const rect = element.getBoundingClientRect();
-    return pointerX < rect.left + rect.width / 2;
-  });
-  return index === -1 ? tiles.length : index;
-}
 
 export interface GameScreenProps {
   readonly initialState: GameState;
@@ -202,7 +157,7 @@ export function GameScreen({
           boardDefinition={deps.configuration.boardDefinition}
           boardState={state.board}
           tiles={state.tiles}
-          onNewGame={onExit}
+          actions={{ kind: "LOCAL", onNewGame: onExit }}
         />
       </div>
     );

@@ -49,3 +49,13 @@
   opacity: 0.7;
   font-size: 0.8rem;
 }
+
+/*
+ * On the game-over review the page is the scroller, so the list flows into it rather than
+ * keeping one of its own — a nested scroller there eats the drag that would scroll the page
+ * (known-bugs.md item 18).
+ */
+.list.flowing {
+  max-height: none;
+  overflow-y: visible;
+}

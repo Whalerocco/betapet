@@ -2227,18 +2227,65 @@ fixing that gave the preview too.
 
 ## T34.2 Leaving a finished online match: `Revansch` and `Tillbaka`
 
-Not started. From the same play report: "the only way out of [the game finished screen] is through
-pressing new game, which by the way only leads back to the Mina matcher screen."
+From the same play report: "the only way out of [the game finished screen] is through pressing new
+game, which by the way only leads back to the Mina matcher screen."
 
-- [ ] `Revansch` opens match creation with the opponent just played pre-chosen (the rules are
-      still the inviter's to confirm, DEC-029 — this creates no match by itself).
-- [ ] `Tillbaka` returns to `Mina matcher`, named for where it goes.
-- [ ] The hot-seat game-over screen keeps `Nytt spel` unchanged.
-- [ ] `GameOverScreen` is shared by both screens, so the actions have to be passed in rather than
-      hardcoded — see `architecture.md` section 24 before changing it.
+- [x] `Revansch` opens match creation with the opponent just played pre-chosen (the rules are
+      still the inviter's to confirm, DEC-029 — it creates no match by itself).
+- [x] `Tillbaka` returns to `Mina matcher`, named for where it goes.
+- [x] The hot-seat game-over screen keeps `Nytt spel` unchanged.
+- [x] The actions are passed in rather than hardcoded, as a discriminated union — `LOCAL` and
+      `ONLINE` — so a screen with no way back cannot be built.
+- [x] The finished screen scrolls on a phone (item 18 above), the history flowing with the page
+      instead of keeping a scroller of its own.
 
-Specified in `ui-design.md` section 39. The opponent's identity is available where it is needed:
-the match snapshot names both players, and `OpponentPicker` (T32.1) already accepts a user id.
+The opponent turned out **not** to be identifiable from what the client had. A match response
+named both players by display name, which names nobody to the server: inviting takes a user id
+(friends only), a handle, or an email address. So the match view now carries the opponent's handle
+(**DEC-036**) — the reference that needs no friendship (DEC-034) — and `NewMatchOpponent` gained a
+`HANDLE` kind for the way in from a finished match.
+
+`e2e/online-finished-match.spec.ts` drives the real online screen with the server's responses
+stubbed and the payloads built by the real engine, covering both buttons and the scrolling. It is
+the first e2e coverage of any online screen; before it, the online interface was reachable only by
+hand, since it needs an account and a database.
+
+## T34.3 Dragging and arranging the hand, online
+
+From the same round of play as T34.1-T34.2: "two more things that were working in the hotseat mode
+but disappeared in the online version is the possibility to drag tiles and also the ability to move
+around the tiles on hand, either by pressing or dragging."
+
+- [x] Drag a tile from the hand onto a square, a blank included — the letter picker opens on the
+      drop, as it does on a tap.
+- [x] Drag a placed tile to another square, and back into the hand.
+- [x] Drag a tile into a gap in the hand to move it there.
+- [x] Tap a second tile in the hand while one is picked up to exchange the two, the tile staying
+      picked up so repeated taps walk it along.
+- [x] The hit-testing is shared with the hot-seat screen rather than written a second time.
+
+Neither gesture was ever online: T27.2 built the screen from the shared presentational components,
+and dragging is not in them — `Board` and `Rack` take the handlers, and only `GameScreen` passed
+any. `ui-design.md` section 11 has required both since before either screen existed, which is why
+this is `known-bugs.md` item 21 rather than a new interaction to design.
+
+`resolveDropTarget` and `rackDropIndex` moved into `src/components/common/tileDropTargets.ts`:
+"what is under this point" is the same question on both screens, and `architecture.md` section 24
+is about exactly the things that only get made once. What a drop *means* stays separate, because
+it has to be — the hot-seat screen dispatches into the engine, the online one arranges locally and
+lets the server judge at `Spela` (DEC-026).
+
+Rearranging the hand is local, on the terms **DEC-030** already set for the shuffle: it never
+reaches the server, so it cannot bump the revision and bounce a move the opponent has in flight,
+and it is not remembered when the match is reopened. It is allowed while waiting for the opponent,
+since it asks the server nothing; placing a tile on the board still is not.
+
+`e2e/online-drag.spec.ts` drives real pointer drags in both engines, the server's responses stubbed
+as in `online-finished-match.spec.ts`. That is not belt and braces: jsdom has no layout, so the
+unit tests have to stub `document.elementFromPoint` and every tile's geometry — which is precisely
+what a drag depends on.
+
+---
 
 ---
 

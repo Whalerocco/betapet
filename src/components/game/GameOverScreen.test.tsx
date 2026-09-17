@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createBoardDefinition,
   createBoardState,
   placeCommittedTile,
 } from "../../game/model/board";
-import { createGameHistory } from "../../game/model/history";
+import { addHistoryEvent, createGameHistory } from "../../game/model/history";
 import { createGameResult } from "../../game/model/gameResult";
 import {
+  createHistoryEventId,
   createPlayerId,
   createTileId,
   type TileId,
@@ -55,7 +56,7 @@ describe("GameOverScreen", () => {
         result={result}
         history={createGameHistory()}
         {...finishedBoard()}
-        onNewGame={vi.fn()}
+        actions={{ kind: "LOCAL", onNewGame: vi.fn() }}
       />,
     );
 
@@ -85,7 +86,7 @@ describe("GameOverScreen", () => {
         result={result}
         history={createGameHistory()}
         {...finishedBoard()}
-        onNewGame={vi.fn()}
+        actions={{ kind: "LOCAL", onNewGame: vi.fn() }}
       />,
     );
 
@@ -112,7 +113,7 @@ describe("GameOverScreen", () => {
         result={result}
         history={createGameHistory()}
         {...finishedBoard()}
-        onNewGame={onNewGame}
+        actions={{ kind: "LOCAL", onNewGame }}
       />,
     );
 
@@ -139,7 +140,7 @@ describe("GameOverScreen", () => {
         )}
         history={createGameHistory()}
         {...board}
-        onNewGame={vi.fn()}
+        actions={{ kind: "LOCAL", onNewGame: vi.fn() }}
       />,
     );
 
@@ -177,12 +178,117 @@ describe("GameOverScreen", () => {
         )}
         history={createGameHistory()}
         {...finishedBoard()}
-        onNewGame={vi.fn()}
+        actions={{ kind: "LOCAL", onNewGame: vi.fn() }}
       />,
     );
 
     // The game is over, so no square is a placement target and no tile can be picked up.
     const finalBoard = screen.getByRole("grid", { name: "Spelplan" });
     expect(finalBoard.querySelectorAll("button")).toHaveLength(0);
+  });
+});
+
+/*
+ * The ways off the screen (ui-design.md section 39, `known-bugs.md` item 19). A finished online
+ * match used to offer one action, `Nytt spel`, which led back to the match list — the only way
+ * out, and not the one it named.
+ */
+describe("GameOverScreen: leaving", () => {
+  function renderWith(
+    actions: Parameters<typeof GameOverScreen>[0]["actions"],
+  ) {
+    const august = createPlayerId();
+    const anna = createPlayerId();
+    render(
+      <GameOverScreen
+        players={[
+          { id: august, name: "August" },
+          { id: anna, name: "Anna" },
+        ]}
+        result={createGameResult(
+          { [august]: 12, [anna]: 8 },
+          [august],
+          { [august]: 0, [anna]: 3 },
+          "CONSECUTIVE_PASSES",
+        )}
+        history={createGameHistory()}
+        {...finishedBoard()}
+        actions={actions}
+      />,
+    );
+  }
+
+  it("offers a rematch and a way back in an online match", async () => {
+    const onRematch = vi.fn();
+    const onBack = vi.fn();
+    renderWith({ kind: "ONLINE", onRematch, onBack });
+
+    expect(
+      screen.queryByRole("button", { name: "Nytt spel" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Revansch" }));
+    expect(onRematch).toHaveBeenCalledOnce();
+
+    await userEvent.click(screen.getByRole("button", { name: "Tillbaka" }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("still offers the way back when a rematch cannot be offered", () => {
+    renderWith({ kind: "ONLINE", onBack: vi.fn() });
+
+    expect(
+      screen.queryByRole("button", { name: "Revansch" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Tillbaka" }),
+    ).toBeInTheDocument();
+  });
+
+  it("lets the history flow with the page rather than scrolling inside itself", () => {
+    const august = createPlayerId();
+    const anna = createPlayerId();
+    const history = addHistoryEvent(createGameHistory(), {
+      id: createHistoryEventId(),
+      sequence: 0,
+      type: "WORD_MOVE_COMMITTED",
+      playerId: august,
+      payload: {
+        placedTiles: [],
+        words: ["BIL"],
+        scoreAwarded: 12,
+        usedUnknownWordApproval: false,
+      },
+    });
+
+    render(
+      <GameOverScreen
+        players={[
+          { id: august, name: "August" },
+          { id: anna, name: "Anna" },
+        ]}
+        result={createGameResult(
+          { [august]: 12, [anna]: 8 },
+          [august],
+          { [august]: 0, [anna]: 3 },
+          "CONSECUTIVE_PASSES",
+        )}
+        history={history}
+        {...finishedBoard()}
+        actions={{ kind: "LOCAL", onNewGame: vi.fn() }}
+      />,
+    );
+
+    /*
+     * Asserted through the class, because jsdom computes no layout. A capped list here swallows
+     * the drag that would have scrolled the page, which is what made the finished screen read as
+     * unscrollable on a phone (`known-bugs.md` item 18); `e2e/online-finished-match.spec.ts`
+     * holds the behaviour itself in a real browser.
+     */
+    // The deductions are a list too, so this asks for the one inside the history drawer.
+    const list = within(
+      screen.getByText("Historik").closest("details")!,
+    ).getByRole("list");
+    expect(list.className).toContain("flowing");
   });
 });

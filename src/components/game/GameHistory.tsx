@@ -11,6 +11,16 @@ export interface GameHistoryProps {
   /** Initial state when the caller does not control it (the game-over review). */
   readonly defaultOpen?: boolean;
   /**
+   * Let the list flow with the page instead of scrolling inside its own box.
+   *
+   * The cap belongs to the drawer on a playing screen, which is pinned to the viewport and must
+   * not be pushed off it. On the game-over review the page itself scrolls, and there a capped
+   * list is worse than useless: it swallows the drag that would have scrolled the page, so the
+   * screen reads as unscrollable from wherever the history happens to be (`known-bugs.md`
+   * item 18).
+   */
+  readonly flow?: boolean;
+  /**
    * The drawer's state, when a caller controls it. The playing screens do, because whether it is
    * open decides whether the view stays pinned to the viewport (`useHistoryDrawer`).
    */
@@ -107,6 +117,7 @@ export function GameHistory({
   history,
   playerNames,
   defaultOpen = true,
+  flow = false,
   open,
   onOpenChange,
 }: GameHistoryProps) {
@@ -127,7 +138,7 @@ export function GameHistory({
       {lines.length === 0 ? (
         <p className={styles.empty}>Inga händelser än.</p>
       ) : (
-        <ol className={styles.list}>
+        <ol className={`${styles.list} ${flow ? styles.flowing : ""}`}>
           {lines.map((line) => (
             <li key={line.key} className={styles.entry}>
               <span className={styles.primary}>{line.primary}</span>

@@ -342,6 +342,12 @@ Rack order is part of `GameState` (`player.rack.tileIds`), like the order `Bland
 produces, so a rearranged hand survives a refresh. It is not a game rule — the tiles held are
 unchanged — but it goes through the engine so there is one source of truth.
 
+In an online match the same two gestures do the same things, but the order is the client's own and
+never reaches the server (DEC-030, as for `Blanda brickor`): a cosmetic act must not bump the match
+revision and bounce a move the opponent has in flight, and the price is that the order is not
+remembered when the match is reopened. Arranging the hand is offered while waiting for the
+opponent, since it asks the server nothing; placing a tile on the board is not.
+
 This interaction works with:
 
 - Mouse
@@ -1047,10 +1053,15 @@ first, and the board is what they then talk over. It is the same board component
 it pans and pinch-zooms here too — useful for reading a crowded final position on a phone — but
 nothing on it can be tapped, since there is no move left to make.
 
-### Leaving a finished online match (not yet built — T34.2)
+The move history on this screen **flows with the page** rather than scrolling inside its own box,
+unlike the drawer on a playing screen. The cap belongs to a pinned view; here the page is the
+scroller, and a capped list below the fold swallows the drag that would have scrolled the page —
+which is what made this screen read as unscrollable on a phone (`known-bugs.md` item 18).
 
-Online, the single `Nytt spel` action is both too little and misleading: it is the only way off the
-screen, and it leads to the match list rather than to a new game. A finished online match offers
+### Leaving a finished online match
+
+Online, the single `Nytt spel` action was both too little and misleading: it was the only way off
+the screen, and it led to the match list rather than to a new game. A finished online match offers
 two actions instead:
 
 - **`Revansch`** — go to match creation with the opponent just played already chosen, so a rematch
@@ -1058,7 +1069,10 @@ two actions instead:
   inviter's to choose (DEC-029), and a rematch is a new invitation like any other.
 - **`Tillbaka`** — return to `Mina matcher`, named for where it actually goes.
 
-The hot-seat screen keeps `Nytt spel`, which there means what it says.
+The hot-seat screen keeps `Nytt spel`, which there means what it says. The two sets are a
+discriminated union in `GameOverScreen` rather than optional callbacks, so every game that ends
+has to name a way back — the defect above was a missing exit, and this is what stops another one
+being built by leaving a prop out.
 
 ---
 

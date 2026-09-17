@@ -143,3 +143,28 @@ describe("NewMatchScreen", () => {
     );
   });
 });
+
+/* The way in from a finished match: a rematch against the opponent just played (T34.2). */
+describe("NewMatchScreen: a rematch", () => {
+  const REMATCH: NewMatchOpponent = {
+    kind: "HANDLE",
+    name: "Anna",
+    handle: "anna",
+  };
+
+  it("names the opponent instead of asking for one", async () => {
+    const { onCreate } = renderScreen(REMATCH);
+
+    expect(screen.getByText("Anna")).toBeInTheDocument();
+    expect(screen.getByText("@anna")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Motståndare" }),
+    ).not.toBeInTheDocument();
+
+    // The rules are still confirmed here rather than carried over (DEC-029).
+    await userEvent.click(screen.getByRole("button", { name: "Bjud in" }));
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ rackSize: 7, opponent: undefined }),
+    );
+  });
+});

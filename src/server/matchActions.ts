@@ -64,6 +64,14 @@ export interface MatchView {
    * interface silently ignored every attempt to replace one.
    */
   readonly configuration: MatchConfiguration;
+  /**
+   * The other player, named the way the invitation endpoint accepts (DEC-036): a handle, which
+   * needs no friendship (DEC-034). Without it a rematch could only offer a display name, which
+   * names nobody to the server — so `Revansch` on the finished screen would have had nothing to
+   * pre-choose (T34.2). Absent only if the seat has no identity row, which a live match cannot
+   * be in.
+   */
+  readonly opponent?: { readonly name: string; readonly handle: string };
   readonly view: PlayerGameView;
 }
 
@@ -118,12 +126,18 @@ function viewOf(
   state: GameState,
   playerId: PlayerId,
 ): MatchView {
+  const opponentSeat = record.players.find(
+    (seat) => seat.playerId !== playerId,
+  );
   return {
     outcome: "OK",
     matchId: record.id,
     revision: record.revision,
     status: record.status,
     configuration: record.configuration,
+    ...(opponentSeat?.name && opponentSeat.handle
+      ? { opponent: { name: opponentSeat.name, handle: opponentSeat.handle } }
+      : {}),
     view: toPlayerGameView(state, playerId),
   };
 }

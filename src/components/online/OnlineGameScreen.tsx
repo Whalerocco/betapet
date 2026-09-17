@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 
 import type { ChatMessage } from "../../application/online/chatApi";
 import { localArrangement } from "../../application/online/localArrangement";
@@ -28,6 +28,10 @@ import type { PendingPlacedTile } from "../../game/model/pendingMove";
 import { tileLetter } from "../../game/model/tile";
 import { Board } from "../board/Board";
 import { Dialog } from "../common/Dialog";
+import { Tile } from "../common/Tile";
+import { rackDropIndex, resolveDropTarget } from "../common/tileDropTargets";
+import type { DragPointerPosition } from "../common/useTileDrag";
+import { useTileDrag } from "../common/useTileDrag";
 import { GameHistory } from "../game/GameHistory";
 import { useHistoryDrawer } from "../game/useHistoryDrawer";
 import { LANGUAGE_NAMES } from "../game/languageNames";
@@ -50,6 +54,15 @@ export interface OnlineGameScreenProps {
   readonly onAction: (action: TurnAction) => void;
   readonly onRefresh: () => void;
   readonly onExit: () => void;
+  /**
+   * Play the same opponent again (T34.2): opens match creation with them already chosen, named
+   * by the handle the match carries (DEC-036). Optional, since a caller that cannot offer it —
+   * or a match whose opponent has no identity to pass on — simply shows `Tillbaka` alone.
+   */
+  readonly onRematch?: (opponent: {
+    readonly name: string;
+    readonly handle: string;
+  }) => void;
   readonly busy?: boolean;
   readonly error?: string;
 
@@ -90,6 +103,7 @@ export function OnlineGameScreen({
   onAction,
   onRefresh,
   onExit,
+  onRematch,
   busy,
   error,
   notifications = [],
@@ -143,6 +157,21 @@ export function OnlineGameScreen({
     setExchangeMode(false);
     setExchangeSelection(new Set());
   }, [snapshot.revision, view.pendingMove, viewer]);
+
+  /*
+   * Dragging tiles, the same gesture the hot-seat screen has always had and this one never did
+   * (`known-bugs.md` item 21). The hook and the hit-testing are shared; what a drop *means* is
+   * the middle layer `architecture.md` section 24 is about, so it is written here against the
+   * local arrangement rather than dispatched into an engine this client does not have.
+   *
+   * Wired among the hooks, before the early returns, even though `handleTileDrop` is a hoisted
+   * function declaration whose body only makes sense further down — a drag can only be *started*
+   * from the rack or the board, which are rendered past that point, so the bindings it closes
+   * over are always initialised by the time it runs. `GameScreen` does the same.
+   */
+  const { dragState, startDrag } = useTileDrag<TileId>({
+    onDrop: handleTileDrop,
+  });
 
   const turnState = view.turnState;
   const myTurn =
@@ -310,6 +339,30 @@ export function OnlineGameScreen({
         history: view.history,
       });
 
+  /**
+   * The tile under the finger, drawn as it should look while it is being carried: a blank shows
+   * the letter it was placed as, and an unplaced one its empty face.
+   */
+  const dragged = dragState ? view.tiles[dragState.item] : undefined;
+  const draggedPlacement = dragState
+    ? boardPlacements.find((placed) => placed.tileId === dragState.item)
+    : undefined;
+  const draggedTile = dragged
+    ? {
+        letter:
+          draggedPlacement?.representedLetter ??
+          tileLetter(dragged) ??
+          (dragged.kind === "BLANK" ? "☐" : ""),
+        points: dragged.points,
+        isBlank: dragged.kind === "BLANK",
+      }
+    : undefined;
+
+  /** The square a drag is hovering over, so it lights up before the tile is let go of. */
+  const dragOverCoordinate = dragState
+    ? resolveDropTarget(dragState.position).coordinate
+    : undefined;
+
   /** Tiles are placed, here or on the server, so this turn is in the middle of something. */
   const hasMoveInProgress =
     placements.length > 0 || serverPendingTileIds.length > 0;
@@ -344,9 +397,12 @@ export function OnlineGameScreen({
     setSelectedTileId(undefined);
   }
 
-  function handlePlaceAt(coordinate: Coordinate) {
-    if (!selectedTileId || !myTurn) return;
-
+  /**
+   * Puts a tile the player is holding on a square, however it got there — tapped onto it or
+   * dragged. Both gestures are meant to be the same act (`ui-design.md` section 11), so they go
+   * through one function rather than two that could come to disagree.
+   */
+  function placeFromHand(tileId: TileId, coordinate: Coordinate) {
     /*
      * An occupied square is a legitimate target in two cases, and refusing both outright is what
      * made Replace mode do nothing at all online (T28.6): a committed tile can be replaced when
@@ -362,13 +418,18 @@ export function OnlineGameScreen({
     );
     if (holdsCommittedTile && !replaceModeActive) return;
 
-    const tile = view.tiles[selectedTileId];
+    const tile = view.tiles[tileId];
     if (tile.kind === "BLANK") {
       // A blank's letter is chosen where it is placed, as in the local game.
-      setBlankTarget({ tileId: selectedTileId, coordinate });
+      setBlankTarget({ tileId, coordinate });
       return;
     }
-    place(selectedTileId, coordinate);
+    place(tileId, coordinate);
+  }
+
+  function handlePlaceAt(coordinate: Coordinate) {
+    if (!selectedTileId || !myTurn) return;
+    placeFromHand(selectedTileId, coordinate);
   }
 
   /**
@@ -390,6 +451,122 @@ export function OnlineGameScreen({
           placed.tileId !== tileId && placed.tileId !== returningTileId,
       ),
     );
+  }
+
+  /**
+   * Moves a tile this move has already placed to another square — what `MOVE_TILE` is in the
+   * hot-seat game, and a gesture with no tap equivalent.
+   *
+   * It takes the tile off its old square first, so a tile moved off a square it had replaced puts
+   * the committed tile back exactly as picking it up would (`takeBack`): a move is never a
+   * placement that forgot where it came from.
+   */
+  function moveTo(placed: PendingPlacedTile, coordinate: Coordinate) {
+    if (coordinatesEqual(placed.coordinate, coordinate)) return;
+    const holdsCommittedTile = localBoard.occupiedCells.some((cell) =>
+      coordinatesEqual(cell.coordinate, coordinate),
+    );
+    if (holdsCommittedTile && !replaceModeActive) return;
+    takeBack(placed.tileId);
+    place(placed.tileId, coordinate, placed.representedLetter);
+  }
+
+  /**
+   * Where a tile sits in this player's own hand (T28.5), moved by dragging it between two others.
+   *
+   * `toIndex` counts the tiles actually drawn in the rack, which is the hand less whatever is on
+   * the board; `rackOrder` is the whole hand, so the drop is anchored to the tile it landed
+   * before rather than to a raw index. That keeps a placed tile's own position in the order when
+   * it comes back.
+   */
+  function moveRackTile(tileId: TileId, toIndex: number) {
+    const visible = rackTiles
+      .map((tile) => tile.id)
+      .filter((id) => id !== tileId);
+    const anchor = visible[toIndex];
+    const without = orderedRackIds.filter((id) => id !== tileId);
+    const at = anchor === undefined ? without.length : without.indexOf(anchor);
+    setRackOrder([...without.slice(0, at), tileId, ...without.slice(at)]);
+  }
+
+  /** Two tiles exchange places in the hand — the hot-seat `SWAP_RACK_TILES`, done locally. */
+  function swapRackTiles(first: TileId, second: TileId) {
+    const next = [...orderedRackIds];
+    const from = next.indexOf(first);
+    const to = next.indexOf(second);
+    if (from === -1 || to === -1) return;
+    [next[from], next[to]] = [next[to], next[from]];
+    setRackOrder(next);
+  }
+
+  function handleSelectRackTile(tileId: TileId) {
+    if (exchangeMode) {
+      toggleExchangeTile(tileId);
+      return;
+    }
+    if (selectedTileId === tileId) {
+      setSelectedTileId(undefined);
+      return;
+    }
+    if (selectedTileId !== undefined) {
+      // A tile is already picked up, so tapping another one in the rack rearranges the hand
+      // rather than changing which tile is selected: the two exchange places, and the tile stays
+      // selected so it can be walked along with repeated taps. Tapping it again lets go of it.
+      // Identical to the hot-seat screen, which reaches the same rule through the engine.
+      swapRackTiles(selectedTileId, tileId);
+      return;
+    }
+    setSelectedTileId(tileId);
+  }
+
+  function handleRackTilePointerDown(
+    tileId: TileId,
+    event: PointerEvent<HTMLButtonElement>,
+  ) {
+    if (exchangeMode || moveUnderReview) return;
+    startDrag(tileId, event);
+  }
+
+  function handleBoardTilePointerDown(
+    tileId: TileId,
+    event: PointerEvent<HTMLButtonElement>,
+  ) {
+    if (!myTurn || moveUnderReview) return;
+    startDrag(tileId, event);
+  }
+
+  /**
+   * Fires once a drag ends with real movement (`useTileDrag.ts`). What is under the pointer is
+   * resolved by the same hit-testing the hot-seat screen uses, and every outcome then goes
+   * through the functions the tap flow already uses — dragging is another way to reach them,
+   * never a second path that could arrange the board differently.
+   *
+   * Arranging the hand is allowed whether or not it is this player's turn: it asks nothing of the
+   * server and tells the opponent nothing. Putting a tile on the board is not.
+   */
+  function handleTileDrop(tileId: TileId, position: DragPointerPosition) {
+    if (moveUnderReview || exchangeMode) return;
+    const target = resolveDropTarget(position);
+    const placed = boardPlacements.find((each) => each.tileId === tileId);
+
+    if (placed) {
+      if (!myTurn) return;
+      if (target.coordinate) {
+        moveTo(placed, target.coordinate);
+      } else if (target.overRack) {
+        takeBack(tileId);
+      }
+      return;
+    }
+
+    if (target.coordinate) {
+      if (myTurn) placeFromHand(tileId, target.coordinate);
+      return;
+    }
+
+    if (target.overRack) {
+      moveRackTile(tileId, rackDropIndex(tileId, position.x));
+    }
   }
 
   /**
@@ -430,7 +607,20 @@ export function OnlineGameScreen({
         boardDefinition={SCRABBLE_BOARD_DEFINITION}
         boardState={view.board}
         tiles={view.tiles}
-        onNewGame={onExit}
+        /*
+         * Two ways off a finished match, and neither of them was here (`known-bugs.md` item 19):
+         * `Nytt spel` led back to the match list, which is neither what it said nor a way to
+         * play the same opponent again. `Revansch` needs an opponent the server will accept, so
+         * it appears only when the match carried one (DEC-036, T34.2).
+         */
+        actions={{
+          kind: "ONLINE",
+          onRematch:
+            onRematch && snapshot.opponent
+              ? () => onRematch(snapshot.opponent!)
+              : undefined,
+          onBack: onExit,
+        }}
       />
     );
   }
@@ -519,6 +709,9 @@ export function OnlineGameScreen({
           scoreBadgeValue={preview.total}
           onPlaceAt={handlePlaceAt}
           onPendingTileClick={takeBack}
+          onPendingTilePointerDown={handleBoardTilePointerDown}
+          draggingTileId={dragState?.item}
+          dragOverCoordinate={dragOverCoordinate}
         />
 
         {mustReview ? (
@@ -538,13 +731,9 @@ export function OnlineGameScreen({
                 tiles={rackTiles}
                 selectedTileId={selectedTileId}
                 exchangeSelection={exchangeMode ? exchangeSelection : undefined}
-                onSelectTile={(tileId) =>
-                  exchangeMode
-                    ? toggleExchangeTile(tileId)
-                    : setSelectedTileId(
-                        tileId === selectedTileId ? undefined : tileId,
-                      )
-                }
+                onSelectTile={handleSelectRackTile}
+                onTilePointerDown={handleRackTilePointerDown}
+                draggingTileId={dragState?.item}
               />
               <ShuffleButton onClick={handleShuffleRack} />
             </div>
@@ -643,6 +832,21 @@ export function OnlineGameScreen({
           />
         )}
       </div>
+
+      {dragState && draggedTile && (
+        <div
+          className={styles.dragPreview}
+          style={{ left: dragState.position.x, top: dragState.position.y }}
+          aria-hidden="true"
+        >
+          <Tile
+            letter={draggedTile.letter}
+            points={draggedTile.points}
+            isBlank={draggedTile.isBlank}
+            variant="pending"
+          />
+        </div>
+      )}
     </div>
   );
 }
