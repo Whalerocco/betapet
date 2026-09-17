@@ -117,6 +117,43 @@ button.tile.displaced:hover:not(:disabled) {
   color: var(--tile-review-foreground);
 }
 
+/*
+ * A committed tile the opponent put on the board in their most recent move (DEC-037,
+ * `ui-design.md` section 10). It is marked until this player commits a move of their own, so that
+ * coming back to a match shows what changed without reading the whole board. The corner triangle
+ * and the tile's accessible name say the same thing the colour does, since colour alone is not a
+ * signal every player receives.
+ */
+.tile.lastMove {
+  background: linear-gradient(
+    155deg,
+    var(--tile-last-move-background),
+    color-mix(
+      in srgb,
+      var(--tile-last-move-background) 88%,
+      var(--tile-last-move-border)
+    )
+  );
+  border-color: var(--tile-last-move-border);
+  color: var(--tile-last-move-foreground);
+}
+
+/*
+ * Proportional to the tile, like the blank's marker, so it keeps its place and its size through
+ * board zoom. The top-right corner is the free one: the score badge sits top-left (and only on a
+ * pending tile, which this never is) and the point value bottom-right.
+ */
+.tile.lastMove::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--tile-size) * 0.06);
+  right: calc(var(--tile-size) * 0.06);
+  width: calc(var(--tile-size) * 0.2);
+  height: calc(var(--tile-size) * 0.2);
+  background: var(--tile-last-move-border);
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+}
+
 .tile.selected {
   border: 2px solid var(--tile-selected-border);
   box-shadow: var(--shadow-md);

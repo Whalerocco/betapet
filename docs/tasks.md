@@ -2287,6 +2287,40 @@ what a drag depends on.
 
 ---
 
+## T34.4 The opponent's last move, marked on the board
+
+Asked for after the same round of play: a way to see which words the opponent played last turn,
+without reading the whole board against your memory of it.
+
+- [x] The tiles the opponent placed in their most recent committed move are marked.
+- [x] The mark clears when this player commits a move of their own.
+- [x] Colour is not the only carrier: a corner triangle and the tile's accessible name say it too.
+- [x] Both screens, from one shared derivation.
+
+Built on 2026-09-17 (**DEC-037**), which records the three judgments: only the tiles they placed
+(not the whole words those tiles formed), marked by tile id rather than by coordinate, and derived
+per viewer rather than stored.
+
+`lastOpponentMove` walks back through the history to the newest `WORD_MOVE_COMMITTED` and returns
+nothing when it is the viewer's own. That one rule is the whole feature: the mark appears when the
+opponent plays and clears the moment this player commits — no timer, no dismissal, nothing to
+reset — and a pass or an exchange in between leaves it alone, since neither changes a square.
+
+**Nothing was needed from the server.** `WORD_MOVE_COMMITTED` has always carried its `placedTiles`,
+and `toPlayerGameView` has always passed the whole history through, so the online client derives
+this for itself. That is `architecture.md` section 24's third row done the way the section asks
+for: the derivation is a module, tested on its own, and both screens call it.
+
+The id-not-coordinate choice is the one worth remembering. Under Replace mode a marked tile can be
+displaced off the board by a later move; a coordinate set would then have marked whichever tile
+stands on that square now — a tile from nobody's last move. `Board.test.tsx` pins that case.
+
+Verified visually in a real browser at a phone width, in both colour schemes, as well as by the
+suite: the violet face and its corner triangle read clearly against the multiplier squares in
+light and dark alike.
+
+---
+
 ---
 
 # 33. Phase 7A — Chat

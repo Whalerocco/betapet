@@ -271,7 +271,17 @@ Possible techniques include:
 
 Do not rely only on color for this distinction.
 
-After a move is committed, the tiles should visually become part of the board.
+After a move is committed, the tiles should visually become part of the board, with the one
+exception below.
+
+The opponent's most recent committed move stays marked (DEC-037): the tiles *they* placed are
+drawn in their own colour, with a small triangle in the top-right corner and a
+`motståndarens senaste drag` suffix on the tile's accessible name, until this player commits a
+move of their own. Coming back to a match — online after a day away, or hot-seat after the handoff
+— the board should say what changed while you were gone, rather than leaving you to read 225
+squares against your memory of them. Only the tiles they placed are marked, not the older tiles
+their words ran through, and a tile displaced off the board afterwards takes its mark with it. A
+pass or an exchange in between changes no square, so the mark stays across one.
 
 Rack tiles are sized independently of board tiles. The board must fit fifteen columns across,
 which on a phone forces a cell well below a comfortable touch target; the rack holds only a

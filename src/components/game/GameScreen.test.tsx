@@ -134,22 +134,16 @@ describe("GameScreen", () => {
     await userEvent.click(
       screen.getByTestId(`cell-${centre.row},${centre.column + 1}`),
     );
-    expect(
-      screen.getByRole("button", { name: "Spela" }),
-    ).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Spela" })).not.toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Rensa" }));
 
     expect(screen.getByLabelText("Bricka B, 1 poäng")).toBeInTheDocument();
     expect(screen.getByLabelText("Bricka I, 1 poäng")).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/Pending bricka/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Pending bricka/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spela" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Rensa" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Passa" }),
-    ).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Passa" })).not.toBeDisabled();
     expect(
       screen.getByText(`Din tur: ${setup.state.players[0].name}`),
     ).toBeInTheDocument();
@@ -296,7 +290,10 @@ describe("GameScreen", () => {
       screen.getByLabelText("Vilken bokstav ska den blanka brickan vara?"),
     ).toBeInTheDocument();
 
-    fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+    fireEvent(
+      screen.getByRole("dialog"),
+      new Event("cancel", { cancelable: true }),
+    );
 
     expect(
       screen.queryByLabelText("Vilken bokstav ska den blanka brickan vara?"),
@@ -381,9 +378,7 @@ describe("GameScreen", () => {
       screen.queryByRole("button", { name: "Börja tur" }),
     ).not.toBeInTheDocument();
     // The reviewer's own private area is on screen straight away, with nothing to tap through.
-    expect(
-      screen.getByRole("group", { name: "Din hand" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Din hand" })).toBeInTheDocument();
     const playerOneScore = screen.getByText(
       new RegExp(`^${setup.state.players[0].name}: \\d+$`),
     );
@@ -520,7 +515,9 @@ describe("GameScreen", () => {
     await renderGame(["B", "I", "L"]);
     const rackLetters = () =>
       Array.from(
-        screen.getByRole("group", { name: "Din hand" }).querySelectorAll("button"),
+        screen
+          .getByRole("group", { name: "Din hand" })
+          .querySelectorAll("button"),
       ).map((button) => button.textContent?.[0]);
     expect(rackLetters()).toEqual(["B", "I", "L"]);
 
@@ -536,7 +533,9 @@ describe("GameScreen", () => {
     await renderGame(["B", "I", "L"]);
     const rackLetters = () =>
       Array.from(
-        screen.getByRole("group", { name: "Din hand" }).querySelectorAll("button"),
+        screen
+          .getByRole("group", { name: "Din hand" })
+          .querySelectorAll("button"),
       ).map((button) => button.textContent?.[0]);
 
     await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
@@ -687,9 +686,7 @@ describe("GameScreen: Replace mode", () => {
     expect(
       screen.getByText(`Din tur: ${setup.state.players[0].name}`),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/ersatt bricka/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/ersatt bricka/)).not.toBeInTheDocument();
   });
 
   it("replaces a committed tile by tapping it after selecting a rack tile", async () => {
@@ -716,14 +713,14 @@ describe("GameScreen: Replace mode", () => {
   it("drags a rack tile onto a committed tile and takes the displaced tile into the rack", async () => {
     const { centre } = renderReplaceGame(["A", "I", "B"]);
     await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
-    const centreCell = screen.getByTestId(`cell-${centre.row},${centre.column}`);
+    const centreCell = screen.getByTestId(
+      `cell-${centre.row},${centre.column}`,
+    );
 
     dragOnto(screen.getByLabelText("Bricka A, 1 poäng"), centreCell);
 
     expect(
-      await screen.findByLabelText(
-        "Pending bricka A, tryck för att redigera",
-      ),
+      await screen.findByLabelText("Pending bricka A, tryck för att redigera"),
     ).toBeInTheDocument();
     // The displaced "I" joins the replacing player's rack — alongside the "I" already there.
     expect(
@@ -745,9 +742,7 @@ describe("GameScreen: Replace mode", () => {
       ),
     ).toBeInTheDocument();
     // Nothing moved: the committed "I" is still on the board and the rack is untouched.
-    expect(
-      screen.queryByLabelText(/^Pending bricka/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Pending bricka/)).not.toBeInTheDocument();
     expect(screen.getAllByLabelText("Bricka I, 1 poäng")).toHaveLength(1);
   });
 
@@ -767,5 +762,71 @@ describe("GameScreen: Replace mode", () => {
     expect(
       screen.getByText(`${setup.state.players[0].name}: 0`),
     ).toBeInTheDocument();
+  });
+});
+
+/*
+ * The opponent's last move, marked on the board (DEC-037). Hot-seat has the handoff screen, but
+ * that says whose turn it is, not what changed while the device was in the other player's hands.
+ */
+describe("GameScreen last-move marks", () => {
+  /** Plays BIL from the centre and hands the device over, leaving player two on turn. */
+  async function playBilAndHandOver(centre: { row: number; column: number }) {
+    for (const [index, letter] of ["B", "I", "L"].entries()) {
+      await userEvent.click(screen.getByLabelText(`Bricka ${letter}, 1 poäng`));
+      await userEvent.click(
+        screen.getByTestId(`cell-${centre.row},${centre.column + index}`),
+      );
+    }
+    await userEvent.click(screen.getByRole("button", { name: "Spela" }));
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+  }
+
+  it("marks the other player's tiles once the device is handed over", async () => {
+    const { setup } = await renderGame();
+    const centre = setup.board.centreCoordinate;
+
+    // While the move is still being made, its own tiles are pending, not somebody else's.
+    await userEvent.click(screen.getByLabelText("Bricka B, 1 poäng"));
+    await userEvent.click(
+      screen.getByTestId(`cell-${centre.row},${centre.column}`),
+    );
+    expect(
+      screen.queryByLabelText(/motståndarens senaste drag/),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Rensa" }));
+
+    await playBilAndHandOver(centre);
+
+    expect(screen.getAllByLabelText(/motståndarens senaste drag/)).toHaveLength(
+      3,
+    );
+    expect(
+      screen.getByLabelText("Bricka B, 1 poäng, motståndarens senaste drag"),
+    ).toBeInTheDocument();
+  });
+
+  it("clears the marks once this player commits a move of their own", async () => {
+    const { setup } = await renderGame(["B", "I", "L", "A", "R", "E", "N"]);
+    const centre = setup.board.centreCoordinate;
+
+    await playBilAndHandOver(centre);
+    expect(
+      screen.getAllByLabelText(/motståndarens senaste drag/).length,
+    ).toBeGreaterThan(0);
+
+    // Player two passes, which changes no square, and the device goes back to player one.
+    await userEvent.click(screen.getByRole("button", { name: "Passa" }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Passa" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fortsätt" }));
+
+    // For player one the newest committed move is their own BIL, so there is nothing to mark —
+    // the tiles are still on the board, just no longer anyone else's news.
+    expect(
+      screen.queryByLabelText(/motståndarens senaste drag/),
+    ).not.toBeInTheDocument();
   });
 });

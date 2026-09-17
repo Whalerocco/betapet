@@ -45,6 +45,13 @@ export interface BoardProps {
   readonly draggingTileId?: TileId;
   /** The square a drag is currently hovering over, highlighted if it's a valid empty target. */
   readonly dragOverCoordinate?: Coordinate;
+  /**
+   * The tiles the opponent put on the board in their most recent move (DEC-037), marked until this
+   * player commits a move of their own. Ids rather than coordinates: a marked tile displaced by a
+   * later Replace-mode move is simply not on the board any more, and nothing is marked in its
+   * place. Derived per viewer by `lastOpponentMove`, and presentation only.
+   */
+  readonly lastMoveTileIds?: ReadonlySet<TileId>;
   /** The pending move's first (reading-order) tile, where the live score-preview badge renders. */
   readonly scoreBadgeCoordinate?: Coordinate;
   /** The pending move's total score, shown on `scoreBadgeCoordinate`'s cell when defined. */
@@ -68,6 +75,7 @@ export function Board({
   onPendingTilePointerDown,
   draggingTileId,
   dragOverCoordinate,
+  lastMoveTileIds,
   scoreBadgeCoordinate,
   scoreBadgeValue,
 }: BoardProps) {
@@ -175,6 +183,7 @@ export function Board({
                 isBlank: boolean;
                 isDragSource?: boolean;
                 isUnderReview?: boolean;
+                isLastMove?: boolean;
               }
             | undefined;
           if (committedTileId) {
@@ -184,6 +193,7 @@ export function Board({
               points: engineTile.points,
               isPending: false,
               isBlank: engineTile.kind === "BLANK",
+              isLastMove: lastMoveTileIds?.has(committedTileId) ?? false,
             };
           } else if (pendingTile) {
             const engineTile = tiles[pendingTile.tileId];

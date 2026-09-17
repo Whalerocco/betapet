@@ -12,6 +12,7 @@ import {
 } from "../../application/online/notificationsApi";
 import type { TurnAction } from "../../application/online/matchApi";
 import type { MatchSnapshot } from "../../application/online/matchApi";
+import { lastOpponentMove } from "../../application/game-controller/lastOpponentMove";
 import {
   pendingMoveScorePreview,
   type ScorePreview,
@@ -357,6 +358,19 @@ export function OnlineGameScreen({
         isBlank: dragged.kind === "BLANK",
       }
     : undefined;
+
+  /*
+   * What the opponent just played, marked on the board until this player commits (DEC-037). The
+   * same function the hot-seat screen uses, on the history `PlayerGameView` already carries in
+   * full — so this needs nothing from the server, and the two screens cannot drift apart.
+   *
+   * Not while reviewing their proposal: the decision in front of the reviewer is about the tiles
+   * on the board right now, and marking the opponent's *previous* turn underneath it would only
+   * compete with it.
+   */
+  const lastMoveTileIds = mustReview
+    ? undefined
+    : lastOpponentMove(view.history, viewer)?.tileIds;
 
   /** The square a drag is hovering over, so it lights up before the tile is let go of. */
   const dragOverCoordinate = dragState
@@ -712,6 +726,7 @@ export function OnlineGameScreen({
           onPendingTilePointerDown={handleBoardTilePointerDown}
           draggingTileId={dragState?.item}
           dragOverCoordinate={dragOverCoordinate}
+          lastMoveTileIds={lastMoveTileIds}
         />
 
         {mustReview ? (

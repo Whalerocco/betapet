@@ -257,3 +257,122 @@ describe("Board: a move under review", () => {
     expect(onPendingTileClick).toHaveBeenCalledWith(pendingId);
   });
 });
+
+/*
+ * The opponent's last move, marked on the board (DEC-037). The set is of tile *ids*: a marked
+ * tile that is no longer on the board — displaced by a later Replace-mode move — must leave its
+ * mark with it, rather than handing it to whatever tile stands on that square now.
+ */
+describe("Board last-move marks", () => {
+  /** Two committed tiles side by side, only the first of which the opponent just played. */
+  function boardWithTwoCommittedTiles() {
+    const marked = createTileId();
+    const older = createTileId();
+    const tiles: Record<TileId, Tile> = {
+      [marked]: createLetterTile(marked, "R", 1),
+      [older]: createLetterTile(older, "S", 1),
+    };
+    let boardState = createBoardState();
+    boardState = placeCommittedTile(boardState, { row: 2, column: 2 }, marked);
+    boardState = placeCommittedTile(boardState, { row: 2, column: 3 }, older);
+    return { marked, older, tiles, boardState };
+  }
+
+  function renderBoard(
+    props: Partial<React.ComponentProps<typeof Board>> & {
+      boardState: ReturnType<typeof createBoardState>;
+      tiles: Record<TileId, Tile>;
+    },
+  ) {
+    const { boardState, tiles, ...rest } = props;
+    render(
+      <Board
+        boardDefinition={testBoard()}
+        boardState={boardState}
+        tiles={tiles}
+        pendingPlacedTiles={[]}
+        canPlaceSelectedTile={false}
+        onPlaceAt={() => {}}
+        onPendingTileClick={() => {}}
+        {...rest}
+      />,
+    );
+  }
+
+  it("names the tiles the opponent just played, and leaves the others unnamed", () => {
+    const { marked, tiles, boardState } = boardWithTwoCommittedTiles();
+
+    renderBoard({ boardState, tiles, lastMoveTileIds: new Set([marked]) });
+
+    // The state is in the accessible name as well as in the colour, which is the rule for every
+    // tile state on this board (ui-design.md section 43).
+    expect(
+      screen.getByLabelText("Bricka R, 1 poäng, motståndarens senaste drag"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Bricka S/)).not.toBeInTheDocument();
+  });
+
+  it("marks nothing when a marked tile is no longer on the board", () => {
+    const { older, tiles, boardState } = boardWithTwoCommittedTiles();
+    const displaced = createTileId();
+    tiles[displaced] = createLetterTile(displaced, "T", 1);
+
+    // `displaced` was in the opponent's move but has since been replaced off the board.
+    renderBoard({
+      boardState,
+      tiles,
+      lastMoveTileIds: new Set([displaced]),
+    });
+
+    expect(
+      screen.queryByLabelText(/motståndarens senaste drag/),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("cell-2,3")).toHaveTextContent("S");
+    expect(older).toBeDefined();
+  });
+
+  it("never marks a tile of the move in progress", () => {
+    const pending = createTileId();
+    const tiles: Record<TileId, Tile> = {
+      [pending]: createLetterTile(pending, "N", 1),
+    };
+
+    render(
+      <Board
+        boardDefinition={testBoard()}
+        boardState={createBoardState()}
+        tiles={tiles}
+        pendingPlacedTiles={[
+          { tileId: pending, coordinate: { row: 2, column: 2 } },
+        ]}
+        canPlaceSelectedTile={false}
+        onPlaceAt={() => {}}
+        onPendingTileClick={() => {}}
+        lastMoveTileIds={new Set([pending])}
+      />,
+    );
+
+    expect(
+      screen.getByLabelText("Pending bricka N, tryck för att redigera"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/motståndarens senaste drag/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the mark in the name of a Replace-mode target, which has a label of its own", () => {
+    const { marked, tiles, boardState } = boardWithTwoCommittedTiles();
+
+    renderBoard({
+      boardState,
+      tiles,
+      canPlaceSelectedTile: true,
+      replaceModeActive: true,
+      lastMoveTileIds: new Set([marked]),
+    });
+
+    expect(
+      screen.getByLabelText("Ersätt bricka R, motståndarens senaste drag"),
+    ).toBeInTheDocument();
+  });
+});

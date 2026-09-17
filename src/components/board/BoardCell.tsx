@@ -17,6 +17,11 @@ export interface BoardCellProps {
      * (ui-design.md sections 26-27): greyed out and inert for as long as that wait lasts.
      */
     readonly isUnderReview?: boolean;
+    /**
+     * A committed tile from the opponent's most recent move (DEC-037), marked until this player
+     * commits a move of their own.
+     */
+    readonly isLastMove?: boolean;
   };
   readonly isPlaceable: boolean;
   /** The total score the current pending move would receive if submitted now, shown as a small
@@ -82,13 +87,24 @@ export function BoardCell({
      */
     const onClick =
       onReplace ?? (tile.isPending ? onPendingTileClick : undefined);
+    /*
+     * A committed tile carries no accessible name of its own — its letter and value are its text.
+     * The opponent's last move is the exception: the state has to be readable by someone who does
+     * not see the colour, and it is appended to the replace label too, since Replace mode can make
+     * the same tile a placement target and that label would otherwise take the state away.
+     */
+    const lastMoveSuffix = tile.isLastMove
+      ? ", motståndarens senaste drag"
+      : "";
     const ariaLabel = tile.isUnderReview
       ? `Föreslagen bricka ${tile.letter}, väntar på svar`
       : onReplace
-        ? `Ersätt bricka ${tile.letter}`
+        ? `Ersätt bricka ${tile.letter}${lastMoveSuffix}`
         : tile.isPending
           ? `Pending bricka ${tile.letter}, tryck för att redigera`
-          : undefined;
+          : tile.isLastMove
+            ? `Bricka ${tile.letter}, ${tile.points} poäng${lastMoveSuffix}`
+            : undefined;
     return (
       <div
         className={`${styles.cell} ${styles[multiplier]} ${dragOverClass}`}
@@ -105,6 +121,7 @@ export function BoardCell({
           isBlank={tile.isBlank}
           isDragSource={tile.isDragSource}
           isUnderReview={tile.isUnderReview}
+          isLastMove={tile.isLastMove}
           onClick={onClick}
           onPointerDown={tile.isPending ? onPendingTilePointerDown : undefined}
           ariaLabel={ariaLabel}
@@ -127,9 +144,7 @@ export function BoardCell({
         data-testid={testId}
         data-coordinate={coordinateKey}
       >
-        {label && (
-          <span className={styles.multiplierLabel}>{label.short}</span>
-        )}
+        {label && <span className={styles.multiplierLabel}>{label.short}</span>}
       </button>
     );
   }

@@ -3196,8 +3196,9 @@ board carries a multiplier, so a player who cannot see the preview cannot see th
 
 ### Consequences
 
-- The remaining deliberate hot-seat/online divergence is drag-and-drop alone
-  (`architecture.md` section 24, updated).
+- ~~The remaining deliberate hot-seat/online divergence is drag-and-drop alone~~
+  (`architecture.md` section 24, updated). Closed on 2026-09-17 by T34.3: dragging works online
+  too, and the answer to the question below was that arranging tiles needs no judgment at all.
 - ~~**A Replace-mode placement onto a committed tile shows no preview online.**~~ Withdrawn the
   same day: the client not modelling displacement turned out to be a bug in its own right, and one
   the project owner had already hit in play (`known-bugs.md` item 20) — the placed tile appeared to
@@ -3209,8 +3210,11 @@ board carries a multiplier, so a player who cannot see the preview cannot see th
 
 ### Revisit when
 
-Drag-and-drop is wanted online, which is a different question: it needs the client to know where a
-tile *may* land, and that really is the engine's judgment.
+~~Drag-and-drop is wanted online, which is a different question: it needs the client to know where
+a tile *may* land, and that really is the engine's judgment.~~ Answered on 2026-09-17 (T34.3), and
+the premise was wrong: a drag does not have to know where a tile *may* land, only where it *was
+let go of*. The client arranges and the server refuses at `Spela`, exactly as it already did for a
+placement made by tapping.
 
 Relevant files:
 - `src/application/game-controller/scorePreview.ts`
@@ -3277,3 +3281,84 @@ Relevant files:
 - `src/server/matches.ts`, `src/server/matchActions.ts`
 - `src/components/game/GameOverScreen.tsx`, `src/components/online/NewMatchScreen.tsx`
 - `src/app/online/page.tsx`
+
+---
+
+## DEC-037 — The opponent's last move is marked on the board, per viewer, derived from history
+
+**Date:** 2026-09-17
+**Status:** ACCEPTED
+**Area:** UI
+
+### Context
+
+Coming back to a match — online after a day away, or hot-seat after the handoff screen — the board
+says nothing about what changed while you were gone. The history drawer names the words, but
+finding them among 225 squares means reading the whole board.
+
+`ui-design.md` section 10 said the opposite in one line: "After a move is committed, the tiles
+should visually become part of the board." That was written about the *pending* distinction — a
+tile you are still placing versus one that is played — and it is right about that. It was never a
+decision that a committed tile may never carry any other state; the same section already gives
+committed-tile states to Replace mode and to a move under review.
+
+### Decision
+
+**The tiles the opponent placed in their most recent committed move are marked on the board until
+this player commits a move of their own.** A tinted face from its own token pair, a small triangle
+in the free (top-right) corner, and a `motståndarens senaste drag` suffix on the tile's accessible
+name — so the state is carried by colour, by shape and by words, as every tile state on this board
+is (`ui-design.md` section 43).
+
+**Only the tiles they placed**, not the whole words those tiles formed. It is exactly what changed
+on the board, it needs no word geometry recomputed from the board, and a word that merely runs
+through their new tile was not played by them this turn.
+
+**Marked by tile id, not by coordinate.** Under Replace mode a marked tile can be displaced off
+the board by a later move; a coordinate would then mark whatever tile stands on that square now,
+which is somebody else's and not from this move at all. An id marks the tile, or nothing.
+
+**Derived per viewer from the history, and stored nowhere.** `lastOpponentMove`
+(`src/application/game-controller/lastOpponentMove.ts`) walks back to the newest
+`WORD_MOVE_COMMITTED` and returns nothing when it is the viewer's own. Both screens call it —
+`PlayerGameView` already carries the whole history, so the online client derives this for itself
+and the server learns nothing about what anyone has looked at.
+
+### Alternatives considered
+
+**A "senaste draget" line naming the words, tappable to locate them on the board**, extended to
+every line in the history drawer. Not rejected on merit — it answers "which *words*" literally,
+where a mark on the board answers "which *tiles*" — but it needs transient highlight state in both
+screens and a permanent strip of vertical space on a phone, and the board itself is where the
+question is asked. Worth revisiting as an addition rather than a replacement.
+
+**A "sedan sist" review on arrival**, dimming everything but their new tiles behind a `Klart`
+button. It answers a sharper question — what changed since *you* last looked, which after three
+days away is not the same as the last move — but that question needs a per-match last-seen marker
+on each device, and the interruption has to be worth it every single time you open a match.
+
+**Clearing the mark on a timer, or by tapping it.** Rejected: the rule "it goes when you play" is
+the one the player already has in their head, needs no state of its own, and cannot get stuck.
+
+### Consequences
+
+- A committed tile now has two possible states rather than one, and `ui-design.md` section 10 is
+  corrected to say so.
+- A pass or an exchange does not clear the mark, since neither changes a square. The board's
+  newest change is still the move that is marked.
+- The mark is not part of `GameState` and never reaches the server, so it cannot desync, cannot
+  bump a match revision (DEC-030's cost), and needs no migration.
+- It is suppressed while an unknown-word proposal is waiting for this player's answer: that
+  decision is about the tiles in front of them, and the opponent's previous turn would compete
+  with it.
+
+### Revisit when
+
+The last move alone stops being the right answer — most likely online, where a player can be away
+for several of their opponent's turns in a game with more than two players, or where "since you
+last looked" becomes worth storing.
+
+Relevant files:
+- `src/application/game-controller/lastOpponentMove.ts`
+- `src/components/board/Board.tsx`, `src/components/board/BoardCell.tsx`
+- `src/components/common/Tile.tsx`, `src/components/common/Tile.module.css`

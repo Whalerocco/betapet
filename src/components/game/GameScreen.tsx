@@ -15,6 +15,7 @@ import {
 } from "../../application/game-controller/localSession";
 import { useGameController } from "../../application/game-controller/useGameController";
 import { saveLocalGame } from "../../application/persistence/localGameStorage";
+import { lastOpponentMove } from "../../application/game-controller/lastOpponentMove";
 import { pendingMoveScorePreview } from "../../application/game-controller/scorePreview";
 import { activeWildLanguageIndex } from "../../game/engine/wildRotation";
 import type { Coordinate } from "../../game/model/coordinate";
@@ -566,6 +567,17 @@ export function GameScreen({
     ? resolveDropTarget(dragState.position).coordinate
     : undefined;
 
+  /*
+   * What the other player just played, marked on the board until this player commits (DEC-037).
+   * Derived from history rather than tracked, so the handoff screen needs to know nothing about
+   * it and a resumed game shows it exactly as it was. The online screen derives the same thing
+   * from the same function.
+   */
+  const lastMoveTileIds = lastOpponentMove(
+    state.history,
+    currentPlayerId,
+  )?.tileIds;
+
   const pendingPlacedTiles = state.pendingMove?.placedTiles ?? [];
   /* Shared with the online screen, which shows the same preview (DEC-035). */
   const { total: scorePreview, badgeCoordinate: scoreBadgeCoordinate } =
@@ -639,6 +651,7 @@ export function GameScreen({
             onPendingTilePointerDown={handleBoardTilePointerDown}
             draggingTileId={dragState?.item}
             dragOverCoordinate={dragOverCoordinate}
+            lastMoveTileIds={lastMoveTileIds}
             scoreBadgeCoordinate={scoreBadgeCoordinate}
             scoreBadgeValue={scorePreview}
           />

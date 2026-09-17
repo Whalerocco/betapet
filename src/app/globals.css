@@ -29,6 +29,11 @@
   --tile-review-background: #e4e0d6;
   --tile-review-border: #9c958a;
   --tile-review-foreground: #5b564d;
+  /* A tile the opponent played in their most recent move (Tile.module.css .lastMove, DEC-037).
+     Violet: distinct from the displaced blue, the review grey and the pending green. */
+  --tile-last-move-background: #ece3f7;
+  --tile-last-move-border: #6b4fa0;
+  --tile-last-move-foreground: #34215c;
   --accent: #3a6ea5;
   --accent-hover: #2f5c8a;
   --accent-foreground: #ffffff;
@@ -111,6 +116,9 @@
     --tile-review-background: #2c2c29;
     --tile-review-border: #6b665e;
     --tile-review-foreground: #b6b1a6;
+    --tile-last-move-background: #2d2440;
+    --tile-last-move-border: #a58ad6;
+    --tile-last-move-foreground: #e6dcf7;
     --accent: #5a9bd6;
     --accent-hover: #78addf;
     --accent-foreground: #0a0a0a;

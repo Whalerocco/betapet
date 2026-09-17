@@ -37,6 +37,12 @@ export interface TileProps {
    * pending border stays, so the state does not rest on colour alone.
    */
   readonly isUnderReview?: boolean;
+  /**
+   * This committed tile was put on the board by the opponent's most recent move (DEC-037), so it
+   * is marked until this player commits a move of their own. The corner marker and the tile's
+   * accessible name carry the state alongside the colour.
+   */
+  readonly isLastMove?: boolean;
   /** Identifies this tile's place in the rack for drop-position hit-testing (GameScreen.tsx). */
   readonly dataRackTileId?: string;
 }
@@ -59,6 +65,7 @@ export function Tile({
   isDragSource = false,
   isDisplaced = false,
   isUnderReview = false,
+  isLastMove = false,
   dataRackTileId,
 }: TileProps) {
   const classNames = [
@@ -70,6 +77,7 @@ export function Tile({
     isDragSource ? styles.dragSource : "",
     isDisplaced ? styles.displaced : "",
     isUnderReview ? styles.underReview : "",
+    isLastMove ? styles.lastMove : "",
   ]
     .filter(Boolean)
     .join(" ");

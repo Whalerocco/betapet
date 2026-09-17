@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import type { MatchSnapshot } from "../../application/online/matchApi";
 import { createGame } from "../../game/engine/createGame";
 import { placeCommittedTile } from "../../game/model/board";
-import type { TileId } from "../../game/model/ids";
+import { addHistoryEvent, nextSequence } from "../../game/model/history";
+import { createHistoryEventId, type TileId } from "../../game/model/ids";
 import type { GameState } from "../../game/model/game";
 import {
   requiresPlayerConfirmation,
@@ -1151,5 +1152,88 @@ describe("OnlineGameScreen: dragging and arranging the hand", () => {
       ),
     ).not.toBeInTheDocument();
     expect(rackTileIds()).toContain(tileId);
+  });
+});
+
+/*
+ * The opponent's last move, marked on the board (DEC-037). Online is where this is worth most —
+ * you come back to a match a day later and the board has changed while you were gone — and it
+ * needs nothing from the server: `PlayerGameView` already carries the whole history.
+ */
+describe("OnlineGameScreen: the opponent's last move", () => {
+  const CENTRE = { row: 7, column: 7 };
+
+  /** A game with one committed tile on the centre square, played by `playerIndex`. */
+  function gameWithCommittedMove(playerIndex: 0 | 1) {
+    const base = onTurn(game(), 0);
+    const tileId = base.tileBag.tileIds.find(
+      (id) => base.tiles[id]!.kind === "LETTER",
+    )!;
+    const state: GameState = {
+      ...base,
+      tileBag: { tileIds: base.tileBag.tileIds.filter((id) => id !== tileId) },
+      board: placeCommittedTile(base.board, CENTRE, tileId),
+      history: addHistoryEvent(base.history, {
+        id: createHistoryEventId(),
+        sequence: nextSequence(base.history),
+        type: "WORD_MOVE_COMMITTED",
+        playerId: base.players[playerIndex].id,
+        payload: {
+          placedTiles: [{ tileId, coordinate: CENTRE }],
+          words: ["ORD"],
+          scoreAwarded: 12,
+          usedUnknownWordApproval: false,
+        },
+      }),
+    };
+    return { state, tileId, letter: tileLetter(base.tiles[tileId]!)! };
+  }
+
+  it("marks the tiles the opponent played", () => {
+    const { state, letter } = gameWithCommittedMove(1);
+
+    renderScreen(snapshotFor(state, 0));
+
+    expect(
+      screen.getByLabelText(
+        new RegExp(
+          `^Bricka ${letter}, \\d+ poäng, motståndarens senaste drag$`,
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("marks nothing when the newest move is the viewer's own", () => {
+    const { state } = gameWithCommittedMove(0);
+
+    renderScreen(snapshotFor(state, 0));
+
+    expect(
+      screen.queryByLabelText(/motståndarens senaste drag/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves the board unmarked while their proposal is the decision in front of you", () => {
+    const { state } = gameWithCommittedMove(1);
+    const [proposer, reviewer] = state.players;
+    const proposed: GameState = {
+      ...state,
+      turnState: waitingForOpponentApproval(proposer.id, reviewer.id),
+      pendingMove: {
+        playerId: proposer.id,
+        placedTiles: [],
+        status: "WAITING_FOR_OPPONENT",
+        wordResults: [
+          { status: "UNKNOWN_WORD", word: "QWZ", normalizedWord: "QWZ" },
+        ],
+      },
+    };
+
+    renderScreen(snapshotFor(proposed, 1));
+
+    expect(screen.getByRole("button", { name: "Godkänn" })).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/motståndarens senaste drag/),
+    ).not.toBeInTheDocument();
   });
 });
